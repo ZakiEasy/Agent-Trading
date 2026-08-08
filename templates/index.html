@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Agent Dashboard & Assistant</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #080b11;
+            --card-bg: rgba(17, 25, 40, 0.65);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-primary: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --glass-blur: blur(16px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.12) 0px, transparent 50%);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: var(--glass-blur);
+            background: rgba(8, 11, 17, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: var(--accent-gradient);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .logo-text h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .logo-text p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        nav {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.25rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--card-border);
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-btn:hover:not(.active) {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dashboard Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            backdrop-filter: var(--glass-blur);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Action Buttons */
+        .btn {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: none;
+        }
+
+        /* Input Styles */
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .text-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 0.6rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s ease;
+            flex: 1;
+        }
+
+        .text-input:focus {
+            border-color: var(--accent-primary);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Status badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .badge-neutral { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
+
+        /* Macro Section */
+        .macro-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .macro-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .macro-val {
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        /* Chat Tab Style */
+        .chat-container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+            height: calc(100vh - 180px);
+        }
+
+        @media (max-width: 900px) {
+            .chat-container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .chat-sidebar {
+                display: none;
+            }
+        }
+
+        .chat-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .chat-area {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+            backdrop-filter: var(--glass-blur);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem;
+            border-radius: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .message-bot {
+            background: rgba(255, 255, 255, 0.05);
+            align-self: flex-start;
+            border-bottom-left-radius: 0.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .message-user {
+            background: var(--accent-gradient);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 0.25rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+        }
+
+        .message h3, .message h4 {
+            margin: 0.5rem 0 0.25rem 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .message ul, .message ol {
+            padding-left: 1.2rem;
+            margin: 0.5rem 0;
+        }
+
+        .message li {
+            margin-bottom: 0.25rem;
+        }
+
+        .chat-input-bar {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(8, 11, 17, 0.4);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* 8-Step Report styling */
+        .report-section {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .report-step {
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .report-step:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .report-step-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--accent-primary);
+            margin-bottom: 0.4rem;
+        }
+
+        .suggestion-chip {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .suggestion-chip:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent-primary);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">🪂</div>
+            <div class="logo-text">
+                <h1>Trading Agent</h1>
+                <p>Swing Trading & Sharia Screen</p>
+            </div>
+        </div>
+        <nav>
+            <button class="nav-btn active" onclick="switchTab('dashboard')">Tableau de bord</button>
+            <button class="nav-btn" onclick="switchTab('chat')">Assistant Chat</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- TAB 1: DASHBOARD -->
+        <div id="dashboard-tab" class="tab-content active">
+            <div class="dashboard-grid">
+                
+                <!-- Left column: scans and results -->
+                <div class="left-col">
+                    <!-- Control panel -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">🔍 Lancer les Scans de l'Agent</h2>
+                        </div>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button class="btn" onclick="runWatchlistScan()">
+                                🚀 Scanner la Watchlist
+                            </button>
+                            <button class="btn btn-secondary" onclick="runMarketScan()">
+                                🌐 Scanner le Marché Élargi
+                            </button>
+                            <div class="input-group" style="margin-left: auto;">
+                                <input type="text" id="ticker-input" class="text-input" placeholder="Ex: AAPL, MSFT, MC.PA">
+                                <button class="btn" onclick="analyzeSingleTicker()">Analyser</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Watchlist scan results table -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title" id="results-table-title">📊 Résultats du Scan</h2>
+                            <span id="scan-status" class="badge badge-neutral">Prêt</span>
+                        </div>
+                        <div class="table-container">
+                            <table id="scan-results-table">
+                                <thead>
+                                    <tr>
+                                        <th onclick="sortBy('symbol')" style="cursor: pointer; user-select: none;">Ticker ↕</th>
+                                        <th onclick="sortBy('sharia')" style="cursor: pointer; user-select: none;">Conformité Sharia ↕</th>
+                                        <th onclick="sortBy('price')" style="cursor: pointer; user-select: none;">Dernier Cours ↕</th>
+                                        <th onclick="sortBy('drop')" style="cursor: pointer; user-select: none;">Baisse Récente ↕</th>
+                                        <th onclick="sortBy('rsi')" style="cursor: pointer; user-select: none;">RSI (14) ↕</th>
+                                        <th onclick="sortBy('verdict')" style="cursor: pointer; user-select: none;">Verdict de l'Agent ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                                            Aucun scan lancé. Cliquez sur "Scanner la Watchlist" ou recherchez un ticker.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right column: macro data & quick analyze report -->
+                <div class="right-col">
+                    <!-- Ticker full analysis detail -->
+                    <div class="glass-card" id="ticker-detail-card" style="display: none;">
+                        <div class="card-header">
+                            <h2 class="card-title" id="detail-card-title">📋 Rapport de Synthèse</h2>
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="closeDetailCard()">Fermer</button>
+                        </div>
+                        <div id="ticker-detail-content">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Macro indicators -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">📅 Calendrier & Commodities</h2>
+                        </div>
+                        <div class="macro-list" id="macro-commodities-list">
+                            <p style="color: var(--text-muted);">Récupération en cours...</p>
+                        </div>
+                        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05);">
+                            <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--warning); margin-bottom: 0.5rem;">⚠️ Garde-fous Actifs</h4>
+                            <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1rem;" id="macro-rules-list">
+                                <li>Pas d'ouverture si macro (CPI, FED, NFP) sous 24-48h.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: CHAT ASSISTANT -->
+        <div id="chat-tab" class="tab-content">
+            <div class="chat-container">
+                <!-- Sidebar with suggestions -->
+                <div class="chat-sidebar">
+                    <div class="glass-card" style="margin-bottom: 0; flex: 1;">
+                        <div class="card-header">
+                            <h2 class="card-title">💡 Suggestions de questions</h2>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <button class="suggestion-chip" onclick="askQuestion('Bonjour ! Que peux-tu faire ?')">
+                                Bonjour ! Que peux-tu faire ?
+                            </button>
+                            <button class="suggestion-chip" onclick="askQuestion('Est-ce que Apple (AAPL) est conforme Sharia ?')">
+                                Est-ce que Apple (AAPL) est conforme Sharia ?
+                            </button>
+                            <button class="suggestion-chip" onclick="askQuestion('Fais une analyse technique complète de NVDA')">
+                                Fais une analyse technique complète de NVDA
+                            </button>
+                            <button class="suggestion-chip" onclick="askQuestion('Rapport détaillé pour MSFT')">
+                                Rapport détaillé pour MSFT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat console area -->
+                <div class="chat-area">
+                    <div class="chat-messages" id="chat-messages-container">
+                        <div class="message message-bot">
+                            Bonjour ! Je suis votre assistant de Swing Trading. Saisissez le ticker d'une action ou posez-moi vos questions pour récupérer les analyses de marché et vérifier la conformité Sharia.
+                        </div>
+                    </div>
+                    <div class="chat-input-bar">
+                        <input type="text" id="chat-input" class="text-input" placeholder="Posez une question sur un ticker..." onkeypress="checkEnter(event)">
+                        <button class="btn" onclick="sendChatMessage()">Envoyer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // API Base URL
+        const API_URL = 'http://127.0.0.1:5000/api';
+
+        // Load macro data on startup
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchMacroData();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabId === 'dashboard') {
+                document.querySelector('nav button:nth-child(1)').classList.add('active');
+                document.getElementById('dashboard-tab').classList.add('active');
+            } else {
+                document.querySelector('nav button:nth-child(2)').classList.add('active');
+                document.getElementById('chat-tab').classList.add('active');
+            }
+        }
+
+        async function fetchMacroData() {
+            try {
+                const res = await fetch(`${API_URL}/macro`);
+                const data = await res.json();
+                
+                const list = document.getElementById('macro-commodities-list');
+                list.innerHTML = '';
+                
+                for (const [name, val] of Object.entries(data.commodities)) {
+                    list.innerHTML += `
+                        <div class="macro-item">
+                            <span>${name}</span>
+                            <span class="macro-val">${val}</span>
+                        </div>
+                    `;
+                }
+
+                const rulesList = document.getElementById('macro-rules-list');
+                rulesList.innerHTML = '';
+                data.rules.forEach(rule => {
+                    rulesList.innerHTML += `<li>${rule}</li>`;
+                });
+            } catch (e) {
+                console.error("Erreur lors de la récupération des données macro:", e);
+            }
+        }
+
+        function getVerdictBadge(verdict) {
+            if (verdict.includes("ACHETER")) return `<span class="badge badge-success">${verdict}</span>`;
+            if (verdict.includes("ÉVITER") || verdict.includes("EXCLU")) return `<span class="badge badge-danger">${verdict}</span>`;
+            if (verdict.includes("ATTENDRE") || verdict.includes("Blackout")) return `<span class="badge badge-warning">${verdict}</span>`;
+            return `<span class="badge badge-neutral">${verdict}</span>`;
+        }
+
+        function getShariaBadge(status) {
+            if (status === "CONFORME") return `<span class="badge badge-success">Conforme</span>`;
+            if (status === "NON CONFORME") return `<span class="badge badge-danger">Non Conforme</span>`;
+            return `<span class="badge badge-warning">${status}</span>`;
+        }
+
+        let currentScanResults = [];
+        let sortDirection = {};
+
+        function sortBy(key) {
+            if (currentScanResults.length === 0) return;
+            
+            // Toggle direction
+            sortDirection[key] = !sortDirection[key];
+            const asc = sortDirection[key];
+
+            currentScanResults.sort((a, b) => {
+                let valA = a[key];
+                let valB = b[key];
+
+                // Handle missing or invalid numbers
+                if (key === 'price' || key === 'drop' || key === 'rsi') {
+                    valA = (valA !== null && valA !== undefined && valA !== '-') ? parseFloat(valA) : (asc ? Infinity : -Infinity);
+                    valB = (valB !== null && valB !== undefined && valB !== '-') ? parseFloat(valB) : (asc ? Infinity : -Infinity);
+                } else {
+                    valA = valA ? valA.toString().toLowerCase() : '';
+                    valB = valB ? valB.toString().toLowerCase() : '';
+                }
+
+                if (valA < valB) return asc ? -1 : 1;
+                if (valA > valB) return asc ? 1 : -1;
+                return 0;
+            });
+
+            renderResultsTable(currentScanResults);
+        }
+
+        function renderResultsTable(results) {
+            const tbody = document.querySelector('#scan-results-table tbody');
+            tbody.innerHTML = '';
+            
+            if (results.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Aucun ticker qualifié détecté.</td></tr>`;
+                return;
+            }
+
+            results.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => showTickerDetail(row.symbol);
+                tr.innerHTML = `
+                    <td style="font-weight: 700;">
+                        ${row.symbol}
+                        <br>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">
+                            ${row.name || ''}
+                        </span>
+                    </td>
+                    <td>${getShariaBadge(row.sharia)}</td>
+                    <td>${row.price ? parseFloat(row.price).toFixed(2) : '-'} $</td>
+                    <td style="color: ${parseFloat(row.drop) < 0 ? 'var(--danger)' : 'var(--success)'};">
+                        ${row.drop ? parseFloat(row.drop).toFixed(2) : '-'}%
+                    </td>
+                    <td>${row.rsi ? parseFloat(row.rsi).toFixed(2) : '-'}</td>
+                    <td>${getVerdictBadge(row.verdict)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function runWatchlistScan() {
+            setScanStatus('En cours...', 'badge-warning');
+            try {
+                const res = await fetch(`${API_URL}/scan/watchlist`);
+                const data = await res.json();
+                document.getElementById('results-table-title').textContent = '📊 Résultats du Scan Watchlist';
+                currentScanResults = data.results;
+                renderResultsTable(currentScanResults);
+                setScanStatus('Terminé', 'badge-success');
+            } catch (e) {
+                console.error(e);
+                setScanStatus('Erreur', 'badge-danger');
+            }
+        }
+
+        async function runMarketScan() {
+            setScanStatus('En cours...', 'badge-warning');
+            try {
+                const res = await fetch(`${API_URL}/scan/market`);
+                const data = await res.json();
+                document.getElementById('results-table-title').textContent = '🌐 Résultats du Scan Marché Élargi';
+                currentScanResults = data.results;
+                renderResultsTable(currentScanResults);
+                setScanStatus('Terminé', 'badge-success');
+            } catch (e) {
+                console.error(e);
+                setScanStatus('Erreur', 'badge-danger');
+            }
+        }
+
+        async function analyzeSingleTicker() {
+            const input = document.getElementById('ticker-input');
+            const ticker = input.value.trim().toUpperCase();
+            if (!ticker) return;
+
+            setScanStatus(`Analyse de ${ticker}...`, 'badge-warning');
+            try {
+                showTickerDetail(ticker);
+                setScanStatus('Prêt', 'badge-neutral');
+            } catch (e) {
+                console.error(e);
+                setScanStatus('Erreur', 'badge-danger');
+            }
+        }
+
+        function setScanStatus(text, badgeClass) {
+            const span = document.getElementById('scan-status');
+            span.textContent = text;
+            span.className = `badge ${badgeClass}`;
+        }
+
+        async function showTickerDetail(symbol) {
+            const container = document.getElementById('ticker-detail-content');
+            const card = document.getElementById('ticker-detail-card');
+            
+            document.getElementById('detail-card-title').textContent = `📋 Rapport : ${symbol}`;
+            container.innerHTML = '<p style="color: var(--text-muted);">Chargement du protocole en 8 étapes...</p>';
+            card.style.display = 'block';
+
+            try {
+                const res = await fetch(`${API_URL}/analyze/${symbol}`);
+                const payload = await res.json();
+                if (!payload.success) {
+                    container.innerHTML = `<p style="color: var(--danger);">Erreur: ${payload.error}</p>`;
+                    return;
+                }
+
+                const d = payload.data;
+                const entry = d.trade_plan.entry;
+                const rsi = d.technical.rsi;
+                const support = d.technical.support;
+                const resistance = d.technical.resistance || (entry * 1.03);
+                const histVol = d.technical.historical_volatility || 0;
+                const vix = d.technical.vix;
+                
+                container.innerHTML = `
+                    <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-size: 1.25rem; font-weight: 800; display: block;">${d.symbol}</span>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);">${d.company_name || ''}</span>
+                        </div>
+                        ${getVerdictBadge(d.verdict)}
+                    </div>
+                    
+                    <div class="report-section">
+                        <div class="report-step">
+                            <div class="report-step-title">1. Conformité Sharia</div>
+                            <div>Verdict : ${getShariaBadge(d.sharia.status)}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">${d.sharia.reason}</div>
+                        </div>
+
+                        <div class="report-step">
+                            <div class="report-step-title">2. Qualification de la baisse</div>
+                            <div>Variation : <strong style="color: var(--danger);">${parseFloat(d.drop.drop_pct).toFixed(2)}%</strong> sur les ${d.drop.lookback_days} derniers jours.</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Nature: ${d.drop.nature} (baisse conjoncturelle)</div>
+                        </div>
+
+                        <div class="report-step">
+                            <div class="report-step-title">3. Fondamentaux & Calendrier</div>
+                            <div>Blackout résultats : ${d.earnings_blackout.active ? '<strong style="color: var(--danger);">Actif 🔴</strong>' : '<span style="color: var(--success);">Inactif 🟢</span>'}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">${d.earnings_blackout.reason}</div>
+                        </div>
+
+                        <div class="report-step">
+                            <div class="report-step-title">4. Analyse Technique</div>
+                            <div>Cours Actuel : <strong>${entry.toFixed(2)} $</strong></div>
+                            <div>RSI (14) : ${rsi.toFixed(2)} (${rsi < 30 ? '📉 Survendu' : rsi > 70 ? '📈 Suracheté' : '⚖️ Neutre'})</div>
+                            <div>Support : <strong>${support.toFixed(2)} $</strong> | Résistance : <strong>${resistance.toFixed(2)} $</strong></div>
+                            <div>Volatilité (Action) : <strong>${histVol.toFixed(2)}%</strong> (annuelle)</div>
+                            <div>VIX Marché : <strong>${vix ? vix.toFixed(2) : 'N/A'}</strong></div>
+                        </div>
+
+                        <div class="report-step">
+                            <div class="report-step-title">5. Plan de Trade</div>
+                            <div>Zone d'entrée : <strong>${entry.toFixed(2)} $</strong></div>
+                            <div>Objectif : <strong>${d.trade_plan.target_min.toFixed(2)} à ${d.trade_plan.target_max.toFixed(2)} $ (+${d.trade_plan.potential_gain_min.toFixed(2)}% à +${d.trade_plan.potential_gain_max.toFixed(2)}%)</strong></div>
+                            <div>Stop-Loss : <strong style="color: var(--danger);">${d.trade_plan.invalidation.toFixed(2)} $</strong></div>
+                        </div>
+
+                        <div class="report-step">
+                            <div class="report-step-title">6. Allocation suggérée</div>
+                            <div style="font-size: 0.85rem;">20% à 25% max du capital disponible. (ex: 600€ à 2500€).</div>
+                        </div>
+
+                        <div class="report-step">
+                            <div class="report-step-title">7. Ratio Risque / Rendement</div>
+                            <div>Gain potentiel : +${d.trade_plan.potential_gain_min.toFixed(2)}%</div>
+                            <div>Risque potentiel : -${d.trade_plan.potential_loss.toFixed(2)}%</div>
+                            <div>Ratio : <strong>1 : ${d.trade_plan.risk_reward.toFixed(2)}</strong></div>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                container.innerHTML = `<p style="color: var(--danger);">Une erreur s'est produite lors du chargement des détails.</p>`;
+            }
+        }
+
+        function closeDetailCard() {
+            document.getElementById('ticker-detail-card').style.display = 'none';
+        }
+
+        // Chat logic
+        function checkEnter(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        async function askQuestion(text) {
+            document.getElementById('chat-input').value = text;
+            sendChatMessage();
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message
+            const container = document.getElementById('chat-messages-container');
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message message-user';
+            userDiv.textContent = message;
+            container.appendChild(userDiv);
+            
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            // Add loading bot message
+            const botDiv = document.createElement('div');
+            botDiv.className = 'message message-bot';
+            botDiv.innerHTML = '<em>L\'agent réfléchit...</em>';
+            container.appendChild(botDiv);
+            container.scrollTop = container.scrollHeight;
+
+            try {
+                const res = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                const data = await res.json();
+                
+                // Format response as basic markdown replacement
+                let formatted = data.response
+                    .replace(/\n/g, '<br>')
+                    .replace(/### (.*?)(<br>|$)/g, '<h3>$1</h3>')
+                    .replace(/#### (.*?)(<br>|$)/g, '<h4>$1</h4>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/- \*\*(.*?)\*\* : /g, '<li><strong>$1</strong>: ')
+                    .replace(/- (.*?) : /g, '<li>$1: ');
+                
+                botDiv.innerHTML = formatted;
+            } catch (e) {
+                botDiv.textContent = "Je n'arrive pas à me connecter au serveur de l'agent. Veuillez vérifier qu'il est bien démarré.";
+            }
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>
