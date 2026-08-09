@@ -32,16 +32,65 @@ def calculate_rsi(prices, period=14):
         
     return rsi
 
+def get_usd_conversion_rate(currency_code):
+    """
+    Récupère le taux de conversion depuis une autre devise vers le USD.
+    """
+    if not currency_code:
+        return 1.0
+    currency_code = currency_code.upper().strip()
+    if currency_code == "USD":
+        return 1.0
+        
+    # Pence sterling (GBp/GBX) -> GBP -> USD
+    factor = 1.0
+    if currency_code in ["GBX", "GBP"]:
+        currency_code = "GBP"
+        if currency_code == "GBX":
+            factor = 0.01
+
+    ticker_name = f"{currency_code}USD=X"
+    try:
+        t = yf.Ticker(ticker_name)
+        hist = t.history(period="1d")
+        if not hist.empty:
+            return float(hist['Close'].values[-1]) * factor
+        else:
+            # Essayer l'inverse USD/CURR
+            t_inv = yf.Ticker(f"USD{currency_code}=X")
+            hist_inv = t_inv.history(period="1d")
+            if not hist_inv.empty:
+                return (1.0 / float(hist_inv['Close'].values[-1])) * factor
+    except Exception as e:
+        print(f"Error fetching exchange rate for {currency_code}: {e}")
+    return 1.0
+
 def fetch_market_data(ticker_symbol):
     """
     Récupère les données de marché historiques et actuelles.
+    Convertit automatiquement les valeurs en USD si la devise de cotation n'est pas le USD.
     """
     ticker_obj = yf.Ticker(ticker_symbol)
     
-    # Récupérer l'historique sur les 60 derniers jours (suffisant pour RSI 14 et SMA 50)
+    # Récupérer l'historique sur les 60 derniers jours
     hist = ticker_obj.history(period="60d")
     if hist.empty:
         return None, "Aucun historique de cours disponible."
+        
+    # Détecter la devise et convertir en USD
+    try:
+        info = ticker_obj.info
+        currency = info.get("currency", "USD")
+    except:
+        currency = "USD"
+        
+    if currency and currency.upper() != "USD":
+        rate = get_usd_conversion_rate(currency)
+        if rate != 1.0:
+            for col in ['Open', 'High', 'Low', 'Close']:
+                if col in hist.columns:
+                    hist[col] = hist[col] * rate
+            print(f"Converted {ticker_symbol} prices from {currency} to USD using rate {rate:.6f}")
         
     return ticker_obj, hist
 
