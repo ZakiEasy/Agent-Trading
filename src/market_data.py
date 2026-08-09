@@ -69,11 +69,12 @@ def fetch_market_data(ticker_symbol):
     """
     Récupère les données de marché historiques et actuelles.
     Convertit automatiquement les valeurs en USD si la devise de cotation n'est pas le USD.
+    On récupère 300 jours d'historique pour calculer la SMA 200 de fond.
     """
     ticker_obj = yf.Ticker(ticker_symbol)
     
-    # Récupérer l'historique sur les 60 derniers jours
-    hist = ticker_obj.history(period="60d")
+    # Récupérer l'historique sur les 300 derniers jours
+    hist = ticker_obj.history(period="300d")
     if hist.empty:
         return None, "Aucun historique de cours disponible."
         
@@ -94,13 +95,58 @@ def fetch_market_data(ticker_symbol):
         
     return ticker_obj, hist
 
+def calculate_qqe(close_prices, rsi_period=14, sf=5, wilder_period=27):
+    """
+    Calcule le QQE (Quantitative Qualitative Estimation) pour les signaux de momentum.
+    """
+    rsi = calculate_rsi(close_prices, period=rsi_period)
+    
+    # 2. Lissage du RSI via EMA (sf=5)
+    rsi_df = pd.Series(rsi)
+    smoothed_rsi = rsi_df.ewm(span=sf, adjust=False).mean().values
+    
+    # 3. ATR rapide du RSI lissé
+    rsi_change = np.abs(np.diff(smoothed_rsi))
+    rsi_change = np.insert(rsi_change, 0, 0)
+    rsi_change_df = pd.Series(rsi_change)
+    
+    # Wilder's MA de la variation du RSI
+    wilder_ma = rsi_change_df.ewm(alpha=1/wilder_period, adjust=False).mean().values
+    
+    # Trailing Band
+    atr_rsi = wilder_ma * 4.236
+    
+    # Calcul de la ligne de trailing stop QQE
+    tr = np.zeros_like(smoothed_rsi)
+    for i in range(1, len(smoothed_rsi)):
+        prev_tr = tr[i-1]
+        curr_rsi = smoothed_rsi[i]
+        curr_atr = atr_rsi[i]
+        
+        if curr_rsi > prev_tr:
+            new_tr = curr_rsi - curr_atr
+            tr[i] = max(new_tr, prev_tr) if (prev_tr != 0 and smoothed_rsi[i-1] > prev_tr) else new_tr
+        else:
+            new_tr = curr_rsi + curr_atr
+            tr[i] = min(new_tr, prev_tr) if (prev_tr != 0 and smoothed_rsi[i-1] < prev_tr) else new_tr
+            
+    # Signal d'achat: le RSI lissé repasse au-dessus de la ligne QQE
+    buy_signal = (smoothed_rsi[-1] > tr[-1]) and (smoothed_rsi[-2] <= tr[-2])
+    return {
+        "smoothed_rsi": float(smoothed_rsi[-1]),
+        "qqe_line": float(tr[-1]),
+        "buy_signal": bool(buy_signal)
+    }
+
 def analyze_technical_setup(hist):
     """
     Analyse les indicateurs techniques et identifie les niveaux clés.
+    Ajoute la SMA 200, le canal MRC, les signaux QQE et la confirmation du Volume.
     """
     close_prices = hist['Close'].values
     high_prices = hist['High'].values
     low_prices = hist['Low'].values
+    volume_values = hist['Volume'].values
     
     current_price = close_prices[-1]
     
@@ -108,30 +154,49 @@ def analyze_technical_setup(hist):
     rsi_values = calculate_rsi(close_prices)
     current_rsi = rsi_values[-1]
     
-    # 2. Moyennes mobiles (SMA 20 et SMA 50)
+    # 2. Moyennes mobiles (SMA 20, SMA 50 et SMA 200 de fond)
     sma_20 = hist['Close'].rolling(window=20).mean().values[-1]
     sma_50 = hist['Close'].rolling(window=50).mean().values[-1]
     
-    # 3. Niveaux de support & résistance
+    # Fallback pour SMA 200 si historique plus court
+    if len(close_prices) >= 200:
+        sma_200 = hist['Close'].rolling(window=200).mean().values[-1]
+    else:
+        sma_200 = hist['Close'].mean()
+    
+    # 3. Canal de Retour à la Moyenne (MRC - Mean Reversion Channel)
+    mrc_mean = sma_20
+    mrc_std = hist['Close'].rolling(window=20).std().values[-1]
+    mrc_lower = mrc_mean - 2 * mrc_std
+    mrc_upper = mrc_mean + 2 * mrc_std
+    mrc_oversold = bool(current_price <= mrc_lower)
+    
+    # 4. Signaux QQE
+    qqe = calculate_qqe(close_prices)
+    
+    # 5. Volume + Moyenne Mobile 20 périodes du Volume
+    current_volume = float(volume_values[-1])
+    volume_sma_20 = float(hist['Volume'].rolling(window=20).mean().values[-1])
+    volume_confirmed = bool(current_volume > volume_sma_20)
+    
+    # 6. Niveaux de support & résistance
     # Support 1 : Plus bas des 10 dernières sessions (hors session en cours)
     support_10d = np.min(low_prices[-11:-1]) if len(low_prices) > 11 else np.min(low_prices[:-1])
-    # Support 2 : Plus bas des 30 dernières sessions
     support_30d = np.min(low_prices[-31:-1]) if len(low_prices) > 31 else np.min(low_prices[:-1])
     
     support = support_10d if support_10d < current_price else support_30d
     if support >= current_price:
-        support = current_price * 0.97 # Fallback
+        support = current_price * 0.97
         
     # Résistance 1 : Plus haut des 10 dernières sessions (hors session en cours)
     resistance_10d = np.max(high_prices[-11:-1]) if len(high_prices) > 11 else np.max(high_prices[:-1])
-    # Résistance 2 : Plus haut des 30 dernières sessions
     resistance_30d = np.max(high_prices[-31:-1]) if len(high_prices) > 31 else np.max(high_prices[:-1])
     
     resistance = resistance_10d if resistance_10d > current_price else resistance_30d
     if resistance <= current_price:
-        resistance = current_price * 1.03 # Fallback
+        resistance = current_price * 1.03
         
-    # 4. Volatilité Historique Annualisée (30 jours)
+    # 7. Volatilité Historique Annualisée (30 jours)
     close_30d = close_prices[-30:] if len(close_prices) >= 30 else close_prices
     if len(close_30d) > 1:
         daily_returns = np.diff(close_30d) / close_30d[:-1]
@@ -153,6 +218,17 @@ def analyze_technical_setup(hist):
         "rsi": current_rsi,
         "sma_20": sma_20,
         "sma_50": sma_50,
+        "sma_200": sma_200,
+        "mrc_mean": mrc_mean,
+        "mrc_lower": mrc_lower,
+        "mrc_upper": mrc_upper,
+        "mrc_oversold": mrc_oversold,
+        "qqe_smoothed_rsi": qqe["smoothed_rsi"],
+        "qqe_line": qqe["qqe_line"],
+        "qqe_buy_signal": qqe["buy_signal"],
+        "current_volume": current_volume,
+        "volume_sma_20": volume_sma_20,
+        "volume_confirmed": volume_confirmed,
         "support": support,
         "resistance": resistance,
         "recent_high": np.max(high_prices[-10:]),

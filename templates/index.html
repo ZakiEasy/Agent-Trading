@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     
     <style>
         :root {
@@ -530,6 +531,8 @@
                             <h2 class="card-title" id="detail-card-title">📋 Rapport de Synthèse</h2>
                             <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="closeDetailCard()">Fermer</button>
                         </div>
+                        <!-- TradingView Interactive Widget Container -->
+                        <div id="tv-chart-container" style="display: none; padding: 0.5rem; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.2);"></div>
                         <div id="ticker-detail-content">
                             <!-- Populated dynamically -->
                         </div>
@@ -773,12 +776,48 @@
             span.className = `badge ${badgeClass}`;
         }
 
+        function renderTradingViewWidget(symbol) {
+            const container = document.getElementById('tv-chart-container');
+            container.style.display = 'block';
+            container.innerHTML = `<div id="tradingview_chart" style="height: 350px; width: 100%;"></div>`;
+
+            // Convertir les suffixes yfinance pour TradingView
+            let tvSymbol = symbol;
+            if (symbol.endsWith(".PA")) {
+                tvSymbol = "EURONEXT:" + symbol.replace(".PA", "");
+            } else if (symbol.endsWith(".KS")) {
+                tvSymbol = "KRX:" + symbol.replace(".KS", "");
+            } else if (symbol.endsWith(".DE")) {
+                tvSymbol = "XETR:" + symbol.replace(".DE", "");
+            }
+
+            try {
+                new TradingView.widget({
+                    "autosize": true,
+                    "symbol": tvSymbol,
+                    "interval": "D",
+                    "timezone": "Europe/Paris",
+                    "theme": "dark",
+                    "style": "1",
+                    "locale": "fr",
+                    "enable_publishing": false,
+                    "hide_side_toolbar": false,
+                    "allow_symbol_change": true,
+                    "container_id": "tradingview_chart"
+                });
+            } catch (e) {
+                console.error("Erreur lors de l'initialisation du widget TradingView:", e);
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.8rem; padding: 1rem;">Widget TradingView non disponible.</p>`;
+            }
+        }
+
         async function showTickerDetail(symbol) {
             const container = document.getElementById('ticker-detail-content');
             const card = document.getElementById('ticker-detail-card');
             
             document.getElementById('detail-card-title').textContent = `📋 Rapport : ${symbol}`;
             container.innerHTML = '<p style="color: var(--text-muted);">Chargement du protocole en 8 étapes...</p>';
+            document.getElementById('tv-chart-container').style.display = 'none';
             card.style.display = 'block';
 
             try {
@@ -796,6 +835,9 @@
                 const resistance = d.technical.resistance || (entry * 1.03);
                 const histVol = d.technical.historical_volatility || 0;
                 const vix = d.technical.vix;
+                
+                // Charger le graphique TradingView interactif
+                renderTradingViewWidget(d.symbol);
                 
                 container.innerHTML = `
                     <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
@@ -828,10 +870,20 @@
                         <div class="report-step">
                             <div class="report-step-title">4. Analyse Technique</div>
                             <div>Cours Actuel : <strong>${entry.toFixed(2)} $</strong></div>
-                            <div>RSI (14) : ${rsi.toFixed(2)} (${rsi < 30 ? '📉 Survendu' : rsi > 70 ? '📈 Suracheté' : '⚖️ Neutre'})</div>
-                            <div>Support : <strong>${support.toFixed(2)} $</strong> | Résistance : <strong>${resistance.toFixed(2)} $</strong></div>
-                            <div>Volatilité (Action) : <strong>${histVol.toFixed(2)}%</strong> (annuelle)</div>
-                            <div>VIX Marché : <strong>${vix ? vix.toFixed(2) : 'N/A'}</strong></div>
+                            <div>SMA 200 (Fond) : <strong>${d.technical.sma_200.toFixed(2)} $</strong> 
+                                (${entry >= d.technical.sma_200 ? '<span style="color: var(--success); font-weight:600;">Tendance Haussière 📈</span>' : '<span style="color: var(--danger); font-weight:600;">Tendance Baissière 📉</span>'})
+                            </div>
+                            <div>Canal MRC (Moyenne) : <strong>${d.technical.mrc_mean.toFixed(2)} $</strong> (Canal : ${d.technical.mrc_lower.toFixed(2)} à ${d.technical.mrc_upper.toFixed(2)} $)</div>
+                            <div>Statut Canal MRC : <strong>${d.technical.mrc_oversold ? '<span style="color: var(--success); font-weight:600;">Oversold (Bas de canal) 🟢</span>' : '<span style="color: var(--text-muted);">Dans les bornes ⚖️</span>'}</strong></div>
+                            <div>Momentum QQE : <strong>${d.technical.qqe_buy_signal ? '<span style="color: var(--success); font-weight:600;">Signal ACHAT 🟢</span>' : '<span style="color: var(--text-muted);">Pas de signal ⚪</span>'}</strong> (RSI Lissé: ${d.technical.qqe_smoothed_rsi.toFixed(2)})</div>
+                            <div>Volume & MM : <strong>${d.technical.current_volume.toLocaleString()}</strong> (MA 20: ${d.technical.volume_sma_20.toLocaleString()}) 
+                                (${d.technical.volume_confirmed ? '<span style="color: var(--success); font-weight:600;">Volume Fort (Confirmé) 🔥</span>' : '<span style="color: var(--warning); font-weight:600;">Volume Faible ⚠️</span>'})
+                            </div>
+                            <div style="margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+                                RSI (14) : ${rsi.toFixed(2)} (${rsi < 30 ? '📉 Survendu' : rsi > 70 ? '📈 Suracheté' : '⚖️ Neutre'})<br>
+                                Support : <strong>${support.toFixed(2)} $</strong> | Résistance : <strong>${resistance.toFixed(2)} $</strong><br>
+                                Volatilité (Action) : <strong>${histVol.toFixed(2)}%</strong> | VIX Marché : <strong>${vix ? vix.toFixed(2) : 'N/A'}</strong>
+                            </div>
                         </div>
 
                         <div class="report-step">

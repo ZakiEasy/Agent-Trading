@@ -57,14 +57,27 @@ def get_detailed_analysis(ticker_symbol):
     risk_reward = potential_gain / potential_loss if potential_loss != 0 else 0
     
     # Verdict final
+    is_above_sma200 = curr_price >= tech_setup["sma_200"]
+    mrc_oversold = tech_setup["mrc_oversold"]
+    qqe_buy = tech_setup["qqe_buy_signal"]
+    volume_confirmed = tech_setup["volume_confirmed"]
+    
     if sharia_res.get("status") == "NON CONFORME":
         verdict = "EXCLU (Non conforme Sharia)"
     elif has_blackout:
         verdict = "ÉVITER (Proximité des résultats)"
+    elif not is_above_sma200:
+        verdict = "ÉVITER (Tendance baissière - sous SMA 200)"
     elif not has_qualified_drop:
         verdict = "ATTENDRE REPLI (Baisse non qualifiée)"
     elif tech_setup["rsi"] > 70:
         verdict = "ÉVITER (Titre suracheté)"
+    elif not mrc_oversold:
+        verdict = "ATTENDRE (Pas encore étiré sous MRC)"
+    elif not qqe_buy:
+        verdict = "ATTENDRE TRIGGER (Pas de signal QQE)"
+    elif not volume_confirmed:
+        verdict = "ATTENDRE VOLUME (Volume faible)"
     else:
         verdict = "ACHETER REBOND"
         
