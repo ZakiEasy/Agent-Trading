@@ -1,4 +1,5 @@
 import os
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 from src.config import (
@@ -12,23 +13,38 @@ from src.config import (
 def get_sheets_client():
     """
     Initialise et authentifie le client Google Sheets.
+    Supporte le chargement depuis une variable d'environnement (pour Render/Prod)
+    ou depuis un fichier de clé credentials.json local.
     """
-    if not os.path.exists(GOOGLE_CREDENTIALS_FILE):
-        return None, f"Fichier de credentials introuvable : {GOOGLE_CREDENTIALS_FILE}"
-    
     if not GOOGLE_SPREADSHEET_ID:
         return None, "GOOGLE_SPREADSHEET_ID non configuré dans l'environnement."
 
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    # 1. Tenter de charger depuis la variable d'environnement (Recommandé pour Render)
+    env_creds = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if env_creds:
+        try:
+            creds_dict = json.loads(env_creds)
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            client = gspread.authorize(creds)
+            return client, None
+        except Exception as e:
+            return None, f"Erreur d'authentification via GOOGLE_CREDENTIALS_JSON : {str(e)}"
+
+    # 2. Repli sur le fichier credentials.json local
+    if not os.path.exists(GOOGLE_CREDENTIALS_FILE):
+        return None, f"Identifiants de connexion introuvables (pas de fichier credentials.json ni de variable GOOGLE_CREDENTIALS_JSON)."
+
     try:
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
         creds = Credentials.from_service_account_file(GOOGLE_CREDENTIALS_FILE, scopes=scopes)
         client = gspread.authorize(creds)
         return client, None
     except Exception as e:
-        return None, f"Erreur d'authentification Google Sheets : {str(e)}"
+        return None, f"Erreur d'authentification Google Sheets via fichier : {str(e)}"
 
 def read_watchlist_from_sheets():
     """
