@@ -155,7 +155,21 @@ def read_sharia_statuses_from_sheets():
     """
     Lit les statuts de conformité Sharia saisis par l'utilisateur dans le Google Sheet.
     Retourne un dictionnaire {ticker: statut} (ex: {'AAPL': 'CONFORME'}).
+    Utilise un cache de 60 secondes en mémoire pour éviter d'atteindre le quota d'API (erreur 429).
     """
+    import time
+    global _sharia_statuses_cache, _sharia_cache_timestamp
+    
+    # Déclaration des variables de cache au niveau du module si non existantes
+    if '_sharia_statuses_cache' not in globals():
+        globals()['_sharia_statuses_cache'] = None
+    if '_sharia_cache_timestamp' not in globals():
+        globals()['_sharia_cache_timestamp'] = 0
+        
+    now = time.time()
+    if globals()['_sharia_statuses_cache'] is not None and (now - globals()['_sharia_cache_timestamp']) < 60:
+        return globals()['_sharia_statuses_cache']
+
     client, error = get_sheets_client()
     if error:
         return {}
@@ -189,6 +203,9 @@ def read_sharia_statuses_from_sheets():
                         status = str(row[sharia_col_idx]).strip().upper()
                         if ticker and status:
                             statuses[ticker] = status
+                            
+        globals()['_sharia_statuses_cache'] = statuses
+        globals()['_sharia_cache_timestamp'] = now
         return statuses
     except Exception as e:
         print(f"⚠️ Erreur lors de la lecture des statuts Sharia : {str(e)}")
