@@ -434,6 +434,63 @@
             margin-bottom: 0.4rem;
         }
 
+        /* Tooltip Container */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            margin-left: 0.35rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            vertical-align: middle;
+        }
+
+        .tooltip-container:hover {
+            color: var(--accent-primary);
+        }
+
+        /* Tooltip text */
+        .tooltip-text {
+            visibility: hidden;
+            width: 280px;
+            background-color: #121824;
+            color: var(--text-main);
+            text-align: left;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%; /* Position above */
+            left: 50%;
+            margin-left: -140px;
+            opacity: 0;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            font-size: 0.75rem;
+            line-height: 1.3;
+            pointer-events: none;
+            white-space: normal;
+        }
+
+        /* Tooltip arrow */
+        .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #121824 transparent transparent transparent;
+        }
+
+        /* Show the tooltip text on hover */
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
         .suggestion-chip {
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--card-border);
@@ -836,6 +893,14 @@
                 const histVol = d.technical.historical_volatility || 0;
                 const vix = d.technical.vix;
                 
+                // Helper pour calculer la différence en pourcentage
+                const getPctDiff = (val, ref) => {
+                    if (!val || !ref) return '0.00%';
+                    const diff = ((val - ref) / ref) * 100;
+                    const sign = diff >= 0 ? '+' : '';
+                    return `${sign}${diff.toFixed(2)}%`;
+                };
+
                 // Charger le graphique TradingView interactif
                 renderTradingViewWidget(d.symbol);
                 
@@ -868,19 +933,74 @@
                         </div>
 
                         <div class="report-step">
-                            <div class="report-step-title">4. Analyse Technique</div>
+                            <div class="report-step-title">
+                                4. Analyse Technique
+                            </div>
                             <div>Cours Actuel : <strong>${entry.toFixed(2)} $</strong></div>
-                            <div>SMA 200 (Fond) : <strong>${d.technical.sma_200.toFixed(2)} $</strong> 
+                            
+                            <div>
+                                SMA 200 (Fond) : <strong>${d.technical.sma_200.toFixed(2)} $</strong> 
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.sma_200, entry)} vs cours)</span>
                                 (${entry >= d.technical.sma_200 ? '<span style="color: var(--success); font-weight:600;">Tendance Haussière 📈</span>' : '<span style="color: var(--danger); font-weight:600;">Tendance Baissière 📉</span>'})
+                                <span class="tooltip-container">ℹ️
+                                    <span class="tooltip-text">
+                                        <strong>SMA 200 (Moyenne Mobile 200) :</strong> Filtre de tendance long terme.<br>
+                                        - 🟢 <strong>Au-dessus :</strong> Tendance de fond haussière. Achat sur repli (dips) recommandé. [Orientation : ACHAT]<br>
+                                        - 🔴 <strong>En-dessous :</strong> Tendance baissière. Risque élevé de baisse continue. [Orientation : ÉVITER / VENTE]
+                                    </span>
+                                </span>
                             </div>
-                            <div>Canal MRC (Moyenne) : <strong>${d.technical.mrc_mean.toFixed(2)} $</strong> (Canal : ${d.technical.mrc_lower.toFixed(2)} à ${d.technical.mrc_upper.toFixed(2)} $)</div>
-                            <div>Statut Canal MRC : <strong>${d.technical.mrc_oversold ? '<span style="color: var(--success); font-weight:600;">Oversold (Bas de canal) 🟢</span>' : '<span style="color: var(--text-muted);">Dans les bornes ⚖️</span>'}</strong></div>
-                            <div>Momentum QQE : <strong>${d.technical.qqe_buy_signal ? '<span style="color: var(--success); font-weight:600;">Signal ACHAT 🟢</span>' : '<span style="color: var(--text-muted);">Pas de signal ⚪</span>'}</strong> (RSI Lissé: ${d.technical.qqe_smoothed_rsi.toFixed(2)})</div>
-                            <div>Volume & MM : <strong>${d.technical.current_volume.toLocaleString()}</strong> (MA 20: ${d.technical.volume_sma_20.toLocaleString()}) 
+                            
+                            <div>
+                                Canal MRC (Moyenne) : <strong>${d.technical.mrc_mean.toFixed(2)} $</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_mean, entry)} vs cours)</span><br>
+                                Bornes : Basse <strong>${d.technical.mrc_lower.toFixed(2)} $</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_lower, entry)})</span> | 
+                                Haute <strong>${d.technical.mrc_upper.toFixed(2)} $</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_upper, entry)})</span>
+                                <span class="tooltip-container">ℹ️
+                                    <span class="tooltip-text">
+                                        <strong>MRC (Mean Reversion Channel) :</strong> Canal statistique autour du prix.<br>
+                                        - 🟢 <strong>Sous le canal inférieur (Oversold) :</strong> Prix statistiquement étiré à la baisse. Idéal pour un rebond. [Orientation : ACHAT]<br>
+                                        - ⚖️ <strong>Dans le canal (Neutre) :</strong> Prix équilibré. [Orientation : CONSERVATION / ATTENDRE]
+                                    </span>
+                                </span>
+                            </div>
+                            
+                            <div>
+                                Statut Canal MRC : <strong>${d.technical.mrc_oversold ? '<span style="color: var(--success); font-weight:600;">Oversold (Bas de canal) 🟢</span>' : '<span style="color: var(--text-muted);">Dans les bornes ⚖️</span>'}</strong>
+                            </div>
+                            
+                            <div>
+                                Momentum QQE : <strong>${d.technical.qqe_buy_signal ? '<span style="color: var(--success); font-weight:600;">Signal ACHAT 🟢</span>' : '<span style="color: var(--text-muted);">Pas de signal ⚪</span>'}</strong> (RSI Lissé: ${d.technical.qqe_smoothed_rsi.toFixed(2)})
+                                <span class="tooltip-container">ℹ️
+                                    <span class="tooltip-text">
+                                        <strong>QQE Signals :</strong> Indicateur de momentum lissé.<br>
+                                        - 🟢 <strong>Signal ACHAT :</strong> Le RSI lissé repasse au-dessus de sa ligne de signal. Confirmation de force acheteuse. [Orientation : ACHAT]<br>
+                                        - ⚪ <strong>Pas de signal :</strong> Dynamique baissière ou neutre. [Orientation : ATTENDRE / CONSERVATION]
+                                    </span>
+                                </span>
+                            </div>
+                            
+                            <div>
+                                Volume & MM : <strong>${d.technical.current_volume.toLocaleString()}</strong> (MA 20: ${d.technical.volume_sma_20.toLocaleString()}) 
                                 (${d.technical.volume_confirmed ? '<span style="color: var(--success); font-weight:600;">Volume Fort (Confirmé) 🔥</span>' : '<span style="color: var(--warning); font-weight:600;">Volume Faible ⚠️</span>'})
+                                <span class="tooltip-container">ℹ️
+                                    <span class="tooltip-text">
+                                        <strong>Volume & MM 20 :</strong> Filtre de confirmation institutionnelle.<br>
+                                        - 🔥 <strong>Volume &gt; MA 20 :</strong> Le mouvement est soutenu par des capitaux importants. [Orientation : ACHAT / RENFORCER]<br>
+                                        - ⚠️ <strong>Volume &lt; MA 20 :</strong> Manque de force, rebond fragile. [Orientation : ATTENDRE]
+                                    </span>
+                                </span>
                             </div>
+                            
                             <div style="margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                                RSI (14) : ${rsi.toFixed(2)} (${rsi < 30 ? '📉 Survendu' : rsi > 70 ? '📈 Suracheté' : '⚖️ Neutre'})<br>
+                                RSI (14) : ${rsi.toFixed(2)} (${rsi < 30 ? '📉 Survendu' : rsi > 70 ? '📈 Suracheté' : '⚖️ Neutre'})
+                                <span class="tooltip-container">ℹ️
+                                    <span class="tooltip-text">
+                                        <strong>RSI (Relative Strength Index) :</strong><br>
+                                        - 📉 <strong>Survente (&lt; 30) :</strong> Vendeurs trop agressifs. Action statistiquement bon marché à court terme. Opportunité de rebond. [Orientation : ACHAT]<br>
+                                        - ⚖️ <strong>Zone Neutre (30 à 70) :</strong> Marché équilibré. Le niveau 50 sert de pivot dynamique (au-dessus = force acheteuse). [Orientation : CONSERVATION]<br>
+                                        - 📈 <strong>Surachat (&gt; 70) :</strong> Prix trop élevé à court terme. Prise de bénéfices imminente. [Orientation : VENTE / ALLÉGER]
+                                    </span>
+                                </span><br>
                                 Support : <strong>${support.toFixed(2)} $</strong> | Résistance : <strong>${resistance.toFixed(2)} $</strong><br>
                                 Volatilité (Action) : <strong>${histVol.toFixed(2)}%</strong> | VIX Marché : <strong>${vix ? vix.toFixed(2) : 'N/A'}</strong>
                             </div>
