@@ -139,7 +139,8 @@ def scan_watchlist():
                 "price": analysis["technical"]["current_price"],
                 "drop": analysis["drop"]["drop_pct"],
                 "rsi": analysis["technical"]["rsi"],
-                "verdict": analysis["verdict"]
+                "verdict": analysis["verdict"],
+                "currency": analysis["technical"].get("currency", "USD")
             })
             
             if analysis["verdict"] == "ACHETER REBOND":
@@ -184,7 +185,8 @@ def scan_market():
                 "price": analysis["technical"]["current_price"],
                 "drop": analysis["drop"]["drop_pct"],
                 "rsi": analysis["technical"]["rsi"],
-                "verdict": analysis["verdict"]
+                "verdict": analysis["verdict"],
+                "currency": analysis["technical"].get("currency", "USD")
             })
         except Exception as e:
             print(f"Erreur sur {symbol}: {e}")

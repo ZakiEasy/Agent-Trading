@@ -68,7 +68,7 @@ def get_usd_conversion_rate(currency_code):
 def fetch_market_data(ticker_symbol):
     """
     Récupère les données de marché historiques et actuelles.
-    Convertit automatiquement les valeurs en USD si la devise de cotation n'est pas le USD.
+    Garde nativement le USD et EUR. Convertit les autres devises (ex: KRW) en USD.
     On récupère 300 jours d'historique pour calculer la SMA 200 de fond.
     """
     ticker_obj = yf.Ticker(ticker_symbol)
@@ -78,21 +78,31 @@ def fetch_market_data(ticker_symbol):
     if hist.empty:
         return None, "Aucun historique de cours disponible."
         
-    # Détecter la devise et convertir en USD
+    # Détecter la devise
     try:
         info = ticker_obj.info
-        currency = info.get("currency", "USD")
+        currency = info.get("currency", "USD").upper()
     except:
         currency = "USD"
         
-    if currency and currency.upper() != "USD":
+    # Normaliser la devise cible
+    if currency == "EUR":
+        target_currency = "EUR"
+    else:
+        target_currency = "USD"
+        
+    if currency != target_currency:
         rate = get_usd_conversion_rate(currency)
         if rate != 1.0:
             for col in ['Open', 'High', 'Low', 'Close']:
                 if col in hist.columns:
                     hist[col] = hist[col] * rate
             print(f"Converted {ticker_symbol} prices from {currency} to USD using rate {rate:.6f}")
+        currency = "USD"
+    else:
+        currency = target_currency
         
+    hist.attrs['currency'] = currency
     return ticker_obj, hist
 
 def calculate_qqe(close_prices, rsi_period=14, sf=5, wilder_period=27):
@@ -213,6 +223,7 @@ def analyze_technical_setup(hist):
     except:
         pass
         
+    currency = hist.attrs.get('currency', 'USD')
     return {
         "current_price": current_price,
         "rsi": current_rsi,
@@ -233,7 +244,8 @@ def analyze_technical_setup(hist):
         "resistance": resistance,
         "recent_high": np.max(high_prices[-10:]),
         "historical_volatility": hist_vol,
-        "vix": vix_val
+        "vix": vix_val,
+        "currency": currency
     }
 
 def qualify_price_drop(hist):

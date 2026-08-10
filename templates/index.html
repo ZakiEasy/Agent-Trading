@@ -765,6 +765,7 @@
                 tr.style.cursor = 'pointer';
                 tr.onclick = () => showTickerDetail(row.symbol);
                 
+                const symbolChar = row.currency === "EUR" ? "€" : "$";
                 const buyPrice = portfolio[row.symbol];
                 let portfolioInfo = '';
                 if (buyPrice) {
@@ -773,7 +774,7 @@
                     const perfColor = perf >= 0 ? 'var(--success)' : 'var(--danger)';
                     portfolioInfo = `
                         <div style="font-size: 0.7rem; margin-top: 0.15rem; display: flex; align-items: center; gap: 0.25rem;">
-                            <span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.05rem 0.2rem; border-radius: 4px; font-size: 0.65rem;">💼 ${buyPrice.toFixed(2)}$</span>
+                            <span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.05rem 0.2rem; border-radius: 4px; font-size: 0.65rem;">💼 ${buyPrice.toFixed(2)}${symbolChar}</span>
                             <span style="color: ${perfColor}; font-weight: 700;">${perf >= 0 ? '+' : ''}${perf.toFixed(1)}%</span>
                         </div>
                     `;
@@ -789,7 +790,7 @@
                         ${portfolioInfo}
                     </td>
                     <td>${getShariaBadge(row.sharia)}</td>
-                    <td>${row.price ? parseFloat(row.price).toFixed(2) : '-'} $</td>
+                    <td>${row.price ? parseFloat(row.price).toFixed(2) : '-'} ${symbolChar}</td>
                     <td style="color: ${parseFloat(row.drop) < 0 ? 'var(--danger)' : 'var(--success)'};">
                         ${row.drop ? parseFloat(row.drop).toFixed(2) : '-'}%
                     </td>
@@ -920,6 +921,9 @@
                 };
 
                 // Charger le graphique TradingView interactif
+                const symbolChar = d.technical.currency === "EUR" ? "€" : "$";
+
+                // Charger le graphique TradingView interactif
                 renderTradingViewWidget(d.symbol);
                 
                 container.innerHTML = `
@@ -954,10 +958,10 @@
                             <div class="report-step-title">
                                 4. Analyse Technique
                             </div>
-                            <div>Cours Actuel : <strong>${entry.toFixed(2)} $</strong></div>
+                            <div>Cours Actuel : <strong>${entry.toFixed(2)} ${symbolChar}</strong></div>
                             
                             <div>
-                                SMA 200 (Fond) : <strong>${d.technical.sma_200.toFixed(2)} $</strong> 
+                                SMA 200 (Fond) : <strong>${d.technical.sma_200.toFixed(2)} ${symbolChar}</strong> 
                                 <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.sma_200, entry)} vs cours)</span>
                                 (${entry >= d.technical.sma_200 ? '<span style="color: var(--success); font-weight:600;">Tendance Haussière 📈</span>' : '<span style="color: var(--danger); font-weight:600;">Tendance Baissière 📉</span>'})
                                 <span class="tooltip-container">ℹ️
@@ -970,9 +974,9 @@
                             </div>
                             
                             <div>
-                                Canal MRC (Moyenne) : <strong>${d.technical.mrc_mean.toFixed(2)} $</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_mean, entry)} vs cours)</span><br>
-                                Bornes : Basse <strong>${d.technical.mrc_lower.toFixed(2)} $</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_lower, entry)})</span> | 
-                                Haute <strong>${d.technical.mrc_upper.toFixed(2)} $</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_upper, entry)})</span>
+                                Canal MRC (Moyenne) : <strong>${d.technical.mrc_mean.toFixed(2)} ${symbolChar}</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_mean, entry)} vs cours)</span><br>
+                                Bornes : Basse <strong>${d.technical.mrc_lower.toFixed(2)} ${symbolChar}</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_lower, entry)})</span> | 
+                                Haute <strong>${d.technical.mrc_upper.toFixed(2)} ${symbolChar}</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_upper, entry)})</span>
                                 <span class="tooltip-container">ℹ️
                                     <span class="tooltip-text">
                                         <strong>MRC (Mean Reversion Channel) :</strong> Canal statistique autour du prix.<br>
@@ -1019,21 +1023,21 @@
                                         - 📈 <strong>Surachat (&gt; 70) :</strong> Prix trop élevé à court terme. Prise de bénéfices imminente. [Orientation : VENTE / ALLÉGER]
                                     </span>
                                 </span><br>
-                                Support : <strong>${support.toFixed(2)} $</strong> | Résistance : <strong>${resistance.toFixed(2)} $</strong><br>
+                                Support : <strong>${support.toFixed(2)} ${symbolChar}</strong> | Résistance : <strong>${resistance.toFixed(2)} ${symbolChar}</strong><br>
                                 Volatilité (Action) : <strong>${histVol.toFixed(2)}%</strong> | VIX Marché : <strong>${vix ? vix.toFixed(2) : 'N/A'}</strong>
                             </div>
                         </div>
 
                         <div class="report-step">
                             <div class="report-step-title">5. Plan de Trade</div>
-                            <div>Zone d'entrée : <strong>${entry.toFixed(2)} $</strong></div>
-                            <div>Objectif : <strong>${d.trade_plan.target_min.toFixed(2)} à ${d.trade_plan.target_max.toFixed(2)} $ (+${d.trade_plan.potential_gain_min.toFixed(2)}% à +${d.trade_plan.potential_gain_max.toFixed(2)}%)</strong></div>
-                            <div>Stop-Loss : <strong style="color: var(--danger);">${d.trade_plan.invalidation.toFixed(2)} $</strong></div>
+                            <div>Zone d'entrée : <strong>${entry.toFixed(2)} ${symbolChar}</strong></div>
+                            <div>Objectif : <strong>${d.trade_plan.target_min.toFixed(2)} à ${d.trade_plan.target_max.toFixed(2)} ${symbolChar} (+${d.trade_plan.potential_gain_min.toFixed(2)}% à +${d.trade_plan.potential_gain_max.toFixed(2)}%)</strong></div>
+                            <div>Stop-Loss : <strong style="color: var(--danger);">${d.trade_plan.invalidation.toFixed(2)} ${symbolChar}</strong></div>
                         </div>
 
                         <div class="report-step">
                             <div class="report-step-title">6. Allocation suggérée</div>
-                            <div style="font-size: 0.85rem;">20% à 25% max du capital disponible. (ex: 600€ à 2500€).</div>
+                            <div style="font-size: 0.85rem;">20% à 25% max du capital disponible (ex: 600€ à 2500€).</div>
                         </div>
 
                         <div class="report-step">
@@ -1047,7 +1051,7 @@
                         <div class="report-step" style="background: rgba(59, 130, 246, 0.03); border: 1px dashed rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
                             <div class="report-step-title">💼 8. Suivi Portefeuille & Vente (Optionnel)</div>
                             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                                <label style="font-size: 0.8rem; color: var(--text-muted);">Votre prix d'achat moyen ($) :</label>
+                                <label style="font-size: 0.8rem; color: var(--text-muted);">Votre prix d'achat moyen (${symbolChar}) :</label>
                                 <input type="number" id="portfolio-buy-price" style="width: 100px; padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid var(--card-border); background: #0c101b; color: white;" placeholder="ex: 80.70" step="any">
                                 <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight:600;" onclick="saveToPortfolio('${d.symbol}')">Enregistrer</button>
                                 <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight:600; display: none;" id="btn-remove-portfolio" onclick="removeFromPortfolio('${d.symbol}')">Supprimer</button>
@@ -1104,8 +1108,10 @@
             const analysisContainer = document.getElementById('portfolio-analysis-content');
             const removeBtn = document.getElementById('btn-remove-portfolio');
             
+            const symbolChar = technicalData.currency === "EUR" ? "€" : "$";
+            
             if (!buyPrice) {
-                analysisContainer.innerHTML = '<span style="color: var(--text-muted); font-size:0.8rem;">Aucune position enregistrée pour ce titre. Entrez un prix d\'achat pour activer les calculs de vente/renforcement.</span>';
+                analysisContainer.innerHTML = `<span style="color: var(--text-muted); font-size:0.8rem;">Aucune position enregistrée pour ce titre. Entrez un prix d'achat en ${symbolChar} pour activer les calculs de vente/renforcement.</span>`;
                 if (removeBtn) removeBtn.style.display = 'none';
                 return;
             }
@@ -1139,13 +1145,13 @@
                 sellStrategy = "Le titre reste dans une tendance de fond haussière (au-dessus de la SMA 200) mais est fortement replié sur la bande basse du MRC avec un RSI bas. Excellente opportunité de renforcer la position pour baisser votre PRU.";
             } else {
                 sellStrategy = "La dynamique reste saine dans le canal. Objectifs de sortie recommandés : " +
-                    `Moyenne MRC (${technicalData.mrc_mean.toFixed(2)} $ / ${getPctDiff(technicalData.mrc_mean, buyPrice)} par rapport au PRU), ` +
-                    `Haut de canal MRC (${technicalData.mrc_upper.toFixed(2)} $ / ${getPctDiff(technicalData.mrc_upper, buyPrice)}).`;
+                    `Moyenne MRC (${technicalData.mrc_mean.toFixed(2)} ${symbolChar} / ${getPctDiff(technicalData.mrc_mean, buyPrice)} par rapport au PRU), ` +
+                    `Haut de canal MRC (${technicalData.mrc_upper.toFixed(2)} ${symbolChar} / ${getPctDiff(technicalData.mrc_upper, buyPrice)}).`;
             }
             
             analysisContainer.innerHTML = `
                 <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); line-height: 1.5;">
-                    Performance Latente : <strong style="color: ${perfColor}; font-size: 0.95rem;">${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%</strong> (PRU: ${buyPrice.toFixed(2)} $)<br>
+                    Performance Latente : <strong style="color: ${perfColor}; font-size: 0.95rem;">${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%</strong> (PRU: ${buyPrice.toFixed(2)} ${symbolChar})<br>
                     Verdict Vente : <strong>${sellVerdict}</strong><br>
                     <span style="display:block; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; line-height:1.4;">💡 ${sellStrategy}</span>
                 </div>
