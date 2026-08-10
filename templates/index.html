@@ -406,6 +406,112 @@
             gap: 0.75rem;
         }
 
+        /* Simulation Styles */
+        .simulation-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        @media (max-width: 1024px) {
+            .simulation-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            background: rgba(0, 0, 0, 0.25);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+        .gauge-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .gauge-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .gauge-bar-outer {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        .gauge-bar-inner {
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .gauge-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-top: 0.35rem;
+            color: var(--text-muted);
+        }
+        /* Month list grid for editing contributions */
+        .month-list {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        @media (max-width: 600px) {
+            .month-list {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .month-input-container {
+            background: rgba(0,0,0,0.15);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 0.35rem;
+            text-align: center;
+        }
+        .month-input-container label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 0.2rem;
+        }
+        .month-input-container input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            color: var(--text-main);
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
         /* 8-Step Report styling */
         .report-section {
             background: rgba(255, 255, 255, 0.02);
@@ -521,6 +627,7 @@
         <nav>
             <button class="nav-btn active" onclick="switchTab('dashboard')">Tableau de bord</button>
             <button class="nav-btn" onclick="switchTab('chat')">Assistant Chat</button>
+            <button class="nav-btn" onclick="switchTab('simulation')">Planification & Simulation</button>
         </nav>
     </header>
 
@@ -654,6 +761,243 @@
                 </div>
             </div>
         </div>
+
+        <!-- TAB 3: SIMULATION & PLANNING -->
+        <div id="simulation-tab" class="tab-content">
+            <div class="simulation-grid">
+                <!-- Left column: inputs -->
+                <div class="left-col" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    
+                    <!-- Configuration du Capital -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">💰 Configuration du Capital</h2>
+                        </div>
+                        <div class="form-group">
+                            <label>Capital Initial Trading (€) : <span id="val-cap-initial" style="font-weight: 700;">5 000 €</span></label>
+                            <input type="range" id="input-cap-initial" min="3000" max="100000" step="500" value="5000" oninput="updateSimulationValues()">
+                        </div>
+                        <div class="form-group">
+                            <label>Apport Mensuel Variable (€) : <span id="val-apport-mensuel" style="font-weight: 700;">300 €</span></label>
+                            <input type="range" id="input-apport-mensuel" min="0" max="5000" step="50" value="300" oninput="updateSimulationValues()">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Poche Réserve / Cash (%)</label>
+                                <input type="number" id="input-reserve-pct" min="0" max="100" value="20" onchange="runSimulation()">
+                            </div>
+                            <div class="form-group">
+                                <label>Règle de Répartition</label>
+                                <select id="input-repartition-rule" onchange="runSimulation()">
+                                    <option value="A">Option A : 100% vers le Trading</option>
+                                    <option value="B">Option B : 80% Trading / 20% Cash Réserve</option>
+                                    <option value="C">Option C : Réinvestissement 100% (Effet Boule de Neige)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Moteur Swing Trading Mean Reversion -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">📈 Paramètres de la Stratégie (Swing)</h2>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Taux de Réussite (%)</label>
+                                <input type="number" id="input-win-rate" min="40" max="95" value="75" onchange="runSimulation()">
+                            </div>
+                            <div class="form-group">
+                                <label>Gain Ciblé / TP (%)</label>
+                                <input type="number" id="input-tp-pct" min="0.5" max="5.0" step="0.1" value="1.5" onchange="runSimulation()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Invalidation / SL (%)</label>
+                                <input type="number" id="input-sl-pct" min="0.5" max="5.0" step="0.1" value="1.5" onchange="runSimulation()">
+                            </div>
+                            <div class="form-group">
+                                <label>Taille Max Position (%)</label>
+                                <input type="number" id="input-max-pos-pct" min="5" max="50" value="20" onchange="runSimulation()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Baisse Trigger (%)</label>
+                                <input type="number" id="input-trigger-drop" min="1" max="15" value="5" onchange="runSimulation()">
+                            </div>
+                            <div class="form-group">
+                                <label>Rotations par Mois (Est.)</label>
+                                <input type="number" id="input-rotations" min="1" max="10" value="3" onchange="runSimulation()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Autres Canaux d'Investissement -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">🏆 Autres Canaux d'Investissement</h2>
+                        </div>
+                        
+                        <div style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--success); display: block; margin-bottom: 0.25rem;">Or (Métal)</label>
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>Rendement Annuel (%)</label>
+                                    <input type="number" id="input-gold-yield" value="6.0" onchange="runSimulation()">
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>Alloc. Mensuelle (€)</label>
+                                    <input type="number" id="input-gold-alloc" value="50" onchange="runSimulation()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: #3b82f6; display: block; margin-bottom: 0.25rem;">SCPI / Pierre Papier</label>
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>Rendement Annuel (%)</label>
+                                    <input type="number" id="input-scpi-yield" value="5.5" onchange="runSimulation()">
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>Alloc. Mensuelle (€)</label>
+                                    <input type="number" id="input-scpi-alloc" value="100" onchange="runSimulation()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: #a855f7; display: block; margin-bottom: 0.25rem;">Immobilier Locatif (Bien physique)</label>
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>Rendement Annuel (%)</label>
+                                    <input type="number" id="input-immo-yield" value="8.0" onchange="runSimulation()">
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>Alloc. Mensuelle (€)</label>
+                                    <input type="number" id="input-immo-alloc" value="200" onchange="runSimulation()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right column: graphs and gauges -->
+                <div class="right-col" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    
+                    <!-- Cap vers l'Objectif (Gauges) -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">🎯 Cap vers l'Objectif</h2>
+                        </div>
+                        
+                        <div class="gauge-container">
+                            <div class="gauge-title">Étape 1 : Franchir la barre des 10 000 €</div>
+                            <div class="gauge-bar-outer">
+                                <div id="gauge-1-inner" class="gauge-bar-inner"></div>
+                            </div>
+                            <div class="gauge-label">
+                                <span id="gauge-1-current">0 €</span>
+                                <span>10 000 €</span>
+                            </div>
+                        </div>
+
+                        <div class="gauge-container">
+                            <div class="gauge-title">Étape 2 : Le cap des 25 000 €</div>
+                            <div class="gauge-bar-outer">
+                                <div id="gauge-2-inner" class="gauge-bar-inner"></div>
+                            </div>
+                            <div class="gauge-label">
+                                <span id="gauge-2-current">0 €</span>
+                                <span>25 000 €</span>
+                            </div>
+                        </div>
+
+                        <div class="gauge-container">
+                            <div class="gauge-title">Étape 3 : Objectif d'Indépendance : 50 000 €</div>
+                            <div class="gauge-bar-outer">
+                                <div id="gauge-3-inner" class="gauge-bar-inner"></div>
+                            </div>
+                            <div class="gauge-label">
+                                <span id="gauge-3-current">0 €</span>
+                                <span>50 000 €</span>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 0.85rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 6px; display: flex; justify-content: space-between;">
+                            <span>Espérance mathématique par trade :</span>
+                            <strong id="sim-expected-value" style="color: var(--success);">+0.00 €</strong>
+                        </div>
+                    </div>
+
+                    <!-- Projection Chart -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">📉 Projection Spatio-Temporelle (36 Mois)</h2>
+                        </div>
+                        <div style="height: 250px; position: relative;" id="sim-chart-container">
+                            <!-- Responsive SVG Chart container dynamically filled in JS -->
+                        </div>
+                        
+                        <div style="display: flex; gap: 1rem; justify-content: center; font-size: 0.75rem; margin-top: 0.5rem;">
+                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #10b981;"></span> Réaliste (Swing + Canaux)</span>
+                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #3b82f6;"></span> Optimiste (Win Rate élevé)</span>
+                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #ef4444;"></span> Pessimiste (Mois sans apport/perte)</span>
+                        </div>
+
+                        <!-- Monthly input custom override -->
+                        <div style="margin-top: 1.25rem;">
+                            <label style="font-size: 0.85rem; font-weight:600; color: var(--text-muted);">Ajustement Pas-à-Pas des Apports (Mois 1 à 12) :</label>
+                            <div class="month-list" id="month-override-inputs">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calculateur de Trade Instantané -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">⚡ Calculateur de Trade Instantané (Risk Management)</h2>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Cours Actuel du Ticker (€ ou $)</label>
+                                <input type="number" id="calc-current-price" value="100" step="any" oninput="runTradeCalculator()">
+                            </div>
+                            <div class="form-group">
+                                <label>Baisse Attendue (%)</label>
+                                <input type="number" id="calc-drop-trigger" value="5" step="0.5" oninput="runTradeCalculator()">
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem; background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--card-border);">
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.75rem;">Prix d'entrée limite :</div>
+                                <strong id="calc-entry-price" style="font-size: 1rem; color: #60a5fa;">95.00</strong>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.75rem;">Taille de Position Max :</div>
+                                <strong id="calc-pos-size" style="font-size: 1rem;">1 000.00 €</strong>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.75rem;">Objectif Sortie (TP) :</div>
+                                <strong id="calc-tp-price" style="font-size: 1rem; color: var(--success);">96.43</strong>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.75rem;">Invalidation (SL) :</div>
+                                <strong id="calc-sl-price" style="font-size: 1rem; color: var(--danger);">93.57</strong>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;" id="calc-shares-count">
+                            Acheter max : 10 actions à 95.00
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
     </main>
 
     <script>
@@ -672,9 +1016,15 @@
             if (tabId === 'dashboard') {
                 document.querySelector('nav button:nth-child(1)').classList.add('active');
                 document.getElementById('dashboard-tab').classList.add('active');
-            } else {
+            } else if (tabId === 'chat') {
                 document.querySelector('nav button:nth-child(2)').classList.add('active');
                 document.getElementById('chat-tab').classList.add('active');
+            } else if (tabId === 'simulation') {
+                document.querySelector('nav button:nth-child(3)').classList.add('active');
+                document.getElementById('simulation-tab').classList.add('active');
+                if (typeof runSimulation === 'function') {
+                    runSimulation();
+                }
             }
         }
 
@@ -1215,6 +1565,273 @@
                 botDiv.textContent = "Je n'arrive pas à me connecter au serveur de l'agent. Veuillez vérifier qu'il est bien démarré.";
             }
             container.scrollTop = container.scrollHeight;
+        }
+        // Simulation & Planning Logic
+        let monthlyOverrides = [];
+
+        // Initialisation de la simulation au démarrage
+        document.addEventListener('DOMContentLoaded', () => {
+            initSimulation();
+        });
+
+        function initSimulation() {
+            // Charger les apports mensuels sauvegardés ou par défaut
+            const savedOverrides = localStorage.getItem('agent_trading_monthly_overrides');
+            const defaultApport = parseFloat(document.getElementById('input-apport-mensuel').value);
+            
+            if (savedOverrides) {
+                monthlyOverrides = JSON.parse(savedOverrides);
+            } else {
+                monthlyOverrides = Array(12).fill(defaultApport);
+            }
+            
+            renderMonthOverrides();
+            updateSimulationValues();
+        }
+
+        function renderMonthOverrides() {
+            const container = document.getElementById('month-override-inputs');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            for (let i = 0; i < 12; i++) {
+                const div = document.createElement('div');
+                div.className = 'month-input-container';
+                div.innerHTML = `
+                    <label>Mois ${i + 1}</label>
+                    <input type="number" value="${monthlyOverrides[i]}" onchange="updateMonthOverride(${i}, this.value)">
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function updateMonthOverride(index, val) {
+            monthlyOverrides[index] = parseFloat(val) || 0;
+            localStorage.setItem('agent_trading_monthly_overrides', JSON.stringify(monthlyOverrides));
+            runSimulation();
+        }
+
+        function updateSimulationValues() {
+            const capVal = document.getElementById('input-cap-initial').value;
+            const apportVal = document.getElementById('input-apport-mensuel').value;
+            
+            document.getElementById('val-cap-initial').textContent = parseFloat(capVal).toLocaleString() + ' €';
+            document.getElementById('val-apport-mensuel').textContent = parseFloat(apportVal).toLocaleString() + ' €';
+            
+            // Mettre à jour les inputs mensuels si l'utilisateur change l'apport global
+            const currentOverrides = JSON.parse(localStorage.getItem('agent_trading_monthly_overrides') || '[]');
+            if (currentOverrides.length === 0) {
+                monthlyOverrides = Array(12).fill(parseFloat(apportVal));
+                renderMonthOverrides();
+            }
+            
+            runSimulation();
+        }
+
+        function runSimulation() {
+            const initialCap = parseFloat(document.getElementById('input-cap-initial').value);
+            const defaultApport = parseFloat(document.getElementById('input-apport-mensuel').value);
+            const reservePct = parseFloat(document.getElementById('input-reserve-pct').value) / 100;
+            const rule = document.getElementById('input-repartition-rule').value;
+            
+            // Swing Strategy Parameters
+            const winRate = parseFloat(document.getElementById('input-win-rate').value) / 100;
+            const tp = parseFloat(document.getElementById('input-tp-pct').value) / 100;
+            const sl = parseFloat(document.getElementById('input-sl-pct').value) / 100;
+            const maxPosPct = parseFloat(document.getElementById('input-max-pos-pct').value) / 100;
+            const rotations = parseFloat(document.getElementById('input-rotations').value);
+            
+            // Other channels
+            const goldYield = parseFloat(document.getElementById('input-gold-yield').value) / 100;
+            const goldAlloc = parseFloat(document.getElementById('input-gold-alloc').value);
+            
+            const scpiYield = parseFloat(document.getElementById('input-scpi-yield').value) / 100;
+            const scpiAlloc = parseFloat(document.getElementById('input-scpi-alloc').value);
+            
+            const immoYield = parseFloat(document.getElementById('input-immo-yield').value) / 100;
+            const immoAlloc = parseFloat(document.getElementById('input-immo-alloc').value);
+
+            // 1. Math expectation per trade
+            const expectedReturn = (winRate * tp) - ((1 - winRate) * sl);
+            const avgPosSize = initialCap * maxPosPct;
+            const expectedEuro = avgPosSize * expectedReturn;
+            
+            const expLabel = document.getElementById('sim-expected-value');
+            if (expectedEuro >= 0) {
+                expLabel.textContent = `+${expectedEuro.toFixed(2)} € par trade`;
+                expLabel.style.color = 'var(--success)';
+            } else {
+                expLabel.textContent = `${expectedEuro.toFixed(2)} € par trade`;
+                expLabel.style.color = 'var(--danger)';
+            }
+
+            // Month-by-month calculation loops for 36 months
+            let capReal = initialCap;
+            let capOpt = initialCap;
+            let capPess = initialCap;
+            
+            let realHistory = [capReal];
+            let optHistory = [capOpt];
+            let pessHistory = [capPess];
+            
+            // Dynamic channels balances
+            let goldReal = 0, scpiReal = 0, immoReal = 0;
+            let goldOpt = 0, scpiOpt = 0, immoOpt = 0;
+            let goldPess = 0, scpiPess = 0, immoPess = 0;
+
+            for (let m = 1; m <= 36; m++) {
+                // Get monthly contribution
+                let monthlyContribution = defaultApport;
+                if (m <= 12) {
+                    monthlyContribution = monthlyOverrides[m - 1] !== undefined ? monthlyOverrides[m - 1] : defaultApport;
+                }
+                
+                // Règle de Répartition allocation (Option B splits reserve cash out of trading)
+                let tradingApport = monthlyContribution;
+                let reserveApport = 0;
+                
+                if (rule === 'B') {
+                    tradingApport = monthlyContribution * 0.8;
+                    reserveApport = monthlyContribution * 0.2;
+                }
+                
+                // Compute returns
+                // Swing trading return (compound on capital)
+                const swingReturnReal = capReal * maxPosPct * expectedReturn * rotations;
+                const swingReturnOpt = capOpt * maxPosPct * ((winRate + 0.05) * tp - (1 - (winRate + 0.05)) * sl) * rotations;
+                const swingReturnPess = capPess * maxPosPct * ((winRate - 0.1) * tp - (1 - (winRate - 0.1)) * sl) * rotations;
+                
+                // Gold, SCPI, Immo returns (compounded monthly)
+                goldReal = (goldReal + goldAlloc) * (1 + goldYield / 12);
+                scpiReal = (scpiReal + scpiAlloc) * (1 + scpiYield / 12);
+                immoReal = (immoReal + immoAlloc) * (1 + immoYield / 12);
+
+                goldOpt = (goldOpt + goldAlloc) * (1 + (goldYield + 0.02) / 12);
+                scpiOpt = (scpiOpt + scpiAlloc) * (1 + (scpiYield + 0.015) / 12);
+                immoOpt = (immoOpt + immoAlloc) * (1 + (immoYield + 0.02) / 12);
+
+                goldPess = (goldPess + goldAlloc * 0.5) * (1 + (goldYield - 0.02) / 12);
+                scpiPess = (scpiPess + scpiAlloc * 0.5) * (1 + (scpiYield - 0.02) / 12);
+                immoPess = (immoPess + immoAlloc * 0.5) * (1 + (immoYield - 0.02) / 12);
+
+                // Total Capital N = Previous + Contribution + Swing Returns + Alternative Channels Assets
+                capReal = capReal + tradingApport + swingReturnReal;
+                capOpt = capOpt + tradingApport * 1.2 + swingReturnOpt;
+                // Pessimistic has regular losses/apports halved
+                capPess = capPess + tradingApport * 0.5 + swingReturnPess;
+                
+                realHistory.push(capReal + goldReal + scpiReal + immoReal);
+                optHistory.push(capOpt + goldOpt + scpiOpt + immoOpt);
+                pessHistory.push(capPess + goldPess + scpiPess + immoPess);
+            }
+
+            // 3. Update Gauges using realistic cap Real at Month 12
+            const currentCap = capReal; // Capital attained
+            updateGauge('gauge-1', currentCap, 10000);
+            updateGauge('gauge-2', currentCap, 25000);
+            updateGauge('gauge-3', currentCap, 50000);
+
+            // 4. Render responsive SVG Line Chart
+            renderProjectionsChart(realHistory, optHistory, pessHistory);
+            
+            // 5. Update Trade Calculator Pos Size Limit
+            runTradeCalculator(capReal);
+        }
+
+        function updateGauge(gaugeId, current, target) {
+            const pct = Math.min(100, (current / target) * 100);
+            const bar = document.getElementById(`${gaugeId}-inner`);
+            const label = document.getElementById(`${gaugeId}-current`);
+            
+            if (bar) bar.style.width = `${pct}%`;
+            if (label) label.textContent = `${parseFloat(current).toFixed(0)} €`;
+        }
+
+        function renderProjectionsChart(real, opt, pess) {
+            const container = document.getElementById('sim-chart-container');
+            if (!container) return;
+            
+            const w = container.clientWidth || 400;
+            const h = container.clientHeight || 250;
+            
+            // Find bounds
+            const allVals = real.concat(opt).concat(pess);
+            const minVal = 0;
+            const maxVal = Math.max(...allVals) * 1.05;
+            
+            const padding = { top: 20, right: 20, bottom: 30, left: 55 };
+            const graphW = w - padding.left - padding.right;
+            const graphH = h - padding.top - padding.bottom;
+            
+            const getX = (i) => padding.left + (i / 36) * graphW;
+            const getY = (val) => padding.top + graphH - ((val - minVal) / (maxVal - minVal)) * graphH;
+            
+            let svg = `<svg width="${w}" height="${h}" style="background: rgba(0,0,0,0.1); border-radius: 8px;">`;
+            
+            // Grid lines & Y Axis Labels
+            const ticks = 5;
+            for (let i = 0; i <= ticks; i++) {
+                const val = minVal + (maxVal - minVal) * (i / ticks);
+                const y = getY(val);
+                svg += `
+                    <line x1="${padding.left}" y1="${y}" x2="${w - padding.right}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2,2"/>
+                    <text x="${padding.left - 8}" y="${y + 4}" fill="var(--text-muted)" font-size="9" text-anchor="end">${Math.round(val).toLocaleString()} €</text>
+                `;
+            }
+            
+            // X Axis Labels (Mois)
+            for (let m = 0; m <= 36; m += 6) {
+                const x = getX(m);
+                svg += `
+                    <line x1="${x}" y1="${padding.top}" x2="${x}" y2="${h - padding.bottom}" stroke="rgba(255,255,255,0.03)"/>
+                    <text x="${x}" y="${h - padding.bottom + 15}" fill="var(--text-muted)" font-size="9" text-anchor="middle">M${m}</text>
+                `;
+            }
+            
+            // Generate paths
+            const buildPath = (history) => {
+                let d = `M ${getX(0)} ${getY(history[0])} `;
+                for (let i = 1; i < history.length; i++) {
+                    d += `L ${getX(i)} ${getY(history[i])} `;
+                }
+                return d;
+            };
+            
+            svg += `<path d="${buildPath(opt)}" fill="none" stroke="#3b82f6" stroke-width="2.5" opacity="0.6"/>`;
+            svg += `<path d="${buildPath(pess)}" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"/>`;
+            svg += `<path d="${buildPath(real)}" fill="none" stroke="#10b981" stroke-width="3"/>`;
+            
+            svg += `</svg>`;
+            container.innerHTML = svg;
+        }
+
+        function runTradeCalculator(optCapital) {
+            const cap = optCapital || parseFloat(document.getElementById('input-cap-initial').value);
+            const currentPrice = parseFloat(document.getElementById('calc-current-price').value) || 100;
+            const dropTrigger = parseFloat(document.getElementById('calc-drop-trigger').value) || 5;
+            
+            // TP/SL from inputs
+            const tpPct = parseFloat(document.getElementById('input-tp-pct').value) || 1.5;
+            const slPct = parseFloat(document.getElementById('input-sl-pct').value) || 1.5;
+            const maxPosPct = parseFloat(document.getElementById('input-max-pos-pct').value) || 20;
+
+            const entryPrice = currentPrice * (1 - dropTrigger / 100);
+            const tpPrice = entryPrice * (1 + tpPct / 100);
+            const slPrice = entryPrice * (1 - slPct / 100);
+            
+            const maxPosEuro = cap * (maxPosPct / 100);
+            const sharesCount = Math.floor(maxPosEuro / entryPrice);
+            
+            document.getElementById('calc-entry-price').textContent = entryPrice.toFixed(2);
+            document.getElementById('calc-pos-size').textContent = maxPosEuro.toLocaleString('fr-FR', {maximumFractionDigits:2}) + ' €';
+            document.getElementById('calc-tp-price').textContent = tpPrice.toFixed(2);
+            document.getElementById('calc-sl-price').textContent = slPrice.toFixed(2);
+            
+            if (sharesCount > 0) {
+                document.getElementById('calc-shares-count').textContent = `Volume optimal : acheter ${sharesCount} actions à ${entryPrice.toFixed(2)} (Total engagé : ${(sharesCount * entryPrice).toFixed(2)} €)`;
+            } else {
+                document.getElementById('calc-shares-count').textContent = `Capital insuffisant pour acheter une seule action sous cette limite.`;
+            }
         }
     </script>
 </body>
