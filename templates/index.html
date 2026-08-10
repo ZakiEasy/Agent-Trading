@@ -758,10 +758,27 @@
                 return;
             }
 
+            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
+
             results.forEach(row => {
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
                 tr.onclick = () => showTickerDetail(row.symbol);
+                
+                const buyPrice = portfolio[row.symbol];
+                let portfolioInfo = '';
+                if (buyPrice) {
+                    const currentPrice = parseFloat(row.price);
+                    const perf = ((currentPrice - buyPrice) / buyPrice) * 100;
+                    const perfColor = perf >= 0 ? 'var(--success)' : 'var(--danger)';
+                    portfolioInfo = `
+                        <div style="font-size: 0.7rem; margin-top: 0.15rem; display: flex; align-items: center; gap: 0.25rem;">
+                            <span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.05rem 0.2rem; border-radius: 4px; font-size: 0.65rem;">💼 ${buyPrice.toFixed(2)}$</span>
+                            <span style="color: ${perfColor}; font-weight: 700;">${perf >= 0 ? '+' : ''}${perf.toFixed(1)}%</span>
+                        </div>
+                    `;
+                }
+
                 tr.innerHTML = `
                     <td style="font-weight: 700;">
                         ${row.symbol}
@@ -769,6 +786,7 @@
                         <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">
                             ${row.name || ''}
                         </span>
+                        ${portfolioInfo}
                     </td>
                     <td>${getShariaBadge(row.sharia)}</td>
                     <td>${row.price ? parseFloat(row.price).toFixed(2) : '-'} $</td>
@@ -1024,8 +1042,24 @@
                             <div>Risque potentiel : -${d.trade_plan.potential_loss.toFixed(2)}%</div>
                             <div>Ratio : <strong>1 : ${d.trade_plan.risk_reward.toFixed(2)}</strong></div>
                         </div>
+
+                        <!-- Étape 8 : Suivi Portefeuille et Vente -->
+                        <div class="report-step" style="background: rgba(59, 130, 246, 0.03); border: 1px dashed rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                            <div class="report-step-title">💼 8. Suivi Portefeuille & Vente (Optionnel)</div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <label style="font-size: 0.8rem; color: var(--text-muted);">Votre prix d'achat moyen ($) :</label>
+                                <input type="number" id="portfolio-buy-price" style="width: 100px; padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid var(--card-border); background: #0c101b; color: white;" placeholder="ex: 80.70" step="any">
+                                <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight:600;" onclick="saveToPortfolio('${d.symbol}')">Enregistrer</button>
+                                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight:600; display: none;" id="btn-remove-portfolio" onclick="removeFromPortfolio('${d.symbol}')">Supprimer</button>
+                            </div>
+                            <div id="portfolio-analysis-content" style="font-size: 0.85rem; margin-top: 0.75rem;"></div>
+                        </div>
                     </div>
                 `;
+
+                // Analyser la vente ou l'achat en portefeuille
+                updatePortfolioAnalysis(d.symbol, entry, d.technical, d.trade_plan);
+
             } catch (e) {
                 container.innerHTML = `<p style="color: var(--danger);">Une erreur s'est produite lors du chargement des détails.</p>`;
             }
@@ -1033,6 +1067,89 @@
 
         function closeDetailCard() {
             document.getElementById('ticker-detail-card').style.display = 'none';
+        }
+
+        // Gestion du portefeuille local
+        function saveToPortfolio(symbol) {
+            const priceInput = document.getElementById('portfolio-buy-price');
+            const price = parseFloat(priceInput.value);
+            if (isNaN(price) || price <= 0) {
+                alert("Veuillez saisir un prix d'achat valide.");
+                return;
+            }
+            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
+            portfolio[symbol] = price;
+            localStorage.setItem('agent_trading_portfolio', JSON.stringify(portfolio));
+            
+            showTickerDetail(symbol);
+            if (currentScanResults && currentScanResults.length > 0) {
+                renderResultsTable(currentScanResults);
+            }
+        }
+        
+        function removeFromPortfolio(symbol) {
+            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
+            delete portfolio[symbol];
+            localStorage.setItem('agent_trading_portfolio', JSON.stringify(portfolio));
+            
+            showTickerDetail(symbol);
+            if (currentScanResults && currentScanResults.length > 0) {
+                renderResultsTable(currentScanResults);
+            }
+        }
+
+        function updatePortfolioAnalysis(symbol, currentPrice, technicalData, tradePlan) {
+            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
+            const buyPrice = portfolio[symbol];
+            const analysisContainer = document.getElementById('portfolio-analysis-content');
+            const removeBtn = document.getElementById('btn-remove-portfolio');
+            
+            if (!buyPrice) {
+                analysisContainer.innerHTML = '<span style="color: var(--text-muted); font-size:0.8rem;">Aucune position enregistrée pour ce titre. Entrez un prix d\'achat pour activer les calculs de vente/renforcement.</span>';
+                if (removeBtn) removeBtn.style.display = 'none';
+                return;
+            }
+            
+            if (removeBtn) removeBtn.style.display = 'inline-block';
+            document.getElementById('portfolio-buy-price').value = buyPrice;
+            
+            const perf = ((currentPrice - buyPrice) / buyPrice) * 100;
+            const perfColor = perf >= 0 ? 'var(--success)' : 'var(--danger)';
+            
+            const getPctDiff = (val, ref) => {
+                const diff = ((val - ref) / ref) * 100;
+                const sign = diff >= 0 ? '+' : '';
+                return `${sign}${diff.toFixed(2)}%`;
+            };
+            
+            let sellVerdict = "⚖️ CONSERVER (Aucun signal d'allègement ou de vente)";
+            let sellStrategy = "";
+            
+            if (technicalData.rsi > 70) {
+                sellVerdict = "<span style='color: var(--danger); font-weight:700;'>🔴 ALLÉGER / VENDRE (Surachat RSI &gt; 70)</span>";
+                sellStrategy = "Le RSI est supérieur à 70, indiquant un surachat à court terme. Il est recommandé de prendre des bénéfices partiels (allègement de la ligne).";
+            } else if (currentPrice >= technicalData.mrc_upper) {
+                sellVerdict = "<span style='color: var(--danger); font-weight:700;'>🔴 VENDRE (Haut de canal MRC atteint)</span>";
+                sellStrategy = "Le cours actuel est sur la borne haute du canal statistique MRC. Excellente zone historique pour sécuriser les gains.";
+            } else if (currentPrice < tradePlan.invalidation) {
+                sellVerdict = "<span style='color: var(--danger); font-weight:700;'>🛑 STOP-LOSS ATTEINT (Couper la position)</span>";
+                sellStrategy = "Le prix est descendu sous le stop-loss technique. Envisager de couper la position pour limiter les pertes.";
+            } else if (technicalData.rsi < 35 && currentPrice <= technicalData.mrc_lower && currentPrice >= technicalData.sma_200) {
+                sellVerdict = "<span style='color: var(--success); font-weight:700;'>🟢 COMPLÉTER / RENFORCER (Repli sur support en tendance haussière)</span>";
+                sellStrategy = "Le titre reste dans une tendance de fond haussière (au-dessus de la SMA 200) mais est fortement replié sur la bande basse du MRC avec un RSI bas. Excellente opportunité de renforcer la position pour baisser votre PRU.";
+            } else {
+                sellStrategy = "La dynamique reste saine dans le canal. Objectifs de sortie recommandés : " +
+                    `Moyenne MRC (${technicalData.mrc_mean.toFixed(2)} $ / ${getPctDiff(technicalData.mrc_mean, buyPrice)} par rapport au PRU), ` +
+                    `Haut de canal MRC (${technicalData.mrc_upper.toFixed(2)} $ / ${getPctDiff(technicalData.mrc_upper, buyPrice)}).`;
+            }
+            
+            analysisContainer.innerHTML = `
+                <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); line-height: 1.5;">
+                    Performance Latente : <strong style="color: ${perfColor}; font-size: 0.95rem;">${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%</strong> (PRU: ${buyPrice.toFixed(2)} $)<br>
+                    Verdict Vente : <strong>${sellVerdict}</strong><br>
+                    <span style="display:block; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; line-height:1.4;">💡 ${sellStrategy}</span>
+                </div>
+            `;
         }
 
         // Chat logic
