@@ -882,6 +882,53 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Historique de Suivi Réel -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">📋 Historique de Suivi Réel</h2>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Mois de Suivi</label>
+                                <select id="hist-month">
+                                    <option value="0">Mois 0 (Départ)</option>
+                                    <option value="1">Mois 1</option>
+                                    <option value="2">Mois 2</option>
+                                    <option value="3">Mois 3</option>
+                                    <option value="4">Mois 4</option>
+                                    <option value="5">Mois 5</option>
+                                    <option value="6">Mois 6</option>
+                                    <option value="9">Mois 9</option>
+                                    <option value="12">Mois 12 (An 1)</option>
+                                    <option value="18">Mois 18</option>
+                                    <option value="24">Mois 24 (An 2)</option>
+                                    <option value="30">Mois 30</option>
+                                    <option value="36">Mois 36 (An 3)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Capital Réel (€)</label>
+                                <input type="number" id="hist-capital" placeholder="ex: 5200" step="any">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem; margin-bottom: 0.75rem;" onclick="addHistoryPoint()">Ajouter le point de suivi</button>
+                        
+                        <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 6px; background: rgba(0,0,0,0.15);">
+                            <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;" id="history-points-table">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--card-border); background: rgba(255,255,255,0.02); text-align: left;">
+                                        <th style="padding: 0.35rem 0.5rem; color: var(--text-muted);">Mois</th>
+                                        <th style="padding: 0.35rem 0.5rem; color: var(--text-muted);">Capital Réel</th>
+                                        <th style="padding: 0.35rem 0.5rem; text-align: right; color: var(--text-muted);">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Rempli dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Right column: graphs and gauges -->
@@ -941,10 +988,11 @@
                             <!-- Responsive SVG Chart container dynamically filled in JS -->
                         </div>
                         
-                        <div style="display: flex; gap: 1rem; justify-content: center; font-size: 0.75rem; margin-top: 0.5rem;">
+                        <div style="display: flex; gap: 1rem; justify-content: center; font-size: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap;">
                             <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #10b981;"></span> Réaliste (Swing + Canaux)</span>
                             <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #3b82f6;"></span> Optimiste (Win Rate élevé)</span>
                             <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #ef4444;"></span> Pessimiste (Mois sans apport/perte)</span>
+                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #a855f7;"></span> Suivi Réel</span>
                         </div>
 
                         <!-- Monthly input custom override -->
@@ -1586,7 +1634,68 @@
             }
             
             renderMonthOverrides();
+            renderHistoryTable();
             updateSimulationValues();
+        }
+
+        function getHistoryLog() {
+            return JSON.parse(localStorage.getItem('agent_trading_real_history') || '[]');
+        }
+
+        function renderHistoryTable() {
+            const history = getHistoryLog();
+            const tbody = document.querySelector('#history-points-table tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            if (history.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1rem;">Aucun point enregistré.</td></tr>`;
+                return;
+            }
+            
+            // Tri par mois croissant
+            history.sort((a, b) => a.month - b.month);
+            
+            history.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 0.35rem 0.5rem; font-weight:600;">Mois ${item.month}</td>
+                    <td style="padding: 0.35rem 0.5rem;">${item.capital.toLocaleString()} €</td>
+                    <td style="padding: 0.35rem 0.5rem; text-align: right;">
+                        <button class="btn btn-secondary" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;" onclick="deleteHistoryPoint(${item.month})">Supprimer</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addHistoryPoint() {
+            const month = parseInt(document.getElementById('hist-month').value);
+            const capital = parseFloat(document.getElementById('hist-capital').value);
+            
+            if (isNaN(capital) || capital < 0) {
+                alert('Veuillez entrer un capital réel valide.');
+                return;
+            }
+            
+            let history = getHistoryLog();
+            // Supprimer s'il y a déjà un point pour ce mois
+            history = history.filter(item => item.month !== month);
+            history.push({ month, capital });
+            
+            localStorage.setItem('agent_trading_real_history', JSON.stringify(history));
+            document.getElementById('hist-capital').value = '';
+            
+            renderHistoryTable();
+            runSimulation();
+        }
+
+        function deleteHistoryPoint(month) {
+            let history = getHistoryLog();
+            history = history.filter(item => item.month !== month);
+            localStorage.setItem('agent_trading_real_history', JSON.stringify(history));
+            renderHistoryTable();
+            runSimulation();
         }
 
         function renderMonthOverrides() {
@@ -1800,6 +1909,27 @@
             svg += `<path d="${buildPath(opt)}" fill="none" stroke="#3b82f6" stroke-width="2.5" opacity="0.6"/>`;
             svg += `<path d="${buildPath(pess)}" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"/>`;
             svg += `<path d="${buildPath(real)}" fill="none" stroke="#10b981" stroke-width="3"/>`;
+            
+            // Plot des points de suivi réel
+            const histLog = getHistoryLog();
+            if (histLog.length > 0) {
+                histLog.sort((a, b) => a.month - b.month);
+                
+                let lineD = `M ${getX(histLog[0].month)} ${getY(histLog[0].capital)} `;
+                for (let i = 1; i < histLog.length; i++) {
+                    lineD += `L ${getX(histLog[i].month)} ${getY(histLog[i].capital)} `;
+                }
+                if (histLog.length > 1) {
+                    svg += `<path d="${lineD}" fill="none" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"/>`;
+                }
+                
+                histLog.forEach(item => {
+                    svg += `
+                        <circle cx="${getX(item.month)}" cy="${getY(item.capital)}" r="5.5" fill="#a855f7" stroke="white" stroke-width="1.5"/>
+                        <title>Mois ${item.month}: ${item.capital.toLocaleString()} €</title>
+                    `;
+                });
+            }
             
             svg += `</svg>`;
             container.innerHTML = svg;
