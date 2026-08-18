@@ -247,6 +247,104 @@ def add_watchlist_ticker():
         "data": analysis
     })
 
+from src.portfolio_tracker import (
+    get_live_portfolio_summary,
+    parse_broker_csv
+)
+from src.sheets_connector import (
+    add_position_to_sheets,
+    close_position_in_sheets
+)
+
+@app.route("/api/portfolio/live")
+def get_live_portfolio():
+    """
+    Retourne la liste des positions actives avec calcul en direct du P&L, cours actuels et alertes.
+    """
+    summary = get_live_portfolio_summary()
+    return jsonify({"success": True, "data": summary})
+
+@app.route("/api/portfolio/add", methods=["POST"])
+def add_portfolio_position():
+    """
+    Ajoute manuellement une position dans Google Sheets et le suivi en direct.
+    """
+    data = request.json or {}
+    symbol = data.get("symbol", "").upper().strip()
+    if not symbol:
+        return jsonify({"success": False, "error": "Le symbole de l'action est requis."}), 400
+        
+    pru = float(data.get("pru", 0))
+    qty = float(data.get("quantity", 1))
+    
+    name = data.get("name")
+    if not name:
+        try:
+            t = yf.Ticker(symbol)
+            info = getattr(t, "info", {})
+            name = info.get("longName") or info.get("shortName") or symbol
+        except:
+            name = symbol
+
+    pos_data = {
+        "symbol": symbol,
+        "name": name,
+        "entry_date": data.get("entry_date") or datetime.now().strftime("%Y-%m-%d"),
+        "pru": pru,
+        "quantity": qty,
+        "stop_loss": float(data.get("stop_loss", pru * 0.97)),
+        "tp1": float(data.get("tp1", pru * 1.0125)),
+        "tp2": float(data.get("tp2", pru * 1.0225)),
+        "account": data.get("account", "PEA" if ".PA" in symbol else "CTO"),
+        "currency": data.get("currency", "EUR" if ".PA" in symbol or ".DE" in symbol else "USD"),
+        "notes": data.get("notes", "")
+    }
+    
+    success, msg = add_position_to_sheets(pos_data)
+    return jsonify({"success": success, "message": msg})
+
+@app.route("/api/portfolio/upload_csv", methods=["POST"])
+def upload_portfolio_csv():
+    """
+    Importe un fichier CSV de positions exporté depuis XTB ou un autre courtier.
+    """
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"success": False, "error": "Aucun fichier CSV fourni."}), 400
+        
+    content = file.read()
+    positions = parse_broker_csv(content)
+    if not positions:
+        return jsonify({"success": False, "error": "Aucune position valide trouvée dans le fichier CSV."}), 400
+        
+    imported_count = 0
+    for pos in positions:
+        success, _ = add_position_to_sheets(pos)
+        if success:
+            imported_count += 1
+            
+    return jsonify({
+        "success": True,
+        "message": f"{imported_count} position(s) importée(s) avec succès !",
+        "count": imported_count
+    })
+
+@app.route("/api/portfolio/close", methods=["POST"])
+def close_portfolio_position():
+    """
+    Clôture une position active à un cours donné et l'enregistre dans le journal de trading.
+    """
+    data = request.json or {}
+    pos_id = data.get("id") or data.get("symbol")
+    exit_price = float(data.get("exit_price", 0))
+    notes = data.get("notes", "")
+    
+    if not pos_id or exit_price <= 0:
+        return jsonify({"success": False, "error": "ID de position et prix de sortie valides requis."}), 400
+        
+    success, msg = close_position_in_sheets(pos_id, exit_price, notes=notes)
+    return jsonify({"success": success, "message": msg})
+
 @app.route("/api/scan/watchlist")
 def scan_watchlist():
     watchlist = read_watchlist_from_sheets()

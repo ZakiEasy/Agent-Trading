@@ -729,13 +729,16 @@
             </div>
         </div>
         <nav>
-            <button class="nav-btn active" onclick="switchTab('dashboard')">
-                <span>📊</span> Tableau de bord
+            <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <span>📊</span> Scanner & Marché
             </button>
-            <button class="nav-btn" onclick="switchTab('chat')">
+            <button class="nav-btn" data-tab="portfolio" onclick="switchTab('portfolio')">
+                <span>💼</span> Positions en Cours (Live) <span id="nav-alerts-badge" class="badge badge-warning" style="display:none; font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">0</span>
+            </button>
+            <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">
                 <span>💬</span> Assistant Chat
             </button>
-            <button class="nav-btn" onclick="switchTab('simulation')">
+            <button class="nav-btn" data-tab="simulation" onclick="switchTab('simulation')">
                 <span>🧮</span> Simulation & R-Max
             </button>
         </nav>
@@ -981,12 +984,87 @@
                         </div>
                     </div>
 
-                </div>
-            </div>
         </div>
 
         <!-- ================================================================= -->
-        <!-- TAB 2 : CHAT ASSISTANT -->
+        <!-- TAB : POSITIONS EN COURS (LIVE TRACKING) -->
+        <!-- ================================================================= -->
+        <div id="portfolio-tab" class="tab-content">
+            
+            <!-- Portfolio Top Summary KPIs -->
+            <div class="metrics-grid" style="margin-bottom: 1.5rem;">
+                <div class="metric-card">
+                    <div class="metric-title">💼 Total Capital Engagé</div>
+                    <div class="metric-value" id="port-total-invested">0.00 €</div>
+                    <div class="metric-subtitle" id="port-open-count">0 position(s) active(s)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">📊 Valeur Actuelle du Portefeuille</div>
+                    <div class="metric-value" id="port-total-value">0.00 €</div>
+                    <div class="metric-subtitle" id="port-last-update">Synchronisé en direct</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">📈 P&L Latent Global</div>
+                    <div class="metric-value" id="port-total-pnl">0.00 €</div>
+                    <div class="metric-subtitle" id="port-total-pnl-pct">+0.00 %</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">🔔 Alertes Cibles & Risque</div>
+                    <div class="metric-value" id="port-alerts-count" style="color: #60a5fa;">0</div>
+                    <div class="metric-subtitle">TP1, TP2, Stop ou Time-Stop</div>
+                </div>
+            </div>
+
+            <!-- Positions Actions & Filter Bar -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h2 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💼 Suivi des Positions Actives (Flux Live)</h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Surveillance continue des objectifs TP1 (+1.25%), TP2 (+2.25%) et des invalidations de Stop-Loss.</p>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="openAddPositionModal()">
+                            ➕ Ajouter une Position
+                        </button>
+                        <button class="btn btn-secondary" onclick="openUploadCsvModal()">
+                            📂 Importer CSV (XTB / Courtier)
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadLivePortfolio()">
+                            🔄 Actualiser les Cours
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Positions Table -->
+            <div class="glass-card">
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="portfolio-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker & Société</th>
+                                <th>Compte</th>
+                                <th>Date & Durée</th>
+                                <th>PRU & Quantité</th>
+                                <th>Cours Actuel</th>
+                                <th>P&L Latent</th>
+                                <th style="min-width: 180px;">Progression Cibles</th>
+                                <th>Statut & Diagnostic</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolio-table-body">
+                            <tr>
+                                <td colspan="9" style="text-align:center; color:var(--text-muted); padding:3rem;">
+                                    Chargement des positions en direct...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
         <!-- ================================================================= -->
         <div id="chat-tab" class="tab-content">
             <div class="glass-card" style="margin-bottom: 1rem; padding: 1rem;">
@@ -1249,10 +1327,161 @@
 
                 <div id="modal-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
             </div>
+    <!-- ===================================================================== -->
+    <!-- MODAL : AJOUTER UNE POSITION OUVERTE -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="add-position-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💼 Ajouter une Position Active</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeAddPositionModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Symbole / Ticker Boursier *</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="pos-symbol-input" class="text-input" placeholder="Ex: SAN.PA, AAPL" style="text-transform: uppercase;" oninput="onPosTickerInput()">
+                        <button class="btn btn-secondary" onclick="fetchLiveQuoteForPosForm()">🔍 Cours Live</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>PRU / Prix d'Achat (€/$) *</label>
+                        <input type="number" id="pos-pru-input" step="0.01" placeholder="Ex: 92.50" oninput="autoCalculatePosTargets()">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantité d'Actions *</label>
+                        <input type="number" id="pos-qty-input" step="0.01" value="10" oninput="autoCalculatePosTargets()">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Stop-Loss (Invalidation)</label>
+                        <input type="number" id="pos-sl-input" step="0.01" placeholder="Auto -3%">
+                    </div>
+                    <div class="form-group">
+                        <label>Take Profit 1 (+1.25%)</label>
+                        <input type="number" id="pos-tp1-input" step="0.01" placeholder="Auto +1.25%">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Take Profit 2 (+2.25%)</label>
+                        <input type="number" id="pos-tp2-input" step="0.01" placeholder="Auto +2.25%">
+                    </div>
+                    <div class="form-group">
+                        <label>Compte</label>
+                        <select id="pos-account-select">
+                            <option value="PEA">🇫🇷 PEA (Europe)</option>
+                            <option value="CTO">🇺🇸 CTO (US Dollar)</option>
+                            <option value="Compte Euro">💶 Compte Euro (CTO)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Date d'Achat</label>
+                    <input type="date" id="pos-date-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Notes / Stratégie</label>
+                    <input type="text" id="pos-notes-input" placeholder="Ex: Rebond sur support SMA 200">
+                </div>
+
+                <div id="pos-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+            </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeAddStockModal()">Annuler</button>
-                <button class="btn btn-success" id="btn-submit-add-stock" onclick="submitAddStock()">
-                    📥 Enregistrer dans Google Sheets
+                <button class="btn btn-secondary" onclick="closeAddPositionModal()">Annuler</button>
+                <button class="btn btn-success" id="btn-submit-add-pos" onclick="submitAddPosition()">
+                    💾 Enregistrer la Position
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL : CLÔTURER UNE POSITION -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="close-position-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💰 Clôturer la Position</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeClosePositionModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                        <span style="color: var(--text-muted);">Position :</span>
+                        <strong id="close-pos-title">--</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                        <span style="color: var(--text-muted);">PRU d'entrée :</span>
+                        <span id="close-pos-pru">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                        <span style="color: var(--text-muted);">Quantité :</span>
+                        <span id="close-pos-qty">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">P&L Réalisé Estimé :</span>
+                        <strong id="close-pos-pnl" style="font-size: 1rem;">--</strong>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Prix de Sortie Réel (€/$) *</label>
+                    <input type="number" id="close-exit-price-input" step="0.01" oninput="recalcClosePnl()">
+                </div>
+
+                <div class="form-group">
+                    <label>Commentaire de Clôture (Optionnel)</label>
+                    <input type="text" id="close-notes-input" placeholder="Ex: TP1 atteint, sortie disciplinée">
+                </div>
+
+                <div id="close-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeClosePositionModal()">Annuler</button>
+                <button class="btn btn-success" id="btn-submit-close-pos" onclick="submitClosePosition()">
+                    ✅ Confirmer la Clôture & Archiver
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL : IMPORTER CSV (XTB / COURTIER) -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="upload-csv-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📂 Importer un Relevé de Positions (CSV)</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeUploadCsvModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Sélectionnez le fichier CSV exporté depuis <strong>XTB</strong> (Onglet 'Positions Ouvertes' &gt; Exporter) ou votre courtier (DeGiro, Bourse Direct, Interactive Brokers).
+                </p>
+
+                <div style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 2rem; text-align: center; margin-bottom: 1rem; background: rgba(0,0,0,0.2);">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
+                    <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display: none;" onchange="onCsvFileSelected()">
+                    <button class="btn btn-primary" onclick="document.getElementById('csv-file-input').click()">
+                        Choisir un fichier CSV
+                    </button>
+                    <div id="csv-file-name" style="margin-top: 0.75rem; font-size: 0.85rem; color: #60a5fa;">Aucun fichier sélectionné</div>
+                </div>
+
+                <div id="csv-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeUploadCsvModal()">Annuler</button>
+                <button class="btn btn-success" id="btn-submit-upload-csv" onclick="submitUploadCsv()" disabled>
+                    📥 Importer dans le Suivi Live
                 </button>
             </div>
         </div>
@@ -1271,6 +1500,7 @@
             loadMacroBarometer();
             recalculateRMaxTool();
             runSimulation();
+            loadLivePortfolio();
         });
 
         // ---------------------------------------------------------------------
@@ -1280,17 +1510,452 @@
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
-            if (tabId === 'dashboard') {
-                document.querySelectorAll('.nav-btn')[0].classList.add('active');
-                document.getElementById('dashboard-tab').classList.add('active');
-            } else if (tabId === 'chat') {
-                document.querySelectorAll('.nav-btn')[1].classList.add('active');
-                document.getElementById('chat-tab').classList.add('active');
+            const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+            if (btn) btn.classList.add('active');
+            
+            const targetTab = document.getElementById(`${tabId}-tab`);
+            if (targetTab) targetTab.classList.add('active');
+
+            if (tabId === 'portfolio') {
+                loadLivePortfolio();
             } else if (tabId === 'simulation') {
-                document.querySelectorAll('.nav-btn')[2].classList.add('active');
-                document.getElementById('simulation-tab').classList.add('active');
                 runSimulation();
             }
+        }
+
+        // ---------------------------------------------------------------------
+        // LIVE PORTFOLIO & POSITIONS TRACKING
+        // ---------------------------------------------------------------------
+        let livePortfolioData = null;
+        let selectedClosePos = null;
+
+        async function loadLivePortfolio() {
+            const tbody = document.getElementById('portfolio-table-body');
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#60a5fa; padding:2rem;">⏳ Actualisation des cours en direct...</td></tr>`;
+
+            try {
+                const res = await fetch(`${API_URL}/portfolio/live`);
+                const payload = await res.json();
+                if (!payload.success || !payload.data) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur lors du chargement des positions.</td></tr>`;
+                    return;
+                }
+
+                const d = payload.data;
+                livePortfolioData = d;
+
+                // Update KPIs
+                document.getElementById('port-total-invested').textContent = `${d.total_invested.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                document.getElementById('port-total-value').textContent = `${d.total_current_value.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                
+                const pnlElem = document.getElementById('port-total-pnl');
+                pnlElem.textContent = `${d.total_pnl_amount >= 0 ? '+' : ''}${d.total_pnl_amount.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                pnlElem.style.color = d.total_pnl_amount >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                const pnlPctElem = document.getElementById('port-total-pnl-pct');
+                pnlPctElem.textContent = `${d.total_pnl_pct >= 0 ? '+' : ''}${d.total_pnl_pct.toFixed(2)} %`;
+                pnlPctElem.style.color = d.total_pnl_pct >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                document.getElementById('port-open-count').textContent = `${d.open_positions_count} position(s) active(s)`;
+                document.getElementById('port-alerts-count').textContent = `${d.alerts_count}`;
+                document.getElementById('port-alerts-count').style.color = d.alerts_count > 0 ? '#fbbf24' : '#60a5fa';
+
+                // Nav Alerts Badge
+                const navBadge = document.getElementById('nav-alerts-badge');
+                if (d.alerts_count > 0) {
+                    navBadge.textContent = d.alerts_count;
+                    navBadge.style.display = 'inline-block';
+                } else {
+                    navBadge.style.display = 'none';
+                }
+
+                renderPortfolioTable(d.positions);
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur réseau: ${e.message}</td></tr>`;
+            }
+        }
+
+        function renderPortfolioTable(positions) {
+            const tbody = document.getElementById('portfolio-table-body');
+            tbody.innerHTML = '';
+
+            if (!positions || positions.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align:center; color:var(--text-muted); padding:3.5rem 1rem;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">💼</div>
+                            <strong>Aucune position ouverte actuellement dans votre portefeuille.</strong><br>
+                            <span style="font-size: 0.85rem;">Ajoutez une position manuellement ou importez votre relevé CSV (XTB / Courtier).</span><br>
+                            <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem; justify-content: center;">
+                                <button class="btn btn-primary" onclick="openAddPositionModal()">➕ Ajouter une Position</button>
+                                <button class="btn btn-secondary" onclick="openUploadCsvModal()">📂 Importer CSV</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            positions.forEach(p => {
+                const tr = document.createElement('tr');
+                const symChar = p.currency === "EUR" ? "€" : "$";
+                const isProfit = p.pnl_amount >= 0;
+                const pnlColor = isProfit ? 'var(--success)' : 'var(--danger)';
+
+                // Badges
+                let statusBadgeClass = 'badge-neutral';
+                if (p.status_badge === 'tp2_reached') statusBadgeClass = 'badge-success';
+                else if (p.status_badge === 'tp1_reached') statusBadgeClass = 'badge-primary';
+                else if (p.status_badge === 'sl_danger') statusBadgeClass = 'badge-danger';
+                else if (p.status_badge === 'time_warning') statusBadgeClass = 'badge-warning';
+                else if (p.status_badge === 'in_profit') statusBadgeClass = 'badge-success';
+
+                const isPea = p.account && p.account.includes("PEA");
+                const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : '<span class="badge badge-cto">🇺🇸 CTO</span>';
+
+                // Target Progress Track Calculation
+                const sl = p.stop_loss;
+                const pru = p.pru;
+                const tp1 = p.tp1;
+                const tp2 = p.tp2;
+                const cur = p.current_price;
+                
+                let progressPercent = 50;
+                if (cur <= sl) progressPercent = 5;
+                else if (cur >= tp2) progressPercent = 95;
+                else if (cur < pru) progressPercent = 20 + ((cur - sl) / (pru - sl) * 30);
+                else progressPercent = 50 + ((cur - pru) / (tp2 - pru) * 45);
+
+                const trackColor = cur >= tp1 ? '#22c55e' : cur >= pru ? '#3b82f6' : '#ef4444';
+
+                tr.innerHTML = `
+                    <td>
+                        <strong style="font-size: 1rem; cursor:pointer; color:#60a5fa;" onclick="showTickerDetail('${p.symbol}')">${p.symbol}</strong><br>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">${p.name || ''}</span>
+                    </td>
+                    <td>${accountBadge}</td>
+                    <td>
+                        <span style="font-size:0.85rem;">${p.entry_date}</span><br>
+                        <span style="font-size:0.75rem; color:${p.days_held >= 15 ? 'var(--warning)' : 'var(--text-muted)'};">⏱️ ${p.days_held} jour(s)</span>
+                    </td>
+                    <td>
+                        <strong>${p.pru.toFixed(2)} ${symChar}</strong><br>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">${p.quantity} actions (${p.invested_amount.toFixed(2)} ${symChar})</span>
+                    </td>
+                    <td>
+                        <strong style="font-size: 0.95rem;">${p.current_price.toFixed(2)} ${symChar}</strong><br>
+                        <span style="font-size:0.75rem; color:${p.day_change_pct >= 0 ? 'var(--success)' : 'var(--danger)'};">${p.day_change_pct >= 0 ? '+' : ''}${p.day_change_pct.toFixed(2)}% auj.</span>
+                    </td>
+                    <td>
+                        <strong style="color:${pnlColor}; font-size: 0.95rem;">${isProfit ? '+' : ''}${p.pnl_amount.toFixed(2)} ${symChar}</strong><br>
+                        <span style="color:${pnlColor}; font-size:0.75rem; font-weight:600;">${isProfit ? '+' : ''}${p.pnl_pct.toFixed(2)}%</span>
+                    </td>
+                    <td>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                            <span title="Stop-Loss">🛑 ${sl.toFixed(2)}</span>
+                            <span title="PRU" style="font-weight:600; color:var(--text-main);">PRU ${pru.toFixed(2)}</span>
+                            <span title="TP1 (+1.25%)" style="color:#60a5fa;">TP1 ${tp1.toFixed(2)}</span>
+                            <span title="TP2 (+2.25%)" style="color:#22c55e;">TP2 ${tp2.toFixed(2)}</span>
+                        </div>
+                        <div class="ratio-bar-outer" style="height: 8px; margin-top: 0.35rem; position: relative;">
+                            <div class="ratio-bar-inner" style="width: ${progressPercent}%; background: ${trackColor};"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge ${statusBadgeClass}">${p.status_label}</span><br>
+                        <span style="font-size:0.75rem; color:var(--text-muted); line-height:1.2; display:block; margin-top:0.25rem;">${p.status_action}</span>
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                            <button class="btn btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="showTickerDetail('${p.symbol}')" title="Voir le rapport en 8 étapes">
+                                🔍
+                            </button>
+                            <button class="btn btn-success" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="openClosePositionModal('${p.id}', '${p.symbol}', ${p.pru}, ${p.quantity}, ${p.current_price}, '${p.currency}')" title="Clôturer cette position">
+                                💰 Sortir
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // ADD POSITION MODAL
+        // ---------------------------------------------------------------------
+        function openAddPositionModal() {
+            document.getElementById('add-position-modal').classList.add('active');
+            document.getElementById('pos-date-input').value = new Date().toISOString().split('T')[0];
+            document.getElementById('pos-feedback').style.display = 'none';
+            document.getElementById('pos-symbol-input').focus();
+        }
+
+        function closeAddPositionModal() {
+            document.getElementById('add-position-modal').classList.remove('active');
+        }
+
+        function onPosTickerInput() {
+            const sym = document.getElementById('pos-symbol-input').value.trim().toUpperCase();
+            if (sym.endsWith('.PA') || sym.endsWith('.DE') || sym.endsWith('.AS')) {
+                document.getElementById('pos-account-select').value = 'PEA';
+            } else if (sym.length >= 2) {
+                document.getElementById('pos-account-select').value = 'CTO';
+            }
+        }
+
+        async function fetchLiveQuoteForPosForm() {
+            const sym = document.getElementById('pos-symbol-input').value.trim().toUpperCase();
+            if (!sym) return;
+
+            try {
+                const res = await fetch(`${API_URL}/analyze/${sym}`);
+                const payload = await res.json();
+                if (payload.success && payload.data && payload.data.step_5_technical) {
+                    const price = payload.data.step_5_technical.current_price;
+                    document.getElementById('pos-pru-input').value = price.toFixed(2);
+                    autoCalculatePosTargets();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function autoCalculatePosTargets() {
+            const pru = parseFloat(document.getElementById('pos-pru-input').value) || 0;
+            if (pru > 0) {
+                document.getElementById('pos-sl-input').value = (pru * 0.97).toFixed(2);
+                document.getElementById('pos-tp1-input').value = (pru * 1.0125).toFixed(2);
+                document.getElementById('pos-tp2-input').value = (pru * 1.0225).toFixed(2);
+            }
+        }
+
+        async function submitAddPosition() {
+            const sym = document.getElementById('pos-symbol-input').value.trim().toUpperCase();
+            const pru = parseFloat(document.getElementById('pos-pru-input').value);
+            const qty = parseFloat(document.getElementById('pos-qty-input').value);
+            const sl = parseFloat(document.getElementById('pos-sl-input').value) || (pru * 0.97);
+            const tp1 = parseFloat(document.getElementById('pos-tp1-input').value) || (pru * 1.0125);
+            const tp2 = parseFloat(document.getElementById('pos-tp2-input').value) || (pru * 1.0225);
+            const account = document.getElementById('pos-account-select').value;
+            const entryDate = document.getElementById('pos-date-input').value;
+            const notes = document.getElementById('pos-notes-input').value;
+
+            if (!sym || !pru || !qty) {
+                showPosFeedback("Veuillez renseigner le symbole, le PRU et la quantité.", "var(--danger)");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-add-pos');
+            btn.disabled = true;
+            btn.textContent = "⏳ Enregistrement...";
+
+            try {
+                const res = await fetch(`${API_URL}/portfolio/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: sym,
+                        pru: pru,
+                        quantity: qty,
+                        stop_loss: sl,
+                        tp1: tp1,
+                        tp2: tp2,
+                        account: account,
+                        entry_date: entryDate,
+                        notes: notes
+                    })
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    showPosFeedback(`✅ ${payload.message}`, "var(--success)");
+                    setTimeout(() => {
+                        closeAddPositionModal();
+                        loadLivePortfolio();
+                    }, 1000);
+                } else {
+                    showPosFeedback(`❌ ${payload.error || 'Erreur lors de l\'ajout.'}`, "var(--danger)");
+                }
+            } catch (e) {
+                console.error(e);
+                showPosFeedback("Erreur de communication avec le serveur.", "var(--danger)");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "💾 Enregistrer la Position";
+            }
+        }
+
+        function showPosFeedback(msg, color) {
+            const fb = document.getElementById('pos-feedback');
+            fb.style.display = 'block';
+            fb.style.background = 'rgba(0,0,0,0.4)';
+            fb.style.border = `1px solid ${color}`;
+            fb.style.color = color;
+            fb.textContent = msg;
+        }
+
+        // ---------------------------------------------------------------------
+        // CLOSE POSITION MODAL
+        // ---------------------------------------------------------------------
+        function openClosePositionModal(posId, symbol, pru, qty, currentPrice, currency) {
+            selectedClosePos = { id: posId, symbol: symbol, pru: pru, quantity: qty, currency: currency };
+            const symChar = currency === "EUR" ? "€" : "$";
+
+            document.getElementById('close-pos-title').textContent = `${symbol} (${qty} actions)`;
+            document.getElementById('close-pos-pru').textContent = `${pru.toFixed(2)} ${symChar}`;
+            document.getElementById('close-pos-qty').textContent = `${qty} action(s)`;
+            document.getElementById('close-exit-price-input').value = currentPrice.toFixed(2);
+            document.getElementById('close-feedback').style.display = 'none';
+
+            recalcClosePnl();
+            document.getElementById('close-position-modal').classList.add('active');
+        }
+
+        function closeClosePositionModal() {
+            document.getElementById('close-position-modal').classList.remove('active');
+            selectedClosePos = null;
+        }
+
+        function recalcClosePnl() {
+            if (!selectedClosePos) return;
+            const exitPrice = parseFloat(document.getElementById('close-exit-price-input').value) || 0;
+            const pru = selectedClosePos.pru;
+            const qty = selectedClosePos.quantity;
+            const symChar = selectedClosePos.currency === "EUR" ? "€" : "$";
+
+            const pnlUnit = exitPrice - pru;
+            const pnlAmount = pnlUnit * qty;
+            const pnlPct = pru > 0 ? (pnlUnit / pru * 100) : 0;
+
+            const pnlElem = document.getElementById('close-pos-pnl');
+            pnlElem.textContent = `${pnlAmount >= 0 ? '+' : ''}${pnlAmount.toFixed(2)} ${symChar} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`;
+            pnlElem.style.color = pnlAmount >= 0 ? 'var(--success)' : 'var(--danger)';
+        }
+
+        async function submitClosePosition() {
+            if (!selectedClosePos) return;
+            const exitPrice = parseFloat(document.getElementById('close-exit-price-input').value);
+            const notes = document.getElementById('close-notes-input').value;
+
+            if (!exitPrice || exitPrice <= 0) {
+                showCloseFeedback("Veuillez saisir un prix de sortie valide.", "var(--danger)");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-close-pos');
+            btn.disabled = true;
+            btn.textContent = "⏳ Clôture en cours...";
+
+            try {
+                const res = await fetch(`${API_URL}/portfolio/close`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: selectedClosePos.id,
+                        symbol: selectedClosePos.symbol,
+                        exit_price: exitPrice,
+                        notes: notes
+                    })
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    showCloseFeedback(`✅ ${payload.message}`, "var(--success)");
+                    setTimeout(() => {
+                        closeClosePositionModal();
+                        loadLivePortfolio();
+                    }, 1200);
+                } else {
+                    showCloseFeedback(`❌ ${payload.error || 'Erreur lors de la clôture.'}`, "var(--danger)");
+                }
+            } catch (e) {
+                console.error(e);
+                showCloseFeedback("Erreur de communication avec le serveur.", "var(--danger)");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "✅ Confirmer la Clôture & Archiver";
+            }
+        }
+
+        function showCloseFeedback(msg, color) {
+            const fb = document.getElementById('close-feedback');
+            fb.style.display = 'block';
+            fb.style.background = 'rgba(0,0,0,0.4)';
+            fb.style.border = `1px solid ${color}`;
+            fb.style.color = color;
+            fb.textContent = msg;
+        }
+
+        // ---------------------------------------------------------------------
+        // UPLOAD CSV MODAL
+        // ---------------------------------------------------------------------
+        function openUploadCsvModal() {
+            document.getElementById('upload-csv-modal').classList.add('active');
+            document.getElementById('csv-file-input').value = '';
+            document.getElementById('csv-file-name').textContent = 'Aucun fichier sélectionné';
+            document.getElementById('btn-submit-upload-csv').disabled = true;
+            document.getElementById('csv-feedback').style.display = 'none';
+        }
+
+        function closeUploadCsvModal() {
+            document.getElementById('upload-csv-modal').classList.remove('active');
+        }
+
+        function onCsvFileSelected() {
+            const input = document.getElementById('csv-file-input');
+            const btn = document.getElementById('btn-submit-upload-csv');
+            const nameElem = document.getElementById('csv-file-name');
+
+            if (input.files && input.files[0]) {
+                nameElem.textContent = `📄 ${input.files[0].name} (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+                btn.disabled = false;
+            } else {
+                nameElem.textContent = 'Aucun fichier sélectionné';
+                btn.disabled = true;
+            }
+        }
+
+        async function submitUploadCsv() {
+            const input = document.getElementById('csv-file-input');
+            if (!input.files || !input.files[0]) return;
+
+            const btn = document.getElementById('btn-submit-upload-csv');
+            btn.disabled = true;
+            btn.textContent = "⏳ Importation en cours...";
+
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+
+            try {
+                const res = await fetch(`${API_URL}/portfolio/upload_csv`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    showCsvFeedback(`✅ ${payload.message}`, "var(--success)");
+                    setTimeout(() => {
+                        closeUploadCsvModal();
+                        loadLivePortfolio();
+                    }, 1200);
+                } else {
+                    showCsvFeedback(`❌ ${payload.error || 'Erreur lors de l\'import.'}`, "var(--danger)");
+                }
+            } catch (e) {
+                console.error(e);
+                showCsvFeedback("Erreur de connexion lors de l'envoi du fichier.", "var(--danger)");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "📥 Importer dans le Suivi Live";
+            }
+        }
+
+        function showCsvFeedback(msg, color) {
+            const fb = document.getElementById('csv-feedback');
+            fb.style.display = 'block';
+            fb.style.background = 'rgba(0,0,0,0.4)';
+            fb.style.border = `1px solid ${color}`;
+            fb.style.color = color;
+            fb.textContent = msg;
         }
 
         // ---------------------------------------------------------------------
