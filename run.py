@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import sys
-from src.cli import run_analyze_ticker, run_scan_watchlist, run_scan_market, run_check_macro
+from src.cli import run_analyze_ticker, run_scan_watchlist, run_scan_market, run_check_macro, run_add_ticker_to_watchlist
 
 def print_usage():
-    print("Assistant Swing Trading - Usage:")
+    print("Assistant Swing Trading v2.0 - Usage:")
     print("  python run.py scan watchlist  : Scanne la watchlist Google Sheets (ou défaut)")
-    print("  python run.py scan market     : Scanne le marché élargi")
+    print("  python run.py scan market     : Scanne le marché élargi (Large & Mid Caps)")
     print("  python run.py analyze <TICKER>: Lance le protocole en 8 étapes pour un ticker")
-    print("  python run.py check macro     : Fait un point macroéconomique")
+    print("  python run.py add <TICKER>    : Ajoute une action au Google Sheet et l'analyse")
+    print("  python run.py check macro     : Affiche le Baromètre Macroéconomique Top-Down")
     print("\nVariantes courtes :")
     print("  python run.py scan-watchlist")
     print("  python run.py scan-market")
@@ -21,7 +22,6 @@ def main():
 
     cmd = args[0].lower()
     
-    # Gérer les commandes en deux mots (ex: scan watchlist)
     if cmd == "scan" and len(args) > 1:
         subcmd = args[1].lower()
         if subcmd == "watchlist":
@@ -40,7 +40,8 @@ def main():
             print_usage()
     elif cmd == "analyze" and len(args) > 1:
         run_analyze_ticker(args[1])
-    # Gérer les variantes courtes avec tiret (ex: scan-watchlist)
+    elif cmd == "add" and len(args) > 1:
+        run_add_ticker_to_watchlist(args[1])
     elif cmd == "scan-watchlist":
         run_scan_watchlist()
     elif cmd == "scan-market":

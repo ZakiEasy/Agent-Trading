@@ -2,13 +2,77 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from src.config import MIN_DROP_PCT, MAX_DROP_PCT, LOOKBACK_DAYS, HOLDING_PERIOD_DAYS
+from src.config import (
+    MIN_DROP_PCT,
+    MAX_DROP_PCT,
+    LOOKBACK_DAYS,
+    HOLDING_PERIOD_DAYS,
+    MIN_MARKET_CAP_USD
+)
+
+def categorize_ticker(symbol, info=None):
+    """
+    Détermine l'éligibilité au PEA (Euronext / Europe) et la catégorie sectorielle en français.
+    """
+    symbol = symbol.upper().strip()
+    
+    # 1. Éligibilité PEA (Titres européens / français Euronext)
+    eu_suffixes = ['.PA', '.AS', '.BR', '.DE', '.MC', '.MI', '.LS', '.VI', '.IR', '.HE']
+    is_pea = any(symbol.endswith(sfx) for sfx in eu_suffixes) or symbol in [
+        'MC.PA', 'OR.PA', 'AIR.PA', 'RMS.PA', 'KER.PA', 'SAN.PA', 'TTE.PA', 'EL.PA', 'ASML.AS', 'SAP.DE'
+    ]
+    account_type = "PEA (Europe)" if is_pea else "CTO (US)"
+    
+    sector = info.get('sector', '') if info else ''
+    industry = info.get('industry', '') if info else ''
+    sec_lower = (sector + ' ' + industry).lower()
+    
+    # 2. Catégories Thématiques & Sectorielles
+    if any(k in sec_lower for k in ['technology', 'software', 'semiconductor', 'hardware', 'electronic', 'it ']):
+        category = "Tech & IA"
+        category_icon = "💻"
+    elif any(k in sec_lower for k in ['health', 'pharma', 'biotech', 'drug', 'medical', 'care']):
+        category = "Santé & Pharma"
+        category_icon = "💊"
+    elif any(k in sec_lower for k in ['luxury', 'consumer cyclical', 'apparel', 'retail', 'beverage', 'cosmetic', 'luxe']):
+        category = "Luxe & Consommation"
+        category_icon = "💎"
+    elif any(k in sec_lower for k in ['industrial', 'aerospace', 'defense', 'machinery', 'transport', 'airline']):
+        category = "Industrie & Aéro"
+        category_icon = "🏭"
+    elif any(k in sec_lower for k in ['energy', 'oil', 'gas', 'petroleum', 'solar', 'clean energy']):
+        category = "Énergie & Pétrole"
+        category_icon = "⚡"
+    elif any(k in sec_lower for k in ['materials', 'chemical', 'mining', 'steel']):
+        category = "Matériaux & Chimie"
+        category_icon = "🧪"
+    elif any(k in sec_lower for k in ['defensive', 'food', 'grocery', 'household', 'consumer defensive']):
+        category = "Agro & Défensif"
+        category_icon = "🛒"
+    elif any(k in sec_lower for k in ['financial', 'bank', 'real estate', 'reit', 'insurance']):
+        category = "Finance & Immo"
+        category_icon = "🏦"
+    else:
+        category = sector if sector else "Autres"
+        category_icon = "📦"
+        
+    return {
+        "is_pea": is_pea,
+        "account_type": account_type,
+        "category": category,
+        "category_icon": category_icon,
+        "sector_raw": sector,
+        "industry_raw": industry
+    }
 
 def calculate_rsi(prices, period=14):
     """
-    Calcule le Relative Strength Index (RSI).
+    Calcule le Relative Strength Index (RSI) classique sur N périodes.
     """
     deltas = np.diff(prices)
+    if len(deltas) < period:
+        return np.full_like(prices, 50.0)
+        
     seed = deltas[:period+1]
     up = seed[seed >= 0].sum() / period
     down = -seed[seed < 0].sum() / period
@@ -32,6 +96,79 @@ def calculate_rsi(prices, period=14):
         
     return rsi
 
+def detect_rsi_divergence(close_prices, rsi_values, window=25):
+    """
+    Détecte les divergences haussières sur le RSI (14) selon la Section 5.
+    Divergence Haussière : Le cours teste un plus bas (ou égal) alors que le RSI
+    marque un point bas plus élevé -> Signe d'épuisement de la dynamique vendeuse.
+    """
+    if len(close_prices) < window:
+        window = len(close_prices)
+        
+    if window < 10:
+        return {
+            "has_divergence": False,
+            "type": "AUCUNE",
+            "description": "Historique insuffisant pour l'analyse de divergence."
+        }
+        
+    closes = close_prices[-window:]
+    rsis = rsi_values[-window:]
+    
+    # 1. Identifier les creux locaux (Swing Lows)
+    low_indices = []
+    for i in range(1, len(closes) - 1):
+        if closes[i] <= closes[i-1] and closes[i] <= closes[i+1]:
+            low_indices.append(i)
+            
+    # Ajouter le dernier point si c'est un creux récent (5 derniers jours)
+    if closes[-1] <= np.min(closes[-5:]):
+        if not low_indices or low_indices[-1] != len(closes) - 1:
+            low_indices.append(len(closes) - 1)
+            
+    if len(low_indices) >= 2:
+        idx2 = low_indices[-1]
+        idx1 = low_indices[-2]
+        
+        price1, price2 = closes[idx1], closes[idx2]
+        rsi1, rsi2 = rsis[idx1], rsis[idx2]
+        
+        if price2 <= price1 * 1.005 and rsi2 >= (rsi1 + 1.5):
+            return {
+                "has_divergence": True,
+                "type": "DIVERGENCE HAUSSIÈRE",
+                "description": f"Divergence Haussière confirmée (Creux prix : {price1:.2f} ➔ {price2:.2f} vs Creux RSI : {rsi1:.1f} ➔ {rsi2:.1f}). Épuisement vendeur.",
+                "details": {
+                    "price_low_prev": float(price1),
+                    "price_low_curr": float(price2),
+                    "rsi_low_prev": float(rsi1),
+                    "rsi_low_curr": float(rsi2)
+                }
+            }
+
+    min_p_idx = int(np.argmin(closes))
+    min_r_idx = int(np.argmin(rsis))
+    
+    if closes[-1] <= closes[min_p_idx] * 1.015 and rsis[-1] >= rsis[min_r_idx] + 3.0:
+        return {
+            "has_divergence": True,
+            "type": "DIVERGENCE HAUSSIÈRE DE REPRISE",
+            "description": f"Divergence haussière de reprise (RSI {rsis[-1]:.1f} en net rebond vs creux {rsis[min_r_idx]:.1f} sur prix bas).",
+            "details": {
+                "price_low_prev": float(closes[min_p_idx]),
+                "price_low_curr": float(closes[-1]),
+                "rsi_low_prev": float(rsis[min_r_idx]),
+                "rsi_low_curr": float(rsis[-1])
+            }
+        }
+
+    return {
+        "has_divergence": False,
+        "type": "AUCUNE",
+        "description": "Pas de divergence haussière significative détectée sur le RSI.",
+        "details": {}
+    }
+
 def get_usd_conversion_rate(currency_code):
     """
     Récupère le taux de conversion depuis une autre devise vers le USD.
@@ -42,7 +179,6 @@ def get_usd_conversion_rate(currency_code):
     if currency_code == "USD":
         return 1.0
         
-    # Pence sterling (GBp/GBX) -> GBP -> USD
     factor = 1.0
     if currency_code in ["GBX", "GBP"]:
         currency_code = "GBP"
@@ -56,7 +192,6 @@ def get_usd_conversion_rate(currency_code):
         if not hist.empty:
             return float(hist['Close'].values[-1]) * factor
         else:
-            # Essayer l'inverse USD/CURR
             t_inv = yf.Ticker(f"USD{currency_code}=X")
             hist_inv = t_inv.history(period="1d")
             if not hist_inv.empty:
@@ -68,24 +203,23 @@ def get_usd_conversion_rate(currency_code):
 def fetch_market_data(ticker_symbol):
     """
     Récupère les données de marché historiques et actuelles.
-    Garde nativement le USD et EUR. Convertit les autres devises (ex: KRW) en USD.
-    On récupère 300 jours d'historique pour calculer la SMA 200 de fond.
+    Garde nativement le USD et EUR. Récupère 300 jours d'historique pour la SMA 200.
     """
     ticker_obj = yf.Ticker(ticker_symbol)
-    
-    # Récupérer l'historique sur les 300 derniers jours
     hist = ticker_obj.history(period="300d")
     if hist.empty:
         return None, "Aucun historique de cours disponible."
         
-    # Détecter la devise
+    hist = hist.dropna(subset=['Close'])
+    if hist.empty:
+        return None, "Données de cours incomplètes."
+
     try:
         info = ticker_obj.info
         currency = info.get("currency", "USD").upper()
     except:
         currency = "USD"
         
-    # Normaliser la devise cible
     if currency == "EUR":
         target_currency = "EUR"
     else:
@@ -97,7 +231,6 @@ def fetch_market_data(ticker_symbol):
             for col in ['Open', 'High', 'Low', 'Close']:
                 if col in hist.columns:
                     hist[col] = hist[col] * rate
-            print(f"Converted {ticker_symbol} prices from {currency} to USD using rate {rate:.6f}")
         currency = "USD"
     else:
         currency = target_currency
@@ -110,23 +243,16 @@ def calculate_qqe(close_prices, rsi_period=14, sf=5, wilder_period=27):
     Calcule le QQE (Quantitative Qualitative Estimation) pour les signaux de momentum.
     """
     rsi = calculate_rsi(close_prices, period=rsi_period)
-    
-    # 2. Lissage du RSI via EMA (sf=5)
     rsi_df = pd.Series(rsi)
     smoothed_rsi = rsi_df.ewm(span=sf, adjust=False).mean().values
     
-    # 3. ATR rapide du RSI lissé
     rsi_change = np.abs(np.diff(smoothed_rsi))
     rsi_change = np.insert(rsi_change, 0, 0)
     rsi_change_df = pd.Series(rsi_change)
     
-    # Wilder's MA de la variation du RSI
     wilder_ma = rsi_change_df.ewm(alpha=1/wilder_period, adjust=False).mean().values
-    
-    # Trailing Band
     atr_rsi = wilder_ma * 4.236
     
-    # Calcul de la ligne de trailing stop QQE
     tr = np.zeros_like(smoothed_rsi)
     for i in range(1, len(smoothed_rsi)):
         prev_tr = tr[i-1]
@@ -140,7 +266,6 @@ def calculate_qqe(close_prices, rsi_period=14, sf=5, wilder_period=27):
             new_tr = curr_rsi + curr_atr
             tr[i] = min(new_tr, prev_tr) if (prev_tr != 0 and smoothed_rsi[i-1] < prev_tr) else new_tr
             
-    # Signal d'achat: le RSI lissé repasse au-dessus de la ligne QQE
     buy_signal = (smoothed_rsi[-1] > tr[-1]) and (smoothed_rsi[-2] <= tr[-2])
     return {
         "smoothed_rsi": float(smoothed_rsi[-1]),
@@ -148,35 +273,82 @@ def calculate_qqe(close_prices, rsi_period=14, sf=5, wilder_period=27):
         "buy_signal": bool(buy_signal)
     }
 
+def check_fundamental_quality(ticker_obj, info=None, symbol=None):
+    """
+    Évalue les critères d'excellence fondamentale de la Section 4.A :
+    - Catégorisation PEA et Secteur
+    - Capitalisation boursière Large/Mid Cap (> 2 Mrd $/€)
+    - Free Cash Flow récurrent et marges opérationnelles solides
+    """
+    if info is None:
+        try:
+            info = ticker_obj.info
+        except:
+            info = {}
+            
+    sym = symbol or info.get("symbol", "")
+    cat_meta = categorize_ticker(sym, info)
+    
+    market_cap = info.get("marketCap", 0) or 0
+    fcf = info.get("freeCashflow", 0) or 0
+    op_margin = info.get("operatingMargins", 0) or 0
+    revenue_growth = info.get("revenueGrowth", 0) or 0
+    profit_margin = info.get("profitMargins", 0) or 0
+    
+    is_large_cap = bool(market_cap >= MIN_MARKET_CAP_USD)
+    is_fcf_positive = bool(fcf > 0 or fcf is None)
+    is_profitable = bool(op_margin > 0 or profit_margin > 0)
+    
+    health_status = "SOLIDE" if (is_large_cap and is_profitable) else "MOYENNE" if is_large_cap else "SPÉCULATIVE"
+    
+    return {
+        "market_cap": market_cap,
+        "is_large_cap": is_large_cap,
+        "free_cash_flow": fcf,
+        "is_fcf_positive": is_fcf_positive,
+        "operating_margin": op_margin,
+        "revenue_growth": revenue_growth,
+        "profit_margin": profit_margin,
+        "sector": cat_meta["sector_raw"],
+        "industry": cat_meta["industry_raw"],
+        "category": cat_meta["category"],
+        "category_icon": cat_meta["category_icon"],
+        "is_pea": cat_meta["is_pea"],
+        "account_type": cat_meta["account_type"],
+        "health_status": health_status,
+        "summary": f"Cap: {market_cap/1e9:.1f}B | {cat_meta['category']} ({cat_meta['account_type']}) | Marge Op: {op_margin*100:.1f}%"
+    }
+
 def analyze_technical_setup(hist):
     """
-    Analyse les indicateurs techniques et identifie les niveaux clés.
-    Ajoute la SMA 200, le canal MRC, les signaux QQE et la confirmation du Volume.
+    Analyse technique complète : SMA 20/50/200, MRC Channel, Divergence RSI, QQE, Volume.
     """
     close_prices = hist['Close'].values
     high_prices = hist['High'].values
     low_prices = hist['Low'].values
     volume_values = hist['Volume'].values
     
-    current_price = close_prices[-1]
+    current_price = float(close_prices[-1])
     
-    # 1. Calcul du RSI
+    # 1. Calcul du RSI & Divergences
     rsi_values = calculate_rsi(close_prices)
-    current_rsi = rsi_values[-1]
+    current_rsi = float(rsi_values[-1])
+    rsi_divergence = detect_rsi_divergence(close_prices, rsi_values)
     
-    # 2. Moyennes mobiles (SMA 20, SMA 50 et SMA 200 de fond)
-    sma_20 = hist['Close'].rolling(window=20).mean().values[-1]
-    sma_50 = hist['Close'].rolling(window=50).mean().values[-1]
+    # 2. Moyennes mobiles
+    sma_20 = float(hist['Close'].rolling(window=20).mean().values[-1])
+    sma_50 = float(hist['Close'].rolling(window=50).mean().values[-1])
     
-    # Fallback pour SMA 200 si historique plus court
     if len(close_prices) >= 200:
-        sma_200 = hist['Close'].rolling(window=200).mean().values[-1]
+        sma_200 = float(hist['Close'].rolling(window=200).mean().values[-1])
     else:
-        sma_200 = hist['Close'].mean()
+        sma_200 = float(hist['Close'].mean())
+        
+    trend_daily = "HAUSSIÈRE" if current_price >= sma_200 else "BAISSIÈRE"
     
-    # 3. Canal de Retour à la Moyenne (MRC - Mean Reversion Channel)
+    # 3. Canal de Retour à la Moyenne (MRC)
     mrc_mean = sma_20
-    mrc_std = hist['Close'].rolling(window=20).std().values[-1]
+    mrc_std = float(hist['Close'].rolling(window=20).std().values[-1])
     mrc_lower = mrc_mean - 2 * mrc_std
     mrc_upper = mrc_mean + 2 * mrc_std
     mrc_oversold = bool(current_price <= mrc_lower)
@@ -184,49 +356,46 @@ def analyze_technical_setup(hist):
     # 4. Signaux QQE
     qqe = calculate_qqe(close_prices)
     
-    # 5. Volume + Moyenne Mobile 20 périodes du Volume
+    # 5. Volume & Moyenne Mobile 20
     current_volume = float(volume_values[-1])
     volume_sma_20 = float(hist['Volume'].rolling(window=20).mean().values[-1])
     volume_confirmed = bool(current_volume > volume_sma_20)
     
     # 6. Niveaux de support & résistance
-    # Support 1 : Plus bas des 10 dernières sessions (hors session en cours)
-    support_10d = np.min(low_prices[-11:-1]) if len(low_prices) > 11 else np.min(low_prices[:-1])
-    support_30d = np.min(low_prices[-31:-1]) if len(low_prices) > 31 else np.min(low_prices[:-1])
+    support_10d = float(np.min(low_prices[-11:-1])) if len(low_prices) > 11 else float(np.min(low_prices[:-1]))
+    support_30d = float(np.min(low_prices[-31:-1])) if len(low_prices) > 31 else float(np.min(low_prices[:-1]))
     
     support = support_10d if support_10d < current_price else support_30d
     if support >= current_price:
         support = current_price * 0.97
         
-    # Résistance 1 : Plus haut des 10 dernières sessions (hors session en cours)
-    resistance_10d = np.max(high_prices[-11:-1]) if len(high_prices) > 11 else np.max(high_prices[:-1])
-    resistance_30d = np.max(high_prices[-31:-1]) if len(high_prices) > 31 else np.max(high_prices[:-1])
+    resistance_10d = float(np.max(high_prices[-11:-1])) if len(high_prices) > 11 else float(np.max(high_prices[:-1]))
+    resistance_30d = float(np.max(high_prices[-31:-1])) if len(high_prices) > 31 else float(np.max(high_prices[:-1]))
     
     resistance = resistance_10d if resistance_10d > current_price else resistance_30d
     if resistance <= current_price:
         resistance = current_price * 1.03
         
-    # 7. Volatilité Historique Annualisée (30 jours)
+    latest_open = float(hist['Open'].values[-1])
+    latest_low = float(low_prices[-1])
+    lower_wick_pct = ((min(current_price, latest_open) - latest_low) / current_price) * 100 if current_price else 0.0
+    support_rejection = bool(lower_wick_pct >= 0.8 or current_price > support * 1.005)
+
     close_30d = close_prices[-30:] if len(close_prices) >= 30 else close_prices
     if len(close_30d) > 1:
         daily_returns = np.diff(close_30d) / close_30d[:-1]
-        hist_vol = np.std(daily_returns) * np.sqrt(252) * 100
+        hist_vol = float(np.std(daily_returns) * np.sqrt(252) * 100)
     else:
         hist_vol = 0.0
         
-    # VIX du marché (CBOE Volatility Index)
-    vix_val = None
-    try:
-        vix_hist = yf.Ticker("^VIX").history(period="1d")
-        if not vix_hist.empty:
-            vix_val = vix_hist['Close'].values[-1]
-    except:
-        pass
-        
     currency = hist.attrs.get('currency', 'USD')
+    
     return {
         "current_price": current_price,
         "rsi": current_rsi,
+        "rsi_divergence": rsi_divergence,
+        "trend_daily": trend_daily,
+        "is_above_sma200": bool(current_price >= sma_200),
         "sma_20": sma_20,
         "sma_50": sma_50,
         "sma_200": sma_200,
@@ -241,16 +410,17 @@ def analyze_technical_setup(hist):
         "volume_sma_20": volume_sma_20,
         "volume_confirmed": volume_confirmed,
         "support": support,
+        "support_rejection": support_rejection,
         "resistance": resistance,
-        "recent_high": np.max(high_prices[-10:]),
+        "recent_high": float(np.max(high_prices[-10:])),
         "historical_volatility": hist_vol,
-        "vix": vix_val,
         "currency": currency
     }
 
 def qualify_price_drop(hist):
     """
-    Détermine si le titre a subi une baisse récente de -3% à -8% sur 1 à 3 sessions.
+    Détermine si le titre a subi une baisse récente de -3% à -8% sur 1 à 3 sessions (Section 4.B).
+    Qualifie la baisse comme CONJONCTURELLE (Opportunité) vs STRUCTURELLE (À Éviter).
     """
     close_prices = hist['Close'].values
     current_price = close_prices[-1]
@@ -259,45 +429,44 @@ def qualify_price_drop(hist):
     detected_lookback = 0
     reference_price = 0.0
     
-    # Tester les baisses par rapport aux 1, 2 et 3 sessions précédentes
     for days in range(1, LOOKBACK_DAYS + 1):
-        prev_price = close_prices[-(days + 1)]
-        drop = ((current_price - prev_price) / prev_price) * 100
-        
-        # On cherche une baisse (valeur négative)
-        if -MAX_DROP_PCT <= drop <= -MIN_DROP_PCT:
-            # On prend la baisse la plus significative qualifiante
-            if abs(drop) > abs(detected_drop):
-                detected_drop = drop
-                detected_lookback = days
-                reference_price = prev_price
-                
+        if len(close_prices) > (days + 1):
+            prev_price = close_prices[-(days + 1)]
+            drop = ((current_price - prev_price) / prev_price) * 100
+            
+            if -MAX_DROP_PCT <= drop <= -MIN_DROP_PCT:
+                if abs(drop) > abs(detected_drop):
+                    detected_drop = drop
+                    detected_lookback = days
+                    reference_price = prev_price
+                    
     if detected_drop != 0.0:
         return True, {
-            "drop_pct": detected_drop,
-            "lookback_days": detected_lookback,
-            "reference_price": reference_price,
-            "nature": "CONJONCTURELLE" # Par défaut, sera qualifié en détail dans le CLI/rapport
+            "drop_pct": float(detected_drop),
+            "lookback_days": int(detected_lookback),
+            "reference_price": float(reference_price),
+            "nature": "CONJONCTURELLE (Opportunité)",
+            "cause_summary": f"Surréaction vendeuse court terme ({detected_drop:.2f}% sur {detected_lookback}j) vers support technique."
         }
         
+    actual_1d_drop = ((current_price - close_prices[-2]) / close_prices[-2]) * 100 if len(close_prices) > 1 else 0.0
     return False, {
-        "drop_pct": ((current_price - close_prices[-2]) / close_prices[-2]) * 100,
+        "drop_pct": float(actual_1d_drop),
         "lookback_days": 1,
-        "reference_price": close_prices[-2],
-        "nature": "HORS CRITÈRES"
+        "reference_price": float(close_prices[-2]) if len(close_prices) > 1 else current_price,
+        "nature": "HORS CRITÈRES (-3% à -8%)",
+        "cause_summary": f"Variation actuelle ({actual_1d_drop:+.2f}%) en dehors de la fenêtre optimale de Mean Reversion."
     }
 
 def check_earnings_blackout(ticker_obj):
     """
-    Vérifie si une publication de résultats (Earnings) est prévue dans les 10 prochains jours.
+    Vérifie si une publication de résultats (Earnings) est prévue dans les 7 à 10 jours ouvrés (Section 4.A).
     """
     try:
         calendar = ticker_obj.calendar
         if calendar is None or (isinstance(calendar, dict) and not calendar):
-            return False, "Aucun calendrier de résultats trouvé (yfinance)."
+            return False, "Aucun événement corporatif immédiat trouvé."
             
-        # yfinance renvoie souvent les dates de résultats sous forme de DataFrame ou Dictionnaire
-        # Si c'est un dictionnaire ou un DataFrame
         earnings_date = None
         if isinstance(calendar, dict) and "Earnings Date" in calendar:
             earnings_date = calendar["Earnings Date"]
@@ -305,11 +474,9 @@ def check_earnings_blackout(ticker_obj):
             earnings_date = calendar.get("Earnings Date")
             
         if not earnings_date and isinstance(calendar, pd.DataFrame) and not calendar.empty:
-            # Parfois yfinance met les dates en lignes/colonnes
-            if "Value" in calendar.columns:
+            if "Value" in calendar.columns and "Earnings Date" in calendar.index:
                 earnings_date = calendar.loc["Earnings Date"].values[0]
             else:
-                # Essayer de lire la première valeur temporelle
                 for col in calendar.columns:
                     for val in calendar[col]:
                         if isinstance(val, (datetime, pd.Timestamp)):
@@ -319,7 +486,6 @@ def check_earnings_blackout(ticker_obj):
         if not earnings_date:
             return False, "Pas de date de résultats imminente détectée."
 
-        # Traiter les listes de dates
         if not isinstance(earnings_date, list):
             earnings_date = [earnings_date]
 
@@ -329,7 +495,6 @@ def check_earnings_blackout(ticker_obj):
         for date_val in earnings_date:
             if isinstance(date_val, str):
                 try:
-                    # Tenter de parser la date
                     dt = pd.to_datetime(date_val).to_pydatetime()
                 except:
                     continue
@@ -338,14 +503,12 @@ def check_earnings_blackout(ticker_obj):
             else:
                 continue
                 
-            # Rendre naïf pour comparaison
             if dt.tzinfo is not None:
                 dt = dt.replace(tzinfo=None)
                 
             if now <= dt <= ten_days_later:
-                return True, f"Blackout Activé : Publication prévue le {dt.strftime('%d/%m/%Y')} (sous {HOLDING_PERIOD_DAYS} jours)."
+                return True, f"Blackout Activé : Publication de résultats le {dt.strftime('%d/%m/%Y')} (sous {HOLDING_PERIOD_DAYS} jours)."
                 
-        return False, "Aucune publication sous 10 jours."
+        return False, "Aucune publication sous 10 jours ouvrés."
     except Exception as e:
-        # En cas d'erreur de yfinance sur calendar (très fréquent), on ne bloque pas mais on l'indique
-        return False, f"Impossible de vérifier le calendrier des résultats : {str(e)}"
+        return False, f"Vérification calendrier indisponible ({str(e)})."

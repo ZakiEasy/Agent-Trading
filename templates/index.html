@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Agent Dashboard & Assistant</title>
+    <title>Trading Agent v2.0 - Swing Trading, Filtres Sectoriels/PEA & Conformité Sharia</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,9 +13,10 @@
     <style>
         :root {
             --bg-color: #080b11;
-            --card-bg: rgba(17, 25, 40, 0.65);
+            --card-bg: rgba(17, 25, 40, 0.70);
             --card-border: rgba(255, 255, 255, 0.08);
             --accent-primary: #3b82f6;
+            --accent-secondary: #8b5cf6;
             --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
@@ -48,10 +49,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5rem 2rem;
+            padding: 1.25rem 2rem;
             border-bottom: 1px solid var(--card-border);
             backdrop-filter: var(--glass-blur);
-            background: rgba(8, 11, 17, 0.8);
+            background: rgba(8, 11, 17, 0.85);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -84,6 +85,21 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-family: 'Outfit', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .version-badge {
+            font-size: 0.65rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 0.5rem;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            -webkit-text-fill-color: #60a5fa;
         }
 
         .logo-text p {
@@ -110,6 +126,9 @@
             font-weight: 500;
             font-size: 0.9rem;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
         .nav-btn.active {
@@ -120,135 +139,243 @@
 
         .nav-btn:hover:not(.active) {
             color: var(--text-main);
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.02);
         }
 
-        main {
-            flex: 1;
-            padding: 2rem;
+        /* Container Layout */
+        .container {
             max-width: 1400px;
-            width: 100%;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
+            padding: 1.5rem 2rem;
+            width: 100%;
+            flex: 1;
         }
 
         .tab-content {
             display: none;
-            animation: fadeIn 0.4s ease-out forwards;
         }
 
         .tab-content.active {
             display: block;
+            animation: fadeIn 0.3s ease;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Dashboard Grid Layout */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
-        }
-
-        @media (max-width: 1024px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
+        /* Glass Cards */
         .glass-card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 1.25rem;
-            padding: 1.5rem;
             backdrop-filter: var(--glass-blur);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-            margin-bottom: 2rem;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding-bottom: 0.75rem;
+            margin-bottom: 1.25rem;
         }
 
         .card-title {
             font-size: 1.1rem;
-            font-weight: 600;
+            font-weight: 700;
             font-family: 'Outfit', sans-serif;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
-        /* Action Buttons */
+        /* Macro Barometer Banner */
+        .macro-barometer-banner {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 1rem;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .macro-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .macro-card {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--card-border);
+            border-radius: 0.75rem;
+            padding: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .macro-card-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .macro-card-val {
+            font-size: 1.2rem;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .macro-card-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Two-Column Grid for Dashboard */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.8fr 1.2fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Buttons & Inputs */
         .btn {
             background: var(--accent-gradient);
             color: white;
             border: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 0.75rem;
+            padding: 0.6rem 1.25rem;
+            border-radius: 0.5rem;
             font-weight: 600;
-            font-size: 0.85rem;
             cursor: pointer;
             transition: all 0.2s ease;
-            display: flex;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+            gap: 0.4rem;
+            font-size: 0.85rem;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(0);
+            opacity: 0.92;
+            transform: translateY(-1px);
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--card-border);
-            color: var(--text-main);
             box-shadow: none;
+            color: var(--text-main);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.12);
-            box-shadow: none;
+            background: rgba(255, 255, 255, 0.1);
         }
 
-        /* Input Styles */
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
         .input-group {
             display: flex;
             gap: 0.5rem;
         }
 
         .text-input {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--card-border);
+            padding: 0.6rem 0.85rem;
+            border-radius: 0.5rem;
             color: var(--text-main);
-            padding: 0.6rem 1rem;
-            border-radius: 0.75rem;
-            font-size: 0.9rem;
+            font-family: inherit;
+            font-size: 0.85rem;
             outline: none;
-            transition: all 0.2s ease;
-            flex: 1;
+            transition: border-color 0.2s ease;
         }
 
         .text-input:focus {
             border-color: var(--accent-primary);
-            background: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+
+        /* Filter Toolbar */
+        .filter-toolbar {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--card-border);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8rem;
+        }
+
+        .filter-group label {
+            color: var(--text-muted);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .filter-select {
+            background: rgba(17, 25, 40, 0.9);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.375rem;
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .filter-search {
+            background: rgba(17, 25, 40, 0.9);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.375rem;
+            font-size: 0.8rem;
+            outline: none;
+            min-width: 180px;
+        }
+
+        .filter-search:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .filter-count-badge {
+            margin-left: auto;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         /* Tables */
@@ -260,18 +387,21 @@
             width: 100%;
             border-collapse: collapse;
             text-align: left;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         th {
             color: var(--text-muted);
-            font-weight: 500;
-            padding: 0.75rem 1rem;
+            font-weight: 600;
+            padding: 0.75rem 0.85rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         td {
-            padding: 1rem;
+            padding: 0.85rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
             vertical-align: middle;
         }
@@ -280,251 +410,75 @@
             border-bottom: none;
         }
 
+        tbody tr {
+            transition: background 0.15s ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
         /* Status badges */
         .badge {
             display: inline-block;
-            padding: 0.25rem 0.6rem;
+            padding: 0.2rem 0.5rem;
             border-radius: 0.375rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-        .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
-        .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
-        .badge-neutral { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
-
-        /* Macro Section */
-        .macro-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .macro-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.02);
-            padding: 0.75rem 1rem;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(255, 255, 255, 0.02);
-        }
-
-        .macro-val {
+            font-size: 0.72rem;
             font-weight: 700;
-            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
-        /* Chat Tab Style */
-        .chat-container {
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 2rem;
-            height: calc(100vh - 180px);
+        .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-neutral { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .badge-primary { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        
+        .badge-pea { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); font-weight: 800; }
+        .badge-cto { background: rgba(147, 51, 234, 0.2); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.4); font-weight: 800; }
+
+        .badge-cat {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #d1d5db;
+            font-size: 0.72rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 0.35rem;
+            white-space: nowrap;
         }
 
-        @media (max-width: 900px) {
-            .chat-container {
-                grid-template-columns: 1fr;
-                height: auto;
-            }
-            .chat-sidebar {
-                display: none;
-            }
-        }
-
-        .chat-sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .chat-area {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 1.25rem;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-            backdrop-filter: var(--glass-blur);
-        }
-
-        .chat-messages {
-            flex: 1;
-            padding: 1.5rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .message {
-            max-width: 80%;
-            padding: 1rem;
-            border-radius: 1rem;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-
-        .message-bot {
-            background: rgba(255, 255, 255, 0.05);
-            align-self: flex-start;
-            border-bottom-left-radius: 0.25rem;
-            border: 1px solid rgba(255, 255, 255, 0.03);
-        }
-
-        .message-user {
-            background: var(--accent-gradient);
-            color: white;
-            align-self: flex-end;
-            border-bottom-right-radius: 0.25rem;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
-        }
-
-        .message h3, .message h4 {
-            margin: 0.5rem 0 0.25rem 0;
+        /* Confluence Score Pill */
+        .score-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
             font-family: 'Outfit', sans-serif;
         }
 
-        .message ul, .message ol {
-            padding-left: 1.2rem;
-            margin: 0.5rem 0;
-        }
+        .score-high { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .score-med { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .score-low { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
 
-        .message li {
-            margin-bottom: 0.25rem;
-        }
-
-        .chat-input-bar {
-            padding: 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            background: rgba(8, 11, 17, 0.4);
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        /* Simulation Styles */
-        .simulation-grid {
-            display: grid;
-            grid-template-columns: 1fr 1.5fr;
-            gap: 1.5rem;
-            align-items: start;
-        }
-        @media (max-width: 1024px) {
-            .simulation-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        .form-group label {
-            display: block;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 0.35rem;
-            font-weight: 500;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            border: 1px solid var(--card-border);
-            background: rgba(0, 0, 0, 0.25);
-            color: var(--text-main);
-            font-family: inherit;
-            font-size: 0.85rem;
-        }
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-        }
-        .gauge-container {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        .gauge-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-        .gauge-bar-outer {
-            height: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 5px;
-            overflow: hidden;
-            position: relative;
-        }
-        .gauge-bar-inner {
-            height: 100%;
-            background: var(--accent-gradient);
-            border-radius: 5px;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        .gauge-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            margin-top: 0.35rem;
-            color: var(--text-muted);
-        }
-        /* Month list grid for editing contributions */
-        .month-list {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-        }
-        @media (max-width: 600px) {
-            .month-list {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-        .month-input-container {
-            background: rgba(0,0,0,0.15);
-            border: 1px solid var(--card-border);
-            border-radius: 6px;
-            padding: 0.35rem;
-            text-align: center;
-        }
-        .month-input-container label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            display: block;
-            margin-bottom: 0.2rem;
-        }
-        .month-input-container input {
-            width: 100%;
-            border: none;
-            background: transparent;
-            color: var(--text-main);
-            text-align: center;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        /* 8-Step Report styling */
+        /* 8-Step Report Card */
         .report-section {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 0.75rem;
+            border-radius: 0.85rem;
             padding: 1rem;
             margin-top: 1rem;
         }
 
         .report-step {
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            margin-bottom: 1.1rem;
+            padding-bottom: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.85rem;
+            line-height: 1.5;
         }
 
         .report-step:last-child {
@@ -534,67 +488,134 @@
         }
 
         .report-step-title {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: var(--accent-primary);
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #60a5fa;
             margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
-        /* Tooltip Container */
-        .tooltip-container {
-            position: relative;
-            display: inline-block;
-            cursor: pointer;
-            margin-left: 0.35rem;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            vertical-align: middle;
+        .ratio-bar-container {
+            margin: 0.5rem 0;
+            font-size: 0.8rem;
         }
 
-        .tooltip-container:hover {
-            color: var(--accent-primary);
+        .ratio-bar-outer {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.25rem;
         }
 
-        /* Tooltip text */
-        .tooltip-text {
-            visibility: hidden;
-            width: 280px;
-            background-color: #121824;
-            color: var(--text-main);
-            text-align: left;
+        .ratio-bar-inner {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        /* Modal Popup */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-box {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 1rem;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Chat Assistant Tab */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 75vh;
+            background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 8px;
-            padding: 0.75rem;
-            position: absolute;
-            z-index: 100;
-            bottom: 125%; /* Position above */
-            left: 50%;
-            margin-left: -140px;
-            opacity: 0;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            font-size: 0.75rem;
-            line-height: 1.3;
-            pointer-events: none;
-            white-space: normal;
+            border-radius: 1rem;
+            overflow: hidden;
         }
 
-        /* Tooltip arrow */
-        .tooltip-text::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #121824 transparent transparent transparent;
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
         }
 
-        /* Show the tooltip text on hover */
-        .tooltip-container:hover .tooltip-text {
-            visibility: visible;
-            opacity: 1;
+        .message {
+            max-width: 80%;
+            padding: 0.85rem 1.2rem;
+            border-radius: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .message-user {
+            align-self: flex-end;
+            background: var(--accent-gradient);
+            color: white;
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        .message-bot {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        .chat-input-bar {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(8, 11, 17, 0.4);
+            display: flex;
+            gap: 0.75rem;
         }
 
         .suggestion-chip {
@@ -606,79 +627,312 @@
             cursor: pointer;
             transition: all 0.2s ease;
             text-align: left;
+            color: var(--text-main);
         }
 
         .suggestion-chip:hover {
             background: rgba(255, 255, 255, 0.08);
             border-color: var(--accent-primary);
         }
+
+        /* Simulation Tab Styles */
+        .simulation-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 1.35fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .simulation-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            background: rgba(0, 0, 0, 0.25);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .gauge-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.85rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .gauge-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .gauge-bar-outer {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .gauge-bar-inner {
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .gauge-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-top: 0.3rem;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
 
+    <!-- TOP HEADER -->
     <header>
         <div class="logo-container">
             <div class="logo-icon">🪂</div>
             <div class="logo-text">
-                <h1>Trading Agent</h1>
-                <p>Swing Trading & Sharia Screen</p>
+                <h1>Trading Agent <span class="version-badge">v2.0</span></h1>
+                <p>Top-Down Macro, Filtres Sectoriels/PEA & Conformité Sharia</p>
             </div>
         </div>
         <nav>
-            <button class="nav-btn active" onclick="switchTab('dashboard')">Tableau de bord</button>
-            <button class="nav-btn" onclick="switchTab('chat')">Assistant Chat</button>
-            <button class="nav-btn" onclick="switchTab('simulation')">Planification & Simulation</button>
+            <button class="nav-btn active" onclick="switchTab('dashboard')">
+                <span>📊</span> Tableau de bord
+            </button>
+            <button class="nav-btn" onclick="switchTab('chat')">
+                <span>💬</span> Assistant Chat
+            </button>
+            <button class="nav-btn" onclick="switchTab('simulation')">
+                <span>🧮</span> Simulation & R-Max
+            </button>
         </nav>
     </header>
 
-    <main>
-        <!-- TAB 1: DASHBOARD -->
+    <!-- MAIN APP CONTAINER -->
+    <div class="container">
+
+        <!-- ================================================================= -->
+        <!-- TAB 1 : DASHBOARD -->
+        <!-- ================================================================= -->
         <div id="dashboard-tab" class="tab-content active">
+            
+            <!-- TOP-DOWN MACRO BAROMETER BANNER -->
+            <div class="macro-barometer-banner">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.4rem;">🌍</span>
+                        <div>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Baromètre Macroéconomique Top-Down</h3>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);" id="macro-action-rule">Chargement du régime macroéconomique...</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span id="macro-regime-badge" class="badge badge-neutral" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">SYNCHRONISATION...</span>
+                        <span id="macro-sizing-pct" class="badge badge-primary" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">100% SIZING</span>
+                        <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="loadMacroBarometer(true)">🔄 Rafraîchir</button>
+                    </div>
+                </div>
+
+                <!-- 5 Macro Indicator Cards Grid -->
+                <div class="macro-grid">
+                    <!-- VIX -->
+                    <div class="macro-card">
+                        <div class="macro-card-title">
+                            <span>VIX (Volatilité)</span>
+                            <span id="vix-badge" class="badge badge-neutral">-</span>
+                        </div>
+                        <div class="macro-card-val" id="vix-val">--</div>
+                        <div class="macro-card-desc" id="vix-desc">Baromètre de la peur S&P 500</div>
+                    </div>
+
+                    <!-- DXY -->
+                    <div class="macro-card">
+                        <div class="macro-card-title">
+                            <span>Dollar Index (DXY)</span>
+                            <span id="dxy-badge" class="badge badge-neutral">-</span>
+                        </div>
+                        <div class="macro-card-val" id="dxy-val">--</div>
+                        <div class="macro-card-desc" id="dxy-desc">Liquidité mondiale</div>
+                    </div>
+
+                    <!-- XLY / XLP -->
+                    <div class="macro-card">
+                        <div class="macro-card-title">
+                            <span>Ratio XLY / XLP</span>
+                            <span id="xly-xlp-badge" class="badge badge-neutral">-</span>
+                        </div>
+                        <div class="macro-card-val" id="xly-xlp-val">--</div>
+                        <div class="macro-card-desc" id="xly-xlp-desc">Appétit pour le risque</div>
+                    </div>
+
+                    <!-- Yield Curve 10Y-2Y -->
+                    <div class="macro-card">
+                        <div class="macro-card-title">
+                            <span>Courbe des Taux</span>
+                            <span id="yield-curve-badge" class="badge badge-neutral">-</span>
+                        </div>
+                        <div class="macro-card-val" id="yield-curve-val">--</div>
+                        <div class="macro-card-desc" id="yield-curve-desc">Spread 10Y - 2Y</div>
+                    </div>
+
+                    <!-- WTI Oil -->
+                    <div class="macro-card">
+                        <div class="macro-card-title">
+                            <span>Pétrole WTI</span>
+                            <span id="wti-badge" class="badge badge-neutral">-</span>
+                        </div>
+                        <div class="macro-card-val" id="wti-val">--</div>
+                        <div class="macro-card-desc" id="wti-desc">Pression inflationniste</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DASHBOARD TWO-COLUMN GRID -->
             <div class="dashboard-grid">
                 
-                <!-- Left column: scans and results -->
+                <!-- Left Column: Scans & Results Table -->
                 <div class="left-col">
-                    <!-- Control panel -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">🔍 Lancer les Scans de l'Agent</h2>
+                    <!-- Control Panel -->
+                    <div class="glass-card" style="padding: 1.25rem;">
+                        <div class="card-header" style="margin-bottom: 1rem;">
+                            <h2 class="card-title">🔍 Moteur de Scan & Screening Quantitatif</h2>
+                            <button class="btn btn-success" onclick="openAddStockModal()">
+                                ➕ Ajouter une action au Google Sheet
+                            </button>
                         </div>
-                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                             <button class="btn" onclick="runWatchlistScan()">
                                 🚀 Scanner la Watchlist
                             </button>
                             <button class="btn btn-secondary" onclick="runMarketScan()">
                                 🌐 Scanner le Marché Élargi
                             </button>
-                            <div class="input-group" style="margin-left: auto;">
-                                <input type="text" id="ticker-input" class="text-input" placeholder="Ex: AAPL, MSFT, MC.PA">
+                            <div class="input-group" style="margin-left: auto; min-width: 240px;">
+                                <input type="text" id="ticker-input" class="text-input" placeholder="Ex: SAN.PA, MC.PA, AAPL">
                                 <button class="btn" onclick="analyzeSingleTicker()">Analyser</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Watchlist scan results table -->
+                    <!-- Scan Results Table with Filter Toolbar -->
                     <div class="glass-card">
-                        <div class="card-header">
+                        <div class="card-header" style="margin-bottom: 0.75rem;">
                             <h2 class="card-title" id="results-table-title">📊 Résultats du Scan</h2>
                             <span id="scan-status" class="badge badge-neutral">Prêt</span>
                         </div>
+
+                        <!-- Interactive Filter Toolbar (Catégories, PEA, Sharia, Verdict, Recherche) -->
+                        <div class="filter-toolbar">
+                            <!-- Filtre Compte / PEA -->
+                            <div class="filter-group">
+                                <label>💳 Compte :</label>
+                                <select id="filter-account" class="filter-select" onchange="applyFilters()">
+                                    <option value="ALL">Tous les comptes</option>
+                                    <option value="PEA">🇫🇷 Éligible PEA (Europe)</option>
+                                    <option value="CTO">🇺🇸 Marchés US (CTO)</option>
+                                </select>
+                            </div>
+
+                            <!-- Filtre Catégorie / Secteur -->
+                            <div class="filter-group">
+                                <label>🏷️ Catégorie :</label>
+                                <select id="filter-category" class="filter-select" onchange="applyFilters()">
+                                    <option value="ALL">Toutes les catégories</option>
+                                    <option value="Santé & Pharma">💊 Santé & Pharma</option>
+                                    <option value="Tech & IA">💻 Tech & IA</option>
+                                    <option value="Luxe & Consommation">💎 Luxe & Consommation</option>
+                                    <option value="Industrie & Aéro">🏭 Industrie & Aéronautique</option>
+                                    <option value="Énergie & Pétrole">⚡ Énergie & Pétrole</option>
+                                    <option value="Matériaux & Chimie">🧪 Matériaux & Chimie</option>
+                                    <option value="Agro & Défensif">🛒 Agro & Défensif</option>
+                                    <option value="Finance & Immo">🏦 Finance & Immo</option>
+                                    <option value="Autres">📦 Autres</option>
+                                </select>
+                            </div>
+
+                            <!-- Filtre Sharia -->
+                            <div class="filter-group">
+                                <label>🕌 Sharia :</label>
+                                <select id="filter-sharia" class="filter-select" onchange="applyFilters()">
+                                    <option value="ALL">Tous statuts</option>
+                                    <option value="CONFORME">Conforme uniquement</option>
+                                </select>
+                            </div>
+
+                            <!-- Filtre Verdict -->
+                            <div class="filter-group">
+                                <label>⚖️ Verdict :</label>
+                                <select id="filter-verdict" class="filter-select" onchange="applyFilters()">
+                                    <option value="ALL">Tous les verdicts</option>
+                                    <option value="ACHETER">🟢 Acheter Rebond</option>
+                                    <option value="ATTENDRE">🟡 Attendre Repli</option>
+                                    <option value="ÉVITER">🔴 Éviter</option>
+                                </select>
+                            </div>
+
+                            <!-- Champ de recherche instantanée -->
+                            <div class="filter-group" style="flex: 1; min-width: 160px;">
+                                <input type="text" id="filter-search" class="filter-search" placeholder="🔍 Filtrer par nom ou ticker..." oninput="applyFilters()">
+                            </div>
+
+                            <!-- Badge compteur de résultats -->
+                            <div class="filter-count-badge" id="filter-count-badge">0 action(s)</div>
+                        </div>
+
+                        <!-- Table -->
                         <div class="table-container">
                             <table id="scan-results-table">
                                 <thead>
                                     <tr>
                                         <th onclick="sortBy('symbol')" style="cursor: pointer; user-select: none;">Ticker ↕</th>
-                                        <th onclick="sortBy('sharia')" style="cursor: pointer; user-select: none;">Conformité Sharia ↕</th>
-                                        <th onclick="sortBy('price')" style="cursor: pointer; user-select: none;">Dernier Cours ↕</th>
-                                        <th onclick="sortBy('drop')" style="cursor: pointer; user-select: none;">Baisse Récente ↕</th>
-                                        <th onclick="sortBy('rsi')" style="cursor: pointer; user-select: none;">RSI (14) ↕</th>
-                                        <th onclick="sortBy('verdict')" style="cursor: pointer; user-select: none;">Verdict de l'Agent ↕</th>
+                                        <th onclick="sortBy('is_pea')" style="cursor: pointer; user-select: none;">Compte ↕</th>
+                                        <th onclick="sortBy('category')" style="cursor: pointer; user-select: none;">Catégorie ↕</th>
+                                        <th onclick="sortBy('sharia')" style="cursor: pointer; user-select: none;">Sharia ↕</th>
+                                        <th onclick="sortBy('price')" style="cursor: pointer; user-select: none;">Cours ↕</th>
+                                        <th onclick="sortBy('drop')" style="cursor: pointer; user-select: none;">Dip (%) ↕</th>
+                                        <th onclick="sortBy('rsi')" style="cursor: pointer; user-select: none;">RSI ↕</th>
+                                        <th style="user-select: none;">Divergence</th>
+                                        <th onclick="sortBy('confluence_score')" style="cursor: pointer; user-select: none;">Score ↕</th>
+                                        <th onclick="sortBy('verdict')" style="cursor: pointer; user-select: none;">Verdict ↕</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
-                                            Aucun scan lancé. Cliquez sur "Scanner la Watchlist" ou recherchez un ticker.
+                                        <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                            Aucun scan lancé. Cliquez sur <strong>"Scanner la Watchlist"</strong> ou saisissez un ticker pour lancer le protocole en 8 étapes.
                                         </td>
                                     </tr>
                                 </tbody>
@@ -687,559 +941,469 @@
                     </div>
                 </div>
 
-                <!-- Right column: macro data & quick analyze report -->
+                <!-- Right Column: 8-Step Report Card & Commodities -->
                 <div class="right-col">
-                    <!-- Ticker full analysis detail -->
+                    
+                    <!-- 8-Step Detailed Analysis Card -->
                     <div class="glass-card" id="ticker-detail-card" style="display: none;">
                         <div class="card-header">
-                            <h2 class="card-title" id="detail-card-title">📋 Rapport de Synthèse</h2>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <h2 class="card-title" id="detail-card-title">📋 Rapport Protocolaire</h2>
+                                <span id="detail-score-pill" class="score-pill score-high">--/10</span>
+                            </div>
                             <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="closeDetailCard()">Fermer</button>
                         </div>
+                        
                         <!-- TradingView Interactive Widget Container -->
-                        <div id="tv-chart-container" style="display: none; padding: 0.5rem; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.2);"></div>
+                        <div id="tv-chart-container" style="display: none; padding: 0.25rem; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.25);"></div>
+                        
+                        <!-- Dynamic 8-Step Content Container -->
                         <div id="ticker-detail-content">
-                            <!-- Populated dynamically -->
+                            <!-- Populated dynamically via JS -->
                         </div>
                     </div>
 
-                    <!-- Macro indicators -->
+                    <!-- Macro Rules & Commodities Card -->
                     <div class="glass-card">
                         <div class="card-header">
-                            <h2 class="card-title">📅 Calendrier & Commodities</h2>
+                            <h2 class="card-title">🛒 Matières Premières & Garde-fous</h2>
                         </div>
                         <div class="macro-list" id="macro-commodities-list">
-                            <p style="color: var(--text-muted);">Récupération en cours...</p>
+                            <p style="color: var(--text-muted); font-size: 0.85rem;">Chargement des cours...</p>
                         </div>
-                        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05);">
-                            <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--warning); margin-bottom: 0.5rem;">⚠️ Garde-fous Actifs</h4>
-                            <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1rem;" id="macro-rules-list">
-                                <li>Pas d'ouverture si macro (CPI, FED, NFP) sous 24-48h.</li>
+                        <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05);">
+                            <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--warning); margin-bottom: 0.5rem;">⚠️ Garde-fous de Discipline v2.0</h4>
+                            <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.1rem; line-height: 1.6;" id="macro-rules-list">
+                                <li><strong>Blackout Macro :</strong> Pas d'ouverture si CPI, réunion FED/BCE ou NFP sous 24-48h.</li>
+                                <li><strong>Circuit Breaker :</strong> Perte &gt; -3% en 1 semaine glissante ➔ Gel 48h + R-Max réduit à 0,5%.</li>
+                                <li><strong>Corrélation :</strong> Maximum 2 positions simultanées par secteur industriel.</li>
                             </ul>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
 
-        <!-- TAB 2: CHAT ASSISTANT -->
+        <!-- ================================================================= -->
+        <!-- TAB 2 : CHAT ASSISTANT -->
+        <!-- ================================================================= -->
         <div id="chat-tab" class="tab-content">
-            <div class="chat-container">
-                <!-- Sidebar with suggestions -->
-                <div class="chat-sidebar">
-                    <div class="glass-card" style="margin-bottom: 0; flex: 1;">
-                        <div class="card-header">
-                            <h2 class="card-title">💡 Suggestions de questions</h2>
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <button class="suggestion-chip" onclick="askQuestion('Bonjour ! Que peux-tu faire ?')">
-                                Bonjour ! Que peux-tu faire ?
-                            </button>
-                            <button class="suggestion-chip" onclick="askQuestion('Est-ce que Apple (AAPL) est conforme Sharia ?')">
-                                Est-ce que Apple (AAPL) est conforme Sharia ?
-                            </button>
-                            <button class="suggestion-chip" onclick="askQuestion('Fais une analyse technique complète de NVDA')">
-                                Fais une analyse technique complète de NVDA
-                            </button>
-                            <button class="suggestion-chip" onclick="askQuestion('Rapport détaillé pour MSFT')">
-                                Rapport détaillé pour MSFT
-                            </button>
-                        </div>
+            <div class="glass-card" style="margin-bottom: 1rem; padding: 1rem;">
+                <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">💡 Suggestions de requêtes rapides :</h3>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <div class="suggestion-chip" onclick="askQuestion('Quel est le régime macroéconomique actuel ?')">
+                        🌍 Point Macro & VIX
+                    </div>
+                    <div class="suggestion-chip" onclick="askQuestion('Analyse Sanofi (SAN.PA)')">
+                        💊 Analyse Sanofi (PEA Pharma)
+                    </div>
+                    <div class="suggestion-chip" onclick="askQuestion('Ajoute Sanofi (SAN.PA) à ma watchlist')">
+                        ➕ Ajouter Sanofi au Google Sheet
+                    </div>
+                    <div class="suggestion-chip" onclick="askQuestion('Analyse LVMH (MC.PA)')">
+                        💎 Analyse LVMH (Luxe)
+                    </div>
+                    <div class="suggestion-chip" onclick="askQuestion('Analyse NVIDIA (NVDA)')">
+                        💻 Analyse NVIDIA (Tech/IA)
                     </div>
                 </div>
+            </div>
 
-                <!-- Chat console area -->
-                <div class="chat-area">
-                    <div class="chat-messages" id="chat-messages-container">
-                        <div class="message message-bot">
-                            Bonjour ! Je suis votre assistant de Swing Trading. Saisissez le ticker d'une action ou posez-moi vos questions pour récupérer les analyses de marché et vérifier la conformité Sharia.
-                        </div>
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages-container">
+                    <div class="message message-bot">
+                        Bonjour ! Je suis votre <strong>Assistant Swing Trading Quantitatif & Sharia (v2.0)</strong>.<br><br>
+                        Je combine le <strong>Baromètre Top-Down Macro</strong>, l'analyse des flux de prix (<strong>Divergences RSI</strong>), les <strong>Filtres Sectoriels / PEA</strong> et la <strong>Gestion Stricte R-Max</strong>.<br><br>
+                        Vous pouvez me demander l'analyse détaillée d'une action, d'ajouter un ticker à votre Google Sheet, ou de faire le point macroéconomique !
                     </div>
-                    <div class="chat-input-bar">
-                        <input type="text" id="chat-input" class="text-input" placeholder="Posez une question sur un ticker..." onkeypress="checkEnter(event)">
-                        <button class="btn" onclick="sendChatMessage()">Envoyer</button>
-                    </div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="chat-input" class="text-input" style="flex: 1;" placeholder="Posez une question ou demandez une analyse (ex: 'Analyse SAN.PA', 'Ajoute OR.PA à mon Google Sheet')..." onkeypress="checkEnter(event)">
+                    <button class="btn" onclick="sendChatMessage()">Envoyer ➔</button>
                 </div>
             </div>
         </div>
 
-        <!-- TAB 3: SIMULATION & PLANNING -->
+        <!-- ================================================================= -->
+        <!-- TAB 3 : SIMULATION & R-MAX -->
+        <!-- ================================================================= -->
         <div id="simulation-tab" class="tab-content">
             <div class="simulation-grid">
-                <!-- Left column: inputs -->
-                <div class="left-col" style="display: flex; flex-direction: column; gap: 1.25rem;">
-                    
-                    <!-- Configuration du Capital -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">💰 Configuration du Capital</h2>
+                
+                <!-- Left: R-Max Position Sizing Tool -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🧮 Calculateur de Dimensionnement R-Max</h2>
+                        <span class="badge badge-primary">Section 6.B</span>
+                    </div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                        Ajustez votre capital et vos points d'entrée pour calculer instantanément l'allocation nominale optimale et le risque monétaire exact en euros.
+                    </p>
+
+                    <div class="form-group">
+                        <label>Capital Total du Portefeuille (€)</label>
+                        <input type="number" id="calc-rmax-capital" value="5000" step="500" oninput="recalculateRMaxTool()">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Régime Macroéconomique Actuel</label>
+                        <select id="calc-rmax-regime" onchange="recalculateRMaxTool()">
+                            <option value="RISK-ON">RÉGIME RISK-ON (R-Max 1,0% - Taille 100%)</option>
+                            <option value="NEUTRE">RÉGIME NEUTRE / VIGILANCE (R-Max 0,5% - Taille 50%)</option>
+                            <option value="RISK-OFF">RÉGIME RISK-OFF (GEL DES ACHATS - Taille 0%)</option>
+                            <option value="DRAWDOWN">POST-DRAWDOWN &gt; 3% (R-Max 0,5% - Taille 50%)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Prix d'Entrée Recommandé (€)</label>
+                            <input type="number" id="calc-rmax-entry" value="100.00" step="0.5" oninput="recalculateRMaxTool()">
                         </div>
                         <div class="form-group">
-                            <label>Capital Initial Trading (€) : <span id="val-cap-initial" style="font-weight: 700;">5 000 €</span></label>
-                            <input type="range" id="input-cap-initial" min="3000" max="100000" step="500" value="5000" oninput="updateSimulationValues()">
-                        </div>
-                        <div class="form-group">
-                            <label>Apport Mensuel Variable (€) : <span id="val-apport-mensuel" style="font-weight: 700;">300 €</span></label>
-                            <input type="range" id="input-apport-mensuel" min="0" max="5000" step="50" value="300" oninput="updateSimulationValues()">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Poche Réserve / Cash (%)</label>
-                                <input type="number" id="input-reserve-pct" min="0" max="100" value="20" onchange="runSimulation()">
-                            </div>
-                            <div class="form-group">
-                                <label>Règle de Répartition</label>
-                                <select id="input-repartition-rule" onchange="runSimulation()">
-                                    <option value="A">Option A : 100% vers le Trading</option>
-                                    <option value="B">Option B : 80% Trading / 20% Cash Réserve</option>
-                                    <option value="C">Option C : Réinvestissement 100% (Effet Boule de Neige)</option>
-                                </select>
-                            </div>
+                            <label>Prix Stop-Loss d'Invalidation (€)</label>
+                            <input type="number" id="calc-rmax-stop" value="97.00" step="0.5" oninput="recalculateRMaxTool()">
                         </div>
                     </div>
 
-                    <!-- Moteur Swing Trading Mean Reversion -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">📈 Paramètres de la Stratégie (Swing)</h2>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Taux de Réussite (%)</label>
-                                <input type="number" id="input-win-rate" min="40" max="95" value="75" onchange="runSimulation()">
-                            </div>
-                            <div class="form-group">
-                                <label>Gain Ciblé / TP (%)</label>
-                                <input type="number" id="input-tp-pct" min="0.5" max="5.0" step="0.1" value="1.5" onchange="runSimulation()">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Invalidation / SL (%)</label>
-                                <input type="number" id="input-sl-pct" min="0.5" max="5.0" step="0.1" value="1.5" onchange="runSimulation()">
-                            </div>
-                            <div class="form-group">
-                                <label>Taille Max Position (%)</label>
-                                <input type="number" id="input-max-pos-pct" min="5" max="50" value="20" onchange="runSimulation()">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Baisse Trigger (%)</label>
-                                <input type="number" id="input-trigger-drop" min="1" max="15" value="5" onchange="runSimulation()">
-                            </div>
-                            <div class="form-group">
-                                <label>Rotations par Mois (Est.)</label>
-                                <input type="number" id="input-rotations" min="1" max="10" value="3" onchange="runSimulation()">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Autres Canaux d'Investissement -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">🏆 Autres Canaux d'Investissement</h2>
-                        </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                        <h4 style="font-size: 0.85rem; font-weight: 700; color: #60a5fa; margin-bottom: 0.75rem;">📋 Résultats du Dimensionnement :</h4>
                         
-                        <div style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--success); display: block; margin-bottom: 0.25rem;">Or (Métal)</label>
-                            <div class="form-row">
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>Rendement Annuel (%)</label>
-                                    <input type="number" id="input-gold-yield" value="6.0" onchange="runSimulation()">
-                                </div>
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>Alloc. Mensuelle (€)</label>
-                                    <input type="number" id="input-gold-alloc" value="50" onchange="runSimulation()">
-                                </div>
-                            </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span style="color: var(--text-muted);">Distance au Stop-Loss :</span>
+                            <strong id="res-stop-dist" style="color: var(--danger);">-3.00 %</strong>
                         </div>
-
-                        <div style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: #3b82f6; display: block; margin-bottom: 0.25rem;">SCPI / Pierre Papier</label>
-                            <div class="form-row">
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>Rendement Annuel (%)</label>
-                                    <input type="number" id="input-scpi-yield" value="5.5" onchange="runSimulation()">
-                                </div>
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>Alloc. Mensuelle (€)</label>
-                                    <input type="number" id="input-scpi-alloc" value="100" onchange="runSimulation()">
-                                </div>
-                            </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span style="color: var(--text-muted);">Risque Maximal R-Max :</span>
+                            <strong id="res-rmax-amount">50.00 € (1.0%)</strong>
                         </div>
-
-                        <div>
-                            <label style="font-weight: 600; font-size: 0.8rem; color: #a855f7; display: block; margin-bottom: 0.25rem;">Immobilier Locatif (Bien physique)</label>
-                            <div class="form-row">
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>Rendement Annuel (%)</label>
-                                    <input type="number" id="input-immo-yield" value="8.0" onchange="runSimulation()">
-                                </div>
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>Alloc. Mensuelle (€)</label>
-                                    <input type="number" id="input-immo-alloc" value="200" onchange="runSimulation()">
-                                </div>
-                            </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span style="color: var(--text-muted);">Allocation Nominale Suggérée :</span>
+                            <strong id="res-nominal-alloc" style="color: #60a5fa;">1,250.00 € (25.0%)</strong>
                         </div>
-                    </div>
-
-                    <!-- Historique de Suivi Réel -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">📋 Historique de Suivi Réel</h2>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span style="color: var(--text-muted);">Nombre d'Actions à Acheter :</span>
+                            <strong id="res-shares-count">12 actions</strong>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Mois de Suivi</label>
-                                <select id="hist-month">
-                                    <option value="0">Mois 0 (Départ)</option>
-                                    <option value="1">Mois 1</option>
-                                    <option value="2">Mois 2</option>
-                                    <option value="3">Mois 3</option>
-                                    <option value="4">Mois 4</option>
-                                    <option value="5">Mois 5</option>
-                                    <option value="6">Mois 6</option>
-                                    <option value="9">Mois 9</option>
-                                    <option value="12">Mois 12 (An 1)</option>
-                                    <option value="18">Mois 18</option>
-                                    <option value="24">Mois 24 (An 2)</option>
-                                    <option value="30">Mois 30</option>
-                                    <option value="36">Mois 36 (An 3)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Capital Réel (€)</label>
-                                <input type="number" id="hist-capital" placeholder="ex: 5200" step="any">
-                            </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span style="color: var(--text-muted);">Gain Potentiel TP1 (+1.25%) :</span>
+                            <strong id="res-tp1-gain" style="color: var(--success);">+15.00 €</strong>
                         </div>
-                        <button class="btn btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem; margin-bottom: 0.75rem;" onclick="addHistoryPoint()">Ajouter le point de suivi</button>
-                        
-                        <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 6px; background: rgba(0,0,0,0.15);">
-                            <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;" id="history-points-table">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid var(--card-border); background: rgba(255,255,255,0.02); text-align: left;">
-                                        <th style="padding: 0.35rem 0.5rem; color: var(--text-muted);">Mois</th>
-                                        <th style="padding: 0.35rem 0.5rem; color: var(--text-muted);">Capital Réel</th>
-                                        <th style="padding: 0.35rem 0.5rem; text-align: right; color: var(--text-muted);">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Rempli dynamiquement -->
-                                </tbody>
-                            </table>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span style="color: var(--text-muted);">Gain Potentiel TP2 (+2.25%) :</span>
+                            <strong id="res-tp2-gain" style="color: var(--success);">+27.00 €</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                            <span style="color: var(--text-muted);">Perte en cas de Stop-Loss :</span>
+                            <strong id="res-sl-loss" style="color: var(--danger);">-36.00 €</strong>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right column: graphs and gauges -->
-                <div class="right-col" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Right: 36-Month Capital Growth Projection -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">📈 Projection & Trajectoire Patrimoniale (36 Mois)</h2>
+                    </div>
                     
-                    <!-- Cap vers l'Objectif (Gauges) -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">🎯 Cap vers l'Objectif</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Capital Initial (€)</label>
+                            <input type="range" id="input-cap-initial" min="1000" max="20000" step="500" value="5000" oninput="updateSimulationValues()">
+                            <div style="text-align: right; font-size: 0.8rem; color: #60a5fa;" id="val-cap-initial">5,000 €</div>
                         </div>
-                        
-                        <div class="gauge-container">
-                            <div class="gauge-title">Étape 1 : Franchir la barre des 10 000 €</div>
-                            <div class="gauge-bar-outer">
-                                <div id="gauge-1-inner" class="gauge-bar-inner"></div>
-                            </div>
-                            <div class="gauge-label">
-                                <span id="gauge-1-current">0 €</span>
-                                <span>10 000 €</span>
-                            </div>
-                        </div>
-
-                        <div class="gauge-container">
-                            <div class="gauge-title">Étape 2 : Le cap des 25 000 €</div>
-                            <div class="gauge-bar-outer">
-                                <div id="gauge-2-inner" class="gauge-bar-inner"></div>
-                            </div>
-                            <div class="gauge-label">
-                                <span id="gauge-2-current">0 €</span>
-                                <span>25 000 €</span>
-                            </div>
-                        </div>
-
-                        <div class="gauge-container">
-                            <div class="gauge-title">Étape 3 : Objectif d'Indépendance : 50 000 €</div>
-                            <div class="gauge-bar-outer">
-                                <div id="gauge-3-inner" class="gauge-bar-inner"></div>
-                            </div>
-                            <div class="gauge-label">
-                                <span id="gauge-3-current">0 €</span>
-                                <span>50 000 €</span>
-                            </div>
-                        </div>
-
-                        <div style="font-size: 0.85rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 6px; display: flex; justify-content: space-between;">
-                            <span>Espérance mathématique par trade :</span>
-                            <strong id="sim-expected-value" style="color: var(--success);">+0.00 €</strong>
+                        <div class="form-group">
+                            <label>Épargne Mensuelle Ajoutée (€)</label>
+                            <input type="range" id="input-apport-mensuel" min="0" max="2000" step="50" value="300" oninput="updateSimulationValues()">
+                            <div style="text-align: right; font-size: 0.8rem; color: #60a5fa;" id="val-apport-mensuel">300 € / mois</div>
                         </div>
                     </div>
 
-                    <!-- Projection Chart -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">📉 Projection Spatio-Temporelle (36 Mois)</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Taux de Réussite Estimé (%)</label>
+                            <input type="number" id="input-win-rate" value="75" min="50" max="95" oninput="runSimulation()">
                         </div>
-                        <div style="height: 250px; position: relative;" id="sim-chart-container">
-                            <!-- Responsive SVG Chart container dynamically filled in JS -->
-                        </div>
-                        
-                        <div style="display: flex; gap: 1rem; justify-content: center; font-size: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap;">
-                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #10b981;"></span> Réaliste (Swing + Canaux)</span>
-                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #3b82f6;"></span> Optimiste (Win Rate élevé)</span>
-                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #ef4444;"></span> Pessimiste (Mois sans apport/perte)</span>
-                            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="display: inline-block; width: 12px; height: 3px; background: #a855f7;"></span> Suivi Réel</span>
-                        </div>
-
-                        <!-- Monthly input custom override -->
-                        <div style="margin-top: 1.25rem;">
-                            <label style="font-size: 0.85rem; font-weight:600; color: var(--text-muted);">Ajustement Pas-à-Pas des Apports (Mois 1 à 12) :</label>
-                            <div class="month-list" id="month-override-inputs">
-                                <!-- Generated by JS -->
-                            </div>
+                        <div class="form-group">
+                            <label>Nombre de Rotations / Mois</label>
+                            <input type="number" id="input-rotations" value="3" min="1" max="10" oninput="runSimulation()">
                         </div>
                     </div>
 
-                    <!-- Calculateur de Trade Instantané -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">⚡ Calculateur de Trade Instantané (Risk Management)</h2>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Cours Actuel du Ticker (€ ou $)</label>
-                                <input type="number" id="calc-current-price" value="100" step="any" oninput="runTradeCalculator()">
-                            </div>
-                            <div class="form-group">
-                                <label>Baisse Attendue (%)</label>
-                                <input type="number" id="calc-drop-trigger" value="5" step="0.5" oninput="runTradeCalculator()">
-                            </div>
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem; background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--card-border);">
-                            <div>
-                                <div style="color: var(--text-muted); font-size: 0.75rem;">Prix d'entrée limite :</div>
-                                <strong id="calc-entry-price" style="font-size: 1rem; color: #60a5fa;">95.00</strong>
-                            </div>
-                            <div>
-                                <div style="color: var(--text-muted); font-size: 0.75rem;">Taille de Position Max :</div>
-                                <strong id="calc-pos-size" style="font-size: 1rem;">1 000.00 €</strong>
-                            </div>
-                            <div>
-                                <div style="color: var(--text-muted); font-size: 0.75rem;">Objectif Sortie (TP) :</div>
-                                <strong id="calc-tp-price" style="font-size: 1rem; color: var(--success);">96.43</strong>
-                            </div>
-                            <div>
-                                <div style="color: var(--text-muted); font-size: 0.75rem;">Invalidation (SL) :</div>
-                                <strong id="calc-sl-price" style="font-size: 1rem; color: var(--danger);">93.57</strong>
-                            </div>
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;" id="calc-shares-count">
-                            Acheter max : 10 actions à 95.00
-                        </div>
+                    <!-- SVG Chart Container -->
+                    <div id="sim-chart-container" style="height: 220px; width: 100%; margin: 1rem 0; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.5rem; position: relative;">
+                        <!-- SVG Chart Rendered dynamically via JS -->
                     </div>
 
+                    <!-- Milestones Gauges -->
+                    <div class="gauge-container">
+                        <div class="gauge-title">🎯 Palier 1 : 10 000 €</div>
+                        <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="gauge-1-inner"></div></div>
+                        <div class="gauge-label"><span>Actuel / Projeté</span><strong id="gauge-1-current">-- €</strong></div>
+                    </div>
+
+                    <div class="gauge-container">
+                        <div class="gauge-title">🚀 Palier 2 : 25 000 €</div>
+                        <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="gauge-2-inner"></div></div>
+                        <div class="gauge-label"><span>Actuel / Projeté</span><strong id="gauge-2-current">-- €</strong></div>
+                    </div>
+
+                    <div class="gauge-container">
+                        <div class="gauge-title">👑 Palier 3 : 50 000 €</div>
+                        <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="gauge-3-inner"></div></div>
+                        <div class="gauge-label"><span>Actuel / Projeté</span><strong id="gauge-3-current">-- €</strong></div>
+                    </div>
                 </div>
+
             </div>
         </div>
-    </main>
 
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL : AJOUTER UNE ACTION AU GOOGLE SHEET -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="add-stock-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">➕ Ajouter une Action au Google Sheet</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeAddStockModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                    Saisissez le symbole boursier (ex : <code>SAN.PA</code> pour Sanofi, <code>MC.PA</code> pour LVMH, <code>OR.PA</code> pour L'Oréal, <code>NVDA</code>, <code>AAPL</code>).
+                </p>
+
+                <div class="form-group">
+                    <label>Symbole / Ticker Boursier *</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="modal-ticker-input" class="text-input" placeholder="Ex: SAN.PA" style="text-transform: uppercase;" oninput="onModalTickerInput()">
+                        <button class="btn btn-secondary" onclick="checkTickerInfo()">🔍 Détecter</button>
+                    </div>
+                </div>
+
+                <!-- Auto-Detection Preview Card -->
+                <div id="modal-preview-card" style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: none;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Informations détectées :</div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.35rem;">
+                        <span style="color: var(--text-muted);">Entreprise :</span>
+                        <strong id="modal-preview-name">--</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.35rem;">
+                        <span style="color: var(--text-muted);">Type de Compte :</span>
+                        <span id="modal-preview-account" class="badge badge-pea">PEA</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.35rem;">
+                        <span style="color: var(--text-muted);">Catégorie :</span>
+                        <span id="modal-preview-category" class="badge-cat">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);">Conformité Sharia :</span>
+                        <span id="modal-preview-sharia" class="badge badge-success">--</span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Catégorie Manuelle (Optionnel)</label>
+                        <select id="modal-category-select">
+                            <option value="">Auto-détectée</option>
+                            <option value="Santé & Pharma">💊 Santé & Pharma</option>
+                            <option value="Tech & IA">💻 Tech & IA</option>
+                            <option value="Luxe & Consommation">💎 Luxe & Consommation</option>
+                            <option value="Industrie & Aéro">🏭 Industrie & Aéro</option>
+                            <option value="Énergie & Pétrole">⚡ Énergie & Pétrole</option>
+                            <option value="Matériaux & Chimie">🧪 Matériaux & Chimie</option>
+                            <option value="Agro & Défensif">🛒 Agro & Défensif</option>
+                            <option value="Finance & Immo">🏦 Finance & Immo</option>
+                            <option value="Autres">📦 Autres</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Éligibilité Compte</label>
+                        <select id="modal-account-select">
+                            <option value="auto">Auto-détecté</option>
+                            <option value="pea">🇫🇷 Éligible PEA (Europe)</option>
+                            <option value="cto">🇺🇸 Marchés US (CTO)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="modal-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddStockModal()">Annuler</button>
+                <button class="btn btn-success" id="btn-submit-add-stock" onclick="submitAddStock()">
+                    📥 Enregistrer dans Google Sheets
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // API Base URL
-        const API_URL = 'http://127.0.0.1:5000/api';
+        const API_URL = '/api';
+        let currentScanResults = [];
+        let filteredResults = [];
+        let sortField = 'confluence_score';
+        let sortAsc = false;
+        let currentMacroData = null;
 
-        // Load macro data on startup
         document.addEventListener('DOMContentLoaded', () => {
-            fetchMacroData();
+            loadMacroBarometer();
+            recalculateRMaxTool();
+            runSimulation();
         });
 
+        // ---------------------------------------------------------------------
+        // TAB SWITCHING
+        // ---------------------------------------------------------------------
         function switchTab(tabId) {
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
+            
             if (tabId === 'dashboard') {
-                document.querySelector('nav button:nth-child(1)').classList.add('active');
+                document.querySelectorAll('.nav-btn')[0].classList.add('active');
                 document.getElementById('dashboard-tab').classList.add('active');
             } else if (tabId === 'chat') {
-                document.querySelector('nav button:nth-child(2)').classList.add('active');
+                document.querySelectorAll('.nav-btn')[1].classList.add('active');
                 document.getElementById('chat-tab').classList.add('active');
             } else if (tabId === 'simulation') {
-                document.querySelector('nav button:nth-child(3)').classList.add('active');
+                document.querySelectorAll('.nav-btn')[2].classList.add('active');
                 document.getElementById('simulation-tab').classList.add('active');
-                if (typeof runSimulation === 'function') {
-                    runSimulation();
-                }
+                runSimulation();
             }
         }
 
-        async function fetchMacroData() {
+        // ---------------------------------------------------------------------
+        // MACRO BAROMETER TOP-DOWN
+        // ---------------------------------------------------------------------
+        async function loadMacroBarometer(forceRefresh = false) {
             try {
-                const res = await fetch(`${API_URL}/macro`);
+                const res = await fetch(`${API_URL}/macro${forceRefresh ? '?refresh=true' : ''}`);
                 const data = await res.json();
-                
-                const list = document.getElementById('macro-commodities-list');
-                list.innerHTML = '';
-                
-                for (const [name, val] of Object.entries(data.commodities)) {
-                    list.innerHTML += `
-                        <div class="macro-item">
-                            <span>${name}</span>
-                            <span class="macro-val">${val}</span>
-                        </div>
-                    `;
-                }
-
-                const rulesList = document.getElementById('macro-rules-list');
-                rulesList.innerHTML = '';
-                data.rules.forEach(rule => {
-                    rulesList.innerHTML += `<li>${rule}</li>`;
-                });
+                currentMacroData = data;
+                renderMacroBarometer(data);
             } catch (e) {
-                console.error("Erreur lors de la récupération des données macro:", e);
+                console.error("Erreur chargement macro:", e);
             }
         }
 
-        function getVerdictBadge(verdict) {
-            if (verdict.includes("ACHETER")) return `<span class="badge badge-success">${verdict}</span>`;
-            if (verdict.includes("ÉVITER") || verdict.includes("EXCLU")) return `<span class="badge badge-danger">${verdict}</span>`;
-            if (verdict.includes("ATTENDRE") || verdict.includes("Blackout")) return `<span class="badge badge-warning">${verdict}</span>`;
-            return `<span class="badge badge-neutral">${verdict}</span>`;
-        }
+        function renderMacroBarometer(data) {
+            if (!data) return;
 
-        function getShariaBadge(status) {
-            if (status === "CONFORME") return `<span class="badge badge-success">Conforme</span>`;
-            if (status === "NON CONFORME") return `<span class="badge badge-danger">Non Conforme</span>`;
-            return `<span class="badge badge-warning">${status}</span>`;
-        }
+            const badgeElem = document.getElementById('macro-regime-badge');
+            badgeElem.textContent = data.regime;
+            badgeElem.className = `badge badge-${data.badge || 'neutral'}`;
 
-        let currentScanResults = [];
-        let sortDirection = {};
+            document.getElementById('macro-action-rule').textContent = data.action_rule;
+            document.getElementById('macro-sizing-pct').textContent = `${(data.sizing_multiplier * 100).toFixed(0)}% SIZING (R-Max ${((data.r_max_pct || 0.01) * 100).toFixed(1)}%)`;
 
-        function sortBy(key) {
-            if (currentScanResults.length === 0) return;
+            const inds = data.indicators || {};
             
-            // Toggle direction
-            sortDirection[key] = !sortDirection[key];
-            const asc = sortDirection[key];
-
-            currentScanResults.sort((a, b) => {
-                let valA = a[key];
-                let valB = b[key];
-
-                // Handle missing or invalid numbers
-                if (key === 'price' || key === 'drop' || key === 'rsi') {
-                    valA = (valA !== null && valA !== undefined && valA !== '-') ? parseFloat(valA) : (asc ? Infinity : -Infinity);
-                    valB = (valB !== null && valB !== undefined && valB !== '-') ? parseFloat(valB) : (asc ? Infinity : -Infinity);
-                } else {
-                    valA = valA ? valA.toString().toLowerCase() : '';
-                    valB = valB ? valB.toString().toLowerCase() : '';
-                }
-
-                if (valA < valB) return asc ? -1 : 1;
-                if (valA > valB) return asc ? 1 : -1;
-                return 0;
-            });
-
-            renderResultsTable(currentScanResults);
-        }
-
-        function renderResultsTable(results) {
-            const tbody = document.querySelector('#scan-results-table tbody');
-            tbody.innerHTML = '';
-            
-            if (results.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Aucun ticker qualifié détecté.</td></tr>`;
-                return;
+            // VIX
+            if (inds.VIX) {
+                document.getElementById('vix-val').textContent = inds.VIX.value;
+                const b = document.getElementById('vix-badge');
+                b.textContent = inds.VIX.status.split(' ')[0];
+                b.className = `badge badge-${inds.VIX.badge}`;
+                document.getElementById('vix-desc').textContent = inds.VIX.desc;
             }
 
-            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
+            // DXY
+            if (inds.DXY) {
+                document.getElementById('dxy-val').textContent = inds.DXY.value;
+                const b = document.getElementById('dxy-badge');
+                b.textContent = inds.DXY.status.split(' ')[0];
+                b.className = `badge badge-${inds.DXY.badge}`;
+                document.getElementById('dxy-desc').textContent = inds.DXY.desc;
+            }
 
-            results.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.style.cursor = 'pointer';
-                tr.onclick = () => showTickerDetail(row.symbol);
-                
-                const symbolChar = row.currency === "EUR" ? "€" : "$";
-                const buyPrice = portfolio[row.symbol];
-                let portfolioInfo = '';
-                if (buyPrice) {
-                    const currentPrice = parseFloat(row.price);
-                    const perf = ((currentPrice - buyPrice) / buyPrice) * 100;
-                    const perfColor = perf >= 0 ? 'var(--success)' : 'var(--danger)';
-                    portfolioInfo = `
-                        <div style="font-size: 0.7rem; margin-top: 0.15rem; display: flex; align-items: center; gap: 0.25rem;">
-                            <span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.05rem 0.2rem; border-radius: 4px; font-size: 0.65rem;">💼 ${buyPrice.toFixed(2)}${symbolChar}</span>
-                            <span style="color: ${perfColor}; font-weight: 700;">${perf >= 0 ? '+' : ''}${perf.toFixed(1)}%</span>
-                        </div>
-                    `;
-                }
+            // XLY / XLP
+            if (inds.XLY_XLP) {
+                document.getElementById('xly-xlp-val').textContent = inds.XLY_XLP.value;
+                const b = document.getElementById('xly-xlp-badge');
+                b.textContent = inds.XLY_XLP.status.split(' ')[0];
+                b.className = `badge badge-${inds.XLY_XLP.badge}`;
+                document.getElementById('xly-xlp-desc').textContent = inds.XLY_XLP.desc;
+            }
 
-                tr.innerHTML = `
-                    <td style="font-weight: 700;">
-                        ${row.symbol}
-                        <br>
-                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">
-                            ${row.name || ''}
-                        </span>
-                        ${portfolioInfo}
-                    </td>
-                    <td>${getShariaBadge(row.sharia)}</td>
-                    <td>${row.price ? parseFloat(row.price).toFixed(2) : '-'} ${symbolChar}</td>
-                    <td style="color: ${parseFloat(row.drop) < 0 ? 'var(--danger)' : 'var(--success)'};">
-                        ${row.drop ? parseFloat(row.drop).toFixed(2) : '-'}%
-                    </td>
-                    <td>${row.rsi ? parseFloat(row.rsi).toFixed(2) : '-'}</td>
-                    <td>${getVerdictBadge(row.verdict)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            // Yield Curve
+            if (inds.YIELD_CURVE) {
+                document.getElementById('yield-curve-val').textContent = inds.YIELD_CURVE.value;
+                const b = document.getElementById('yield-curve-badge');
+                b.textContent = inds.YIELD_CURVE.status.split(' ')[0];
+                b.className = `badge badge-${inds.YIELD_CURVE.badge}`;
+                document.getElementById('yield-curve-desc').textContent = inds.YIELD_CURVE.desc;
+            }
+
+            // WTI
+            if (inds.WTI) {
+                document.getElementById('wti-val').textContent = inds.WTI.value.split(' ')[0] + ' $';
+                const b = document.getElementById('wti-badge');
+                b.textContent = inds.WTI.status.split(' ')[0];
+                b.className = `badge badge-${inds.WTI.badge}`;
+                document.getElementById('wti-desc').textContent = inds.WTI.desc;
+            }
+
+            // Commodities List
+            const commList = document.getElementById('macro-commodities-list');
+            if (data.commodities) {
+                commList.innerHTML = Object.entries(data.commodities).map(([k, v]) => `
+                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.02); border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.03);">
+                        <span style="color: var(--text-muted);">${k}</span>
+                        <strong style="color: #60a5fa;">${v}</strong>
+                    </div>
+                `).join('');
+            }
         }
 
+        // ---------------------------------------------------------------------
+        // SCANNING & FILTERS LOGIC
+        // ---------------------------------------------------------------------
         async function runWatchlistScan() {
-            setScanStatus('En cours...', 'badge-warning');
+            setScanStatus('Scan en cours (41 actions)...', 'badge-warning');
+            const tbody = document.querySelector('#scan-results-table tbody');
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2.5rem; font-size: 0.95rem;">
+                <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
+                <strong>Analyse quantitative de la Watchlist en cours...</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Calcul du Baromètre Macro, Divergences RSI, Ratios AAOIFI & Dimensionnement R-Max</span>
+            </td></tr>`;
+
             try {
                 const res = await fetch(`${API_URL}/scan/watchlist`);
                 const data = await res.json();
-                document.getElementById('results-table-title').textContent = '📊 Résultats du Scan Watchlist';
-                currentScanResults = data.results;
-                renderResultsTable(currentScanResults);
-                setScanStatus('Terminé', 'badge-success');
+                document.getElementById('results-table-title').textContent = '📊 Résultats du Scan Watchlist (v2.0)';
+                currentScanResults = data.results || [];
+                applyFilters();
+                setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
             } catch (e) {
                 console.error(e);
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">❌ Erreur lors du scan : ${e.message || 'Délai d\'attente dépassé'}. Veuillez réessayer.</td></tr>`;
                 setScanStatus('Erreur', 'badge-danger');
             }
         }
 
         async function runMarketScan() {
-            setScanStatus('En cours...', 'badge-warning');
+            setScanStatus('Scan Marché Élargi...', 'badge-warning');
+            const tbody = document.querySelector('#scan-results-table tbody');
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2.5rem; font-size: 0.95rem;">
+                <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
+                <strong>Scan du Marché Élargi en cours (Large & Mid Caps)...</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Recherche d'opportunités à forte confluence</span>
+            </td></tr>`;
+
             try {
                 const res = await fetch(`${API_URL}/scan/market`);
                 const data = await res.json();
-                document.getElementById('results-table-title').textContent = '🌐 Résultats du Scan Marché Élargi';
-                currentScanResults = data.results;
-                renderResultsTable(currentScanResults);
-                setScanStatus('Terminé', 'badge-success');
+                document.getElementById('results-table-title').textContent = '🌐 Résultats du Scan Marché Élargi (v2.0)';
+                currentScanResults = data.results || [];
+                applyFilters();
+                setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
             } catch (e) {
                 console.error(e);
-                setScanStatus('Erreur', 'badge-danger');
-            }
-        }
-
-        async function analyzeSingleTicker() {
-            const input = document.getElementById('ticker-input');
-            const ticker = input.value.trim().toUpperCase();
-            if (!ticker) return;
-
-            setScanStatus(`Analyse de ${ticker}...`, 'badge-warning');
-            try {
-                showTickerDetail(ticker);
-                setScanStatus('Prêt', 'badge-neutral');
-            } catch (e) {
-                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">❌ Erreur lors du scan du marché. Veuillez réessayer.</td></tr>`;
                 setScanStatus('Erreur', 'badge-danger');
             }
         }
@@ -1250,17 +1414,258 @@
             span.className = `badge ${badgeClass}`;
         }
 
+        function applyFilters() {
+            const accountFilter = document.getElementById('filter-account').value;
+            const categoryFilter = document.getElementById('filter-category').value;
+            const shariaFilter = document.getElementById('filter-sharia').value;
+            const verdictFilter = document.getElementById('filter-verdict').value;
+            const searchText = (document.getElementById('filter-search').value || '').trim().toLowerCase();
+
+            filteredResults = currentScanResults.filter(r => {
+                // 1. Filtre Compte (PEA vs CTO)
+                if (accountFilter === 'PEA' && !r.is_pea) return false;
+                if (accountFilter === 'CTO' && r.is_pea) return false;
+
+                // 2. Filtre Catégorie / Secteur
+                if (categoryFilter !== 'ALL') {
+                    const cat = (r.category || '').toLowerCase();
+                    if (!cat.includes(categoryFilter.toLowerCase())) return false;
+                }
+
+                // 3. Filtre Sharia
+                if (shariaFilter === 'CONFORME' && r.sharia !== 'CONFORME') return false;
+
+                // 4. Filtre Verdict
+                if (verdictFilter === 'ACHETER' && !(r.verdict && r.verdict.includes('ACHETER'))) return false;
+                if (verdictFilter === 'ATTENDRE' && !(r.verdict && r.verdict.includes('ATTENDRE'))) return false;
+                if (verdictFilter === 'ÉVITER' && !(r.verdict && (r.verdict.includes('ÉVITER') || r.verdict.includes('GEL')))) return false;
+
+                // 5. Recherche textuelle
+                if (searchText) {
+                    const matchSymbol = (r.symbol || '').toLowerCase().includes(searchText);
+                    const matchName = (r.name || '').toLowerCase().includes(searchText);
+                    const matchCat = (r.category || '').toLowerCase().includes(searchText);
+                    if (!matchSymbol && !matchName && !matchCat) return false;
+                }
+
+                return true;
+            });
+
+            // Update count badge
+            const countBadge = document.getElementById('filter-count-badge');
+            countBadge.textContent = `${filteredResults.length} / ${currentScanResults.length} action(s)`;
+
+            renderResultsTable(filteredResults);
+        }
+
+        function renderResultsTable(results) {
+            const tbody = document.querySelector('#scan-results-table tbody');
+            tbody.innerHTML = '';
+            
+            if (!results || results.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Aucun résultat correspondant aux critères de filtre.</td></tr>`;
+                return;
+            }
+
+            // Trier les résultats
+            results.sort((a, b) => {
+                let valA = a[sortField];
+                let valB = b[sortField];
+                if (typeof valA === 'string') {
+                    return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+                return sortAsc ? (valA - valB) : (valB - valA);
+            });
+
+            results.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => showTickerDetail(r.symbol);
+
+                const symChar = r.currency === "EUR" ? "€" : "$";
+                const isBuy = r.verdict && r.verdict.includes("ACHETER");
+                const isWait = r.verdict && r.verdict.includes("ATTENDRE");
+                const vBadge = isBuy ? 'badge-success' : isWait ? 'badge-warning' : 'badge-danger';
+                
+                const score = r.confluence_score || 0;
+                const scoreClass = score >= 7 ? 'score-high' : score >= 4 ? 'score-med' : 'score-low';
+
+                const shariaBadge = r.sharia === "CONFORME" ? 'badge-success' : r.sharia === "NON CONFORME" ? 'badge-danger' : 'badge-warning';
+
+                const isPea = r.is_pea || (r.symbol && r.symbol.endsWith(".PA"));
+                const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : '<span class="badge badge-cto">🇺🇸 CTO</span>';
+                const catText = `${r.category_icon || '📦'} ${r.category || 'Autres'}`;
+
+                tr.innerHTML = `
+                    <td><strong>${r.symbol}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${r.name || ''}</span></td>
+                    <td>${accountBadge}</td>
+                    <td><span class="badge-cat">${catText}</span></td>
+                    <td><span class="badge ${shariaBadge}">${r.sharia || 'À VÉRIFIER'}</span></td>
+                    <td><strong>${parseFloat(r.price).toFixed(2)} ${symChar}</strong></td>
+                    <td style="color:${parseFloat(r.drop) <= -3.0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight:600;">${r.drop ? parseFloat(r.drop).toFixed(2) + '%' : '-'}</td>
+                    <td>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
+                    <td>${r.rsi_divergence && r.rsi_divergence.includes('HAUSSIÈRE') ? '<span class="badge badge-primary">OUI 🔥</span>' : '<span style="color:var(--text-muted);">-</span>'}</td>
+                    <td><span class="score-pill ${scoreClass}">${score}/10</span></td>
+                    <td><span class="badge ${vBadge}">${r.verdict}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sortBy(field) {
+            if (sortField === field) {
+                sortAsc = !sortAsc;
+            } else {
+                sortField = field;
+                sortAsc = false;
+            }
+            applyFilters();
+        }
+
+        async function analyzeSingleTicker() {
+            const input = document.getElementById('ticker-input');
+            const ticker = input.value.trim().toUpperCase();
+            if (!ticker) return;
+
+            setScanStatus(`Analyse de ${ticker}...`, 'badge-warning');
+            try {
+                await showTickerDetail(ticker);
+                setScanStatus('Prêt', 'badge-neutral');
+            } catch (e) {
+                console.error(e);
+                setScanStatus('Erreur', 'badge-danger');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // MODAL AJOUTER UNE ACTION AU GOOGLE SHEET
+        // ---------------------------------------------------------------------
+        function openAddStockModal() {
+            document.getElementById('add-stock-modal').classList.add('active');
+            document.getElementById('modal-ticker-input').focus();
+            document.getElementById('modal-feedback').style.display = 'none';
+            document.getElementById('modal-preview-card').style.display = 'none';
+        }
+
+        function closeAddStockModal() {
+            document.getElementById('add-stock-modal').classList.remove('active');
+        }
+
+        let previewTimeout = null;
+        function onModalTickerInput() {
+            clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(() => {
+                const ticker = document.getElementById('modal-ticker-input').value.trim().toUpperCase();
+                if (ticker.length >= 2) {
+                    checkTickerInfo();
+                }
+            }, 600);
+        }
+
+        async function checkTickerInfo() {
+            const ticker = document.getElementById('modal-ticker-input').value.trim().toUpperCase();
+            if (!ticker) return;
+
+            const card = document.getElementById('modal-preview-card');
+            card.style.display = 'block';
+            document.getElementById('modal-preview-name').textContent = 'Détection en cours...';
+
+            try {
+                const res = await fetch(`${API_URL}/analyze/${ticker}`);
+                const payload = await res.json();
+                if (payload.success && payload.data) {
+                    const d = payload.data;
+                    document.getElementById('modal-preview-name').textContent = d.company_name || ticker;
+                    
+                    const accElem = document.getElementById('modal-preview-account');
+                    accElem.textContent = d.account_type || (d.is_pea ? '🇫🇷 PEA' : '🇺🇸 CTO');
+                    accElem.className = `badge ${d.is_pea ? 'badge-pea' : 'badge-cto'}`;
+
+                    document.getElementById('modal-preview-category').textContent = `${d.category_icon || '📦'} ${d.category || 'Autres'}`;
+                    
+                    const shariaElem = document.getElementById('modal-preview-sharia');
+                    shariaElem.textContent = d.sharia.status;
+                    shariaElem.className = `badge ${d.sharia.status === 'CONFORME' ? 'badge-success' : 'badge-danger'}`;
+                } else {
+                    document.getElementById('modal-preview-name').textContent = ticker;
+                }
+            } catch (e) {
+                document.getElementById('modal-preview-name').textContent = ticker;
+            }
+        }
+
+        async function submitAddStock() {
+            const ticker = document.getElementById('modal-ticker-input').value.trim().toUpperCase();
+            if (!ticker) {
+                showModalFeedback("Veuillez saisir un symbole d'action.", "var(--danger)");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-add-stock');
+            btn.disabled = true;
+            btn.textContent = "⏳ Enregistrement...";
+
+            const catSelect = document.getElementById('modal-category-select').value;
+            const accSelect = document.getElementById('modal-account-select').value;
+            let isPea = null;
+            if (accSelect === 'pea') isPea = true;
+            if (accSelect === 'cto') isPea = false;
+
+            try {
+                const res = await fetch(`${API_URL}/watchlist/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ticker: ticker,
+                        category: catSelect || undefined,
+                        is_pea: isPea !== null ? isPea : undefined
+                    })
+                });
+                const payload = await res.json();
+
+                if (payload.success) {
+                    showModalFeedback(`✅ ${payload.message}`, "var(--success)");
+                    setTimeout(() => {
+                        closeAddStockModal();
+                        runWatchlistScan(); // Rafraîchit la watchlist
+                        if (payload.data) {
+                            showTickerDetail(ticker);
+                        }
+                    }, 1200);
+                } else {
+                    showModalFeedback(`❌ ${payload.error || 'Erreur lors de l\'ajout.'}`, "var(--danger)");
+                }
+            } catch (e) {
+                console.error(e);
+                showModalFeedback("Erreur de connexion au serveur.", "var(--danger)");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "📥 Enregistrer dans Google Sheets";
+            }
+        }
+
+        function showModalFeedback(msg, color) {
+            const fb = document.getElementById('modal-feedback');
+            fb.style.display = 'block';
+            fb.style.background = 'rgba(0,0,0,0.4)';
+            fb.style.border = `1px solid ${color}`;
+            fb.style.color = color;
+            fb.textContent = msg;
+        }
+
+        // ---------------------------------------------------------------------
+        // 8-STEP PROTOCOL ANALYSIS CARD & TRADINGVIEW
+        // ---------------------------------------------------------------------
         function renderTradingViewWidget(symbol) {
             const container = document.getElementById('tv-chart-container');
             container.style.display = 'block';
-            container.innerHTML = `<div id="tradingview_chart" style="height: 350px; width: 100%;"></div>`;
+            container.innerHTML = `<div id="tradingview_chart" style="height: 320px; width: 100%;"></div>`;
 
-            // Convertir les suffixes yfinance pour TradingView
             let tvSymbol = symbol;
             if (symbol.endsWith(".PA")) {
                 tvSymbol = "EURONEXT:" + symbol.replace(".PA", "");
-            } else if (symbol.endsWith(".KS")) {
-                tvSymbol = "KRX:" + symbol.replace(".KS", "");
+            } else if (symbol.endsWith(".AS")) {
+                tvSymbol = "EURONEXT:" + symbol.replace(".AS", "");
             } else if (symbol.endsWith(".DE")) {
                 tvSymbol = "XETR:" + symbol.replace(".DE", "");
             }
@@ -1280,8 +1685,8 @@
                     "container_id": "tradingview_chart"
                 });
             } catch (e) {
-                console.error("Erreur lors de l'initialisation du widget TradingView:", e);
-                container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.8rem; padding: 1rem;">Widget TradingView non disponible.</p>`;
+                console.error("TradingView widget error:", e);
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.8rem; padding: 1rem;">Graphique TradingView non disponible.</p>`;
             }
         }
 
@@ -1290,7 +1695,7 @@
             const card = document.getElementById('ticker-detail-card');
             
             document.getElementById('detail-card-title').textContent = `📋 Rapport : ${symbol}`;
-            container.innerHTML = '<p style="color: var(--text-muted);">Chargement du protocole en 8 étapes...</p>';
+            container.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">Chargement du protocole en 8 étapes...</p>';
             document.getElementById('tv-chart-container').style.display = 'none';
             card.style.display = 'block';
 
@@ -1298,172 +1703,128 @@
                 const res = await fetch(`${API_URL}/analyze/${symbol}`);
                 const payload = await res.json();
                 if (!payload.success) {
-                    container.innerHTML = `<p style="color: var(--danger);">Erreur: ${payload.error}</p>`;
+                    container.innerHTML = `<p style="color: var(--danger); padding: 1rem;">Erreur: ${payload.error}</p>`;
                     return;
                 }
 
                 const d = payload.data;
-                const entry = d.trade_plan.entry;
-                const rsi = d.technical.rsi;
-                const support = d.technical.support;
-                const resistance = d.technical.resistance || (entry * 1.03);
-                const histVol = d.technical.historical_volatility || 0;
-                const vix = d.technical.vix;
-                
-                // Helper pour calculer la différence en pourcentage
-                const getPctDiff = (val, ref) => {
-                    if (!val || !ref) return '0.00%';
-                    const diff = ((val - ref) / ref) * 100;
-                    const sign = diff >= 0 ? '+' : '';
-                    return `${sign}${diff.toFixed(2)}%`;
-                };
+                const symChar = d.currency === "EUR" ? "€" : "$";
+                const tech = d.step_5_technical || d.technical;
+                const plan = d.step_6_trade_plan || d.trade_plan;
+                const risk = d.step_7_risk_sizing || d.trade_plan;
+                const confluence = d.step_8_confluence || { confluence_score: d.confluence_score || 0, verdict: d.verdict };
 
-                // Charger le graphique TradingView interactif
-                const symbolChar = d.technical.currency === "EUR" ? "€" : "$";
+                // Score pill update
+                const scorePill = document.getElementById('detail-score-pill');
+                scorePill.textContent = `${confluence.confluence_score || d.confluence_score}/10`;
+                scorePill.className = `score-pill ${(confluence.confluence_score >= 7) ? 'score-high' : (confluence.confluence_score >= 4) ? 'score-med' : 'score-low'}`;
 
-                // Charger le graphique TradingView interactif
                 renderTradingViewWidget(d.symbol);
-                
+
+                // Sharia Ratios display
+                let shariaRatiosHtml = '';
+                if (d.sharia && d.sharia.details && d.sharia.details.debt_ratio !== undefined) {
+                    const debt = (d.sharia.details.debt_ratio * 100);
+                    const cash = (d.sharia.details.cash_ratio * 100);
+                    const rec = (d.sharia.details.receivables_ratio * 100);
+
+                    shariaRatiosHtml = `
+                        <div class="ratio-bar-container">
+                            <div style="display:flex; justify-content:space-between;"><span>Dette / Market Cap</span><strong>${debt.toFixed(1)}% / 33%</strong></div>
+                            <div class="ratio-bar-outer"><div class="ratio-bar-inner" style="width: ${Math.min(debt/33*100, 100)}%; background: ${debt < 33 ? 'var(--success)' : 'var(--danger)'};"></div></div>
+                        </div>
+                        <div class="ratio-bar-container">
+                            <div style="display:flex; justify-content:space-between;"><span>Trésorerie / Market Cap</span><strong>${cash.toFixed(1)}% / 33%</strong></div>
+                            <div class="ratio-bar-outer"><div class="ratio-bar-inner" style="width: ${Math.min(cash/33*100, 100)}%; background: ${cash < 33 ? 'var(--success)' : 'var(--danger)'};"></div></div>
+                        </div>
+                        <div class="ratio-bar-container">
+                            <div style="display:flex; justify-content:space-between;"><span>Créances / Market Cap</span><strong>${rec.toFixed(1)}% / 33%</strong></div>
+                            <div class="ratio-bar-outer"><div class="ratio-bar-inner" style="width: ${Math.min(rec/33*100, 100)}%; background: ${rec < 33 ? 'var(--success)' : 'var(--danger)'};"></div></div>
+                        </div>
+                    `;
+                }
+
                 container.innerHTML = `
-                    <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: 8px;">
                         <div>
-                            <span style="font-size: 1.25rem; font-weight: 800; display: block;">${d.symbol}</span>
-                            <span style="font-size: 0.85rem; color: var(--text-muted);">${d.company_name || ''}</span>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 1.2rem; font-weight: 800;">${d.symbol}</span>
+                                <span class="badge ${d.is_pea ? 'badge-pea' : 'badge-cto'}">${d.account_type || (d.is_pea ? 'PEA' : 'CTO')}</span>
+                                <span class="badge-cat">${d.category_icon || '📦'} ${d.category}</span>
+                            </div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${d.company_name || ''}</span>
                         </div>
-                        ${getVerdictBadge(d.verdict)}
+                        <span class="badge ${d.verdict.includes('ACHETER') ? 'badge-success' : d.verdict.includes('ATTENDRE') ? 'badge-warning' : 'badge-danger'}">${d.verdict}</span>
                     </div>
-                    
+
                     <div class="report-section">
+                        <!-- Étape 1 -->
                         <div class="report-step">
-                            <div class="report-step-title">1. Conformité Sharia</div>
-                            <div>Verdict : ${getShariaBadge(d.sharia.status)}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">${d.sharia.reason}</div>
+                            <div class="report-step-title">🕌 1. Conformité Sharia (AAOIFI)</div>
+                            <div>Statut : <span class="badge ${d.sharia.status === 'CONFORME' ? 'badge-success' : 'badge-danger'}">${d.sharia.status}</span></div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin: 0.25rem 0;">${d.sharia.reason}</div>
+                            ${shariaRatiosHtml}
                         </div>
 
+                        <!-- Étape 2 -->
                         <div class="report-step">
-                            <div class="report-step-title">2. Qualification de la baisse</div>
-                            <div>Variation : <strong style="color: var(--danger);">${parseFloat(d.drop.drop_pct).toFixed(2)}%</strong> sur les ${d.drop.lookback_days} derniers jours.</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">Nature: ${d.drop.nature} (baisse conjoncturelle)</div>
+                            <div class="report-step-title">🌍 2. Contexte Macroéconomique</div>
+                            <div>Régime Global : <strong>${d.step_2_macro.regime}</strong></div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">${d.step_2_macro.action_rule}</div>
                         </div>
 
+                        <!-- Étape 3 -->
                         <div class="report-step">
-                            <div class="report-step-title">3. Fondamentaux & Calendrier</div>
-                            <div>Blackout résultats : ${d.earnings_blackout.active ? '<strong style="color: var(--danger);">Actif 🔴</strong>' : '<span style="color: var(--success);">Inactif 🟢</span>'}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">${d.earnings_blackout.reason}</div>
+                            <div class="report-step-title">📉 3. Diagnostic de la Baisse (-3% à -8%)</div>
+                            <div>Ampleur : <strong style="color:var(--danger);">${parseFloat(d.step_3_drop.drop_pct).toFixed(2)}%</strong> sur ${d.step_3_drop.lookback_days} session(s)</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">Nature : <strong>${d.step_3_drop.nature}</strong></div>
                         </div>
 
+                        <!-- Étape 4 -->
                         <div class="report-step">
-                            <div class="report-step-title">
-                                4. Analyse Technique
-                            </div>
-                            <div>Cours Actuel : <strong>${entry.toFixed(2)} ${symbolChar}</strong></div>
-                            
-                            <div>
-                                SMA 200 (Fond) : <strong>${d.technical.sma_200.toFixed(2)} ${symbolChar}</strong> 
-                                <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.sma_200, entry)} vs cours)</span>
-                                (${entry >= d.technical.sma_200 ? '<span style="color: var(--success); font-weight:600;">Tendance Haussière 📈</span>' : '<span style="color: var(--danger); font-weight:600;">Tendance Baissière 📉</span>'})
-                                <span class="tooltip-container">ℹ️
-                                    <span class="tooltip-text">
-                                        <strong>SMA 200 (Moyenne Mobile 200) :</strong> Filtre de tendance long terme.<br>
-                                        - 🟢 <strong>Au-dessus :</strong> Tendance de fond haussière. Achat sur repli (dips) recommandé. [Orientation : ACHAT]<br>
-                                        - 🔴 <strong>En-dessous :</strong> Tendance baissière. Risque élevé de baisse continue. [Orientation : ÉVITER / VENTE]
-                                    </span>
-                                </span>
-                            </div>
-                            
-                            <div>
-                                Canal MRC (Moyenne) : <strong>${d.technical.mrc_mean.toFixed(2)} ${symbolChar}</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_mean, entry)} vs cours)</span><br>
-                                Bornes : Basse <strong>${d.technical.mrc_lower.toFixed(2)} ${symbolChar}</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_lower, entry)})</span> | 
-                                Haute <strong>${d.technical.mrc_upper.toFixed(2)} ${symbolChar}</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">(${getPctDiff(d.technical.mrc_upper, entry)})</span>
-                                <span class="tooltip-container">ℹ️
-                                    <span class="tooltip-text">
-                                        <strong>MRC (Mean Reversion Channel) :</strong> Canal statistique autour du prix.<br>
-                                        - 🟢 <strong>Sous le canal inférieur (Oversold) :</strong> Prix statistiquement étiré à la baisse. Idéal pour un rebond. [Orientation : ACHAT]<br>
-                                        - ⚖️ <strong>Dans le canal (Neutre) :</strong> Prix équilibré. [Orientation : CONSERVATION / ATTENDRE]
-                                    </span>
-                                </span>
-                            </div>
-                            
-                            <div>
-                                Statut Canal MRC : <strong>${d.technical.mrc_oversold ? '<span style="color: var(--success); font-weight:600;">Oversold (Bas de canal) 🟢</span>' : '<span style="color: var(--text-muted);">Dans les bornes ⚖️</span>'}</strong>
-                            </div>
-                            
-                            <div>
-                                Momentum QQE : <strong>${d.technical.qqe_buy_signal ? '<span style="color: var(--success); font-weight:600;">Signal ACHAT 🟢</span>' : '<span style="color: var(--text-muted);">Pas de signal ⚪</span>'}</strong> (RSI Lissé: ${d.technical.qqe_smoothed_rsi.toFixed(2)})
-                                <span class="tooltip-container">ℹ️
-                                    <span class="tooltip-text">
-                                        <strong>QQE Signals :</strong> Indicateur de momentum lissé.<br>
-                                        - 🟢 <strong>Signal ACHAT :</strong> Le RSI lissé repasse au-dessus de sa ligne de signal. Confirmation de force acheteuse. [Orientation : ACHAT]<br>
-                                        - ⚪ <strong>Pas de signal :</strong> Dynamique baissière ou neutre. [Orientation : ATTENDRE / CONSERVATION]
-                                    </span>
-                                </span>
-                            </div>
-                            
-                            <div>
-                                Volume & MM : <strong>${d.technical.current_volume.toLocaleString()}</strong> (MA 20: ${d.technical.volume_sma_20.toLocaleString()}) 
-                                (${d.technical.volume_confirmed ? '<span style="color: var(--success); font-weight:600;">Volume Fort (Confirmé) 🔥</span>' : '<span style="color: var(--warning); font-weight:600;">Volume Faible ⚠️</span>'})
-                                <span class="tooltip-container">ℹ️
-                                    <span class="tooltip-text">
-                                        <strong>Volume & MM 20 :</strong> Filtre de confirmation institutionnelle.<br>
-                                        - 🔥 <strong>Volume &gt; MA 20 :</strong> Le mouvement est soutenu par des capitaux importants. [Orientation : ACHAT / RENFORCER]<br>
-                                        - ⚠️ <strong>Volume &lt; MA 20 :</strong> Manque de force, rebond fragile. [Orientation : ATTENDRE]
-                                    </span>
-                                </span>
-                            </div>
-                            
-                            <div style="margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                                RSI (14) : ${rsi.toFixed(2)} (${rsi < 30 ? '📉 Survendu' : rsi > 70 ? '📈 Suracheté' : '⚖️ Neutre'})
-                                <span class="tooltip-container">ℹ️
-                                    <span class="tooltip-text">
-                                        <strong>RSI (Relative Strength Index) :</strong><br>
-                                        - 📉 <strong>Survente (&lt; 30) :</strong> Vendeurs trop agressifs. Action statistiquement bon marché à court terme. Opportunité de rebond. [Orientation : ACHAT]<br>
-                                        - ⚖️ <strong>Zone Neutre (30 à 70) :</strong> Marché équilibré. Le niveau 50 sert de pivot dynamique (au-dessus = force acheteuse). [Orientation : CONSERVATION]<br>
-                                        - 📈 <strong>Surachat (&gt; 70) :</strong> Prix trop élevé à court terme. Prise de bénéfices imminente. [Orientation : VENTE / ALLÉGER]
-                                    </span>
-                                </span><br>
-                                Support : <strong>${support.toFixed(2)} ${symbolChar}</strong> | Résistance : <strong>${resistance.toFixed(2)} ${symbolChar}</strong><br>
-                                Volatilité (Action) : <strong>${histVol.toFixed(2)}%</strong> | VIX Marché : <strong>${vix ? vix.toFixed(2) : 'N/A'}</strong>
-                            </div>
+                            <div class="report-step-title">🏢 4. Fondamentaux & Calendrier Risques</div>
+                            <div>Santé : <strong>${d.step_4_fundamentals.health_status}</strong> (${d.step_4_fundamentals.summary})</div>
+                            <div style="margin-top:0.2rem;">Blackout Résultats (10j) : ${d.step_4_fundamentals.earnings_blackout.active ? '<strong style="color:var(--danger);">Actif 🔴</strong>' : '<span style="color:var(--success);">Inactif (Sécurisé) 🟢</span>'}</div>
                         </div>
 
+                        <!-- Étape 5 -->
                         <div class="report-step">
-                            <div class="report-step-title">5. Plan de Trade</div>
-                            <div>Zone d'entrée : <strong>${entry.toFixed(2)} ${symbolChar}</strong></div>
-                            <div>Objectif : <strong>${d.trade_plan.target_min.toFixed(2)} à ${d.trade_plan.target_max.toFixed(2)} ${symbolChar} (+${d.trade_plan.potential_gain_min.toFixed(2)}% à +${d.trade_plan.potential_gain_max.toFixed(2)}%)</strong></div>
-                            <div>Stop-Loss : <strong style="color: var(--danger);">${d.trade_plan.invalidation.toFixed(2)} ${symbolChar}</strong></div>
+                            <div class="report-step-title">📊 5. Analyse Technique & Flux</div>
+                            <div>Cours Actuel : <strong>${tech.current_price.toFixed(2)} ${symChar}</strong> | SMA 200 : <strong>${tech.sma_200.toFixed(2)} ${symChar}</strong> (${tech.trend_daily})</div>
+                            <div>Support : <strong>${tech.support.toFixed(2)} ${symChar}</strong> | Résistance : <strong>${tech.resistance.toFixed(2)} ${symChar}</strong></div>
+                            <div>RSI (14) : <strong>${tech.rsi.toFixed(1)}</strong> | Divergence : <strong>${tech.rsi_divergence.type}</strong></div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">${tech.rsi_divergence.description}</div>
+                            <div style="margin-top:0.25rem;">Volume : ${tech.volume_confirmed ? '<strong style="color:var(--success);">Confirmé (&gt; MA 20) 🔥</strong>' : '<span style="color:var(--text-muted);">Faible</span>'} | Momentum QQE : ${tech.qqe_buy_signal ? '<strong style="color:var(--success);">Signal ACHAT 🟢</strong>' : '<span style="color:var(--text-muted);">Neutre</span>'}</div>
                         </div>
 
+                        <!-- Étape 6 -->
                         <div class="report-step">
-                            <div class="report-step-title">6. Allocation suggérée</div>
-                            <div style="font-size: 0.85rem;">20% à 25% max du capital disponible (ex: 600€ à 2500€).</div>
+                            <div class="report-step-title">🎯 6. Plan de Trade Tactique</div>
+                            <div>📥 Entrée : <strong>${tech.current_price.toFixed(2)} ${symChar}</strong></div>
+                            <div>🎯 TP1 (+1.25%) : <strong>${(plan.tp1_price || plan.target_min).toFixed(2)} ${symChar}</strong> | TP2 (+2.25%) : <strong>${(plan.tp2_price || plan.target_max).toFixed(2)} ${symChar}</strong></div>
+                            <div>🛑 Stop-Loss : <strong style="color:var(--danger);">${(plan.stop_loss_price || plan.invalidation).toFixed(2)} ${symChar}</strong> (-${(plan.stop_distance_pct || plan.potential_loss).toFixed(2)}%)</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">Horizon : <strong>${plan.holding_range || '3 à 15 jours (cible ~10j)'}</strong></div>
                         </div>
 
+                        <!-- Étape 7 -->
                         <div class="report-step">
-                            <div class="report-step-title">7. Ratio Risque / Rendement</div>
-                            <div>Gain potentiel : +${d.trade_plan.potential_gain_min.toFixed(2)}%</div>
-                            <div>Risque potentiel : -${d.trade_plan.potential_loss.toFixed(2)}%</div>
-                            <div>Ratio : <strong>1 : ${d.trade_plan.risk_reward.toFixed(2)}</strong></div>
+                            <div class="report-step-title">🛡️ 7. Dimensionnement R-Max (Capital ${risk.capital_reference || 5000} €)</div>
+                            <div>Allocation Nominale Suggérée : <strong style="color:#60a5fa;">${(risk.suggested_nominal).toFixed(2)} €</strong> (${risk.shares_count} actions)</div>
+                            <div>Risque Monétaire Engagé : <strong style="color:#fbbf24;">${(risk.actual_monetary_risk).toFixed(2)} €</strong> (R-Max autorisé : ${(risk.r_max_amount).toFixed(2)} €)</div>
+                            <div>Ratios R:R : TP1 = <strong>1:${(risk.risk_reward_tp1 || plan.risk_reward).toFixed(2)}</strong> | TP2 = <strong>1:${(risk.risk_reward_tp2 || plan.risk_reward*1.5).toFixed(2)}</strong></div>
                         </div>
 
-                        <!-- Étape 8 : Suivi Portefeuille et Vente -->
-                        <div class="report-step" style="background: rgba(59, 130, 246, 0.03); border: 1px dashed rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
-                            <div class="report-step-title">💼 8. Suivi Portefeuille & Vente (Optionnel)</div>
-                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                                <label style="font-size: 0.8rem; color: var(--text-muted);">Votre prix d'achat moyen (${symbolChar}) :</label>
-                                <input type="number" id="portfolio-buy-price" style="width: 100px; padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid var(--card-border); background: #0c101b; color: white;" placeholder="ex: 80.70" step="any">
-                                <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight:600;" onclick="saveToPortfolio('${d.symbol}')">Enregistrer</button>
-                                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight:600; display: none;" id="btn-remove-portfolio" onclick="removeFromPortfolio('${d.symbol}')">Supprimer</button>
-                            </div>
-                            <div id="portfolio-analysis-content" style="font-size: 0.85rem; margin-top: 0.75rem;"></div>
+                        <!-- Étape 8 -->
+                        <div class="report-step" style="background: rgba(59,130,246,0.04); border-radius: 8px; padding: 0.75rem; border: 1px solid rgba(59,130,246,0.2);">
+                            <div class="report-step-title">🏆 8. Verdict Final & Synthèse Décisionnelle</div>
+                            <div style="font-size: 0.95rem; margin-bottom: 0.35rem;">Avis : <strong>${d.verdict}</strong> (Score : <strong>${confluence.confluence_score}/10</strong>)</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">${confluence.synthesis || d.trade_plan.summary || ''}</div>
                         </div>
                     </div>
                 `;
-
-                // Analyser la vente ou l'achat en portefeuille
-                updatePortfolioAnalysis(d.symbol, entry, d.technical, d.trade_plan);
-
             } catch (e) {
-                container.innerHTML = `<p style="color: var(--danger);">Une erreur s'est produite lors du chargement des détails.</p>`;
+                console.error(e);
+                container.innerHTML = `<p style="color: var(--danger); padding: 1rem;">Erreur de chargement du rapport.</p>`;
             }
         }
 
@@ -1471,124 +1832,18 @@
             document.getElementById('ticker-detail-card').style.display = 'none';
         }
 
-        // Gestion du portefeuille local
-        function saveToPortfolio(symbol) {
-            const priceInput = document.getElementById('portfolio-buy-price');
-            const price = parseFloat(priceInput.value);
-            if (isNaN(price) || price <= 0) {
-                alert("Veuillez saisir un prix d'achat valide.");
-                return;
-            }
-            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
-            portfolio[symbol] = price;
-            localStorage.setItem('agent_trading_portfolio', JSON.stringify(portfolio));
-            
-            showTickerDetail(symbol);
-            if (currentScanResults && currentScanResults.length > 0) {
-                renderResultsTable(currentScanResults);
-            }
-        }
-        
-        function removeFromPortfolio(symbol) {
-            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
-            delete portfolio[symbol];
-            localStorage.setItem('agent_trading_portfolio', JSON.stringify(portfolio));
-            
-            showTickerDetail(symbol);
-            if (currentScanResults && currentScanResults.length > 0) {
-                renderResultsTable(currentScanResults);
-            }
-        }
-
-        function updatePortfolioAnalysis(symbol, currentPrice, technicalData, tradePlan) {
-            const portfolio = JSON.parse(localStorage.getItem('agent_trading_portfolio') || '{}');
-            const buyPrice = portfolio[symbol];
-            const analysisContainer = document.getElementById('portfolio-analysis-content');
-            const removeBtn = document.getElementById('btn-remove-portfolio');
-            
-            const symbolChar = technicalData.currency === "EUR" ? "€" : "$";
-            
-            if (!buyPrice) {
-                analysisContainer.innerHTML = `<span style="color: var(--text-muted); font-size:0.8rem;">Aucune position enregistrée pour ce titre. Entrez un prix d'achat en ${symbolChar} pour activer les calculs de vente/renforcement.</span>`;
-                if (removeBtn) removeBtn.style.display = 'none';
-                return;
-            }
-            
-            if (removeBtn) removeBtn.style.display = 'inline-block';
-            document.getElementById('portfolio-buy-price').value = buyPrice;
-            
-            const perf = ((currentPrice - buyPrice) / buyPrice) * 100;
-            const perfColor = perf >= 0 ? 'var(--success)' : 'var(--danger)';
-            
-            const getPctDiff = (val, ref) => {
-                const diff = ((val - ref) / ref) * 100;
-                const sign = diff >= 0 ? '+' : '';
-                return `${sign}${diff.toFixed(2)}%`;
-            };
-            
-            let sellVerdict = "⚖️ CONSERVER (Aucun signal d'allègement ou de vente)";
-            let sellStrategy = "";
-            
-            if (technicalData.rsi > 70) {
-                sellVerdict = "<span style='color: var(--danger); font-weight:700;'>🔴 ALLÉGER / VENDRE (Surachat RSI &gt; 70)</span>";
-                sellStrategy = "Le RSI est supérieur à 70, indiquant un surachat à court terme. Il est recommandé de prendre des bénéfices partiels (allègement de la ligne).";
-            } else if (currentPrice >= technicalData.mrc_upper) {
-                sellVerdict = "<span style='color: var(--danger); font-weight:700;'>🔴 VENDRE (Haut de canal MRC atteint)</span>";
-                sellStrategy = "Le cours actuel est sur la borne haute du canal statistique MRC. Excellente zone historique pour sécuriser les gains.";
-            } else if (currentPrice < tradePlan.invalidation) {
-                sellVerdict = "<span style='color: var(--danger); font-weight:700;'>🛑 STOP-LOSS ATTEINT (Couper la position)</span>";
-                sellStrategy = "Le prix est descendu sous le stop-loss technique. Envisager de couper la position pour limiter les pertes.";
-            } else if (technicalData.rsi < 35 && currentPrice <= technicalData.mrc_lower && currentPrice >= technicalData.sma_200) {
-                sellVerdict = "<span style='color: var(--success); font-weight:700;'>🟢 COMPLÉTER / RENFORCER (Repli sur support en tendance haussière)</span>";
-                sellStrategy = "Le titre reste dans une tendance de fond haussière (au-dessus de la SMA 200) mais est fortement replié sur la bande basse du MRC avec un RSI bas. Excellente opportunité de renforcer la position pour baisser votre PRU.";
-            } else {
-                sellStrategy = "La dynamique reste saine dans le canal. Objectifs de sortie recommandés : " +
-                    `Moyenne MRC (${technicalData.mrc_mean.toFixed(2)} ${symbolChar} / ${getPctDiff(technicalData.mrc_mean, buyPrice)} par rapport au PRU), ` +
-                    `Haut de canal MRC (${technicalData.mrc_upper.toFixed(2)} ${symbolChar} / ${getPctDiff(technicalData.mrc_upper, buyPrice)}).`;
-            }
-            
-            analysisContainer.innerHTML = `
-                <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); line-height: 1.5;">
-                    Performance Latente : <strong style="color: ${perfColor}; font-size: 0.95rem;">${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%</strong> (PRU: ${buyPrice.toFixed(2)} ${symbolChar})<br>
-                    Verdict Vente : <strong>${sellVerdict}</strong><br>
-                    <span style="display:block; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; line-height:1.4;">💡 ${sellStrategy}</span>
-                </div>
-            `;
-        }
-
-        // Chat logic
-        function checkEnter(event) {
-            if (event.key === 'Enter') {
-                sendChatMessage();
-            }
-        }
-
-        async function askQuestion(text) {
-            document.getElementById('chat-input').value = text;
-            sendChatMessage();
-        }
-
+        // ---------------------------------------------------------------------
+        // CHAT ASSISTANT
+        // ---------------------------------------------------------------------
         async function sendChatMessage() {
             const input = document.getElementById('chat-input');
             const message = input.value.trim();
             if (!message) return;
 
-            // Add user message
-            const container = document.getElementById('chat-messages-container');
-            const userDiv = document.createElement('div');
-            userDiv.className = 'message message-user';
-            userDiv.textContent = message;
-            container.appendChild(userDiv);
-            
+            appendChatMessage('user', message);
             input.value = '';
-            container.scrollTop = container.scrollHeight;
 
-            // Add loading bot message
-            const botDiv = document.createElement('div');
-            botDiv.className = 'message message-bot';
-            botDiv.innerHTML = '<em>L\'agent réfléchit...</em>';
-            container.appendChild(botDiv);
-            container.scrollTop = container.scrollHeight;
+            const botMsgElem = appendChatMessage('bot', 'Réflexion et analyse en cours...');
 
             try {
                 const res = await fetch(`${API_URL}/chat`, {
@@ -1597,371 +1852,185 @@
                     body: JSON.stringify({ message: message })
                 });
                 const data = await res.json();
-                
-                // Format response as basic markdown replacement
-                let formatted = data.response
-                    .replace(/\n/g, '<br>')
-                    .replace(/### (.*?)(<br>|$)/g, '<h3>$1</h3>')
-                    .replace(/#### (.*?)(<br>|$)/g, '<h4>$1</h4>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/- \*\*(.*?)\*\* : /g, '<li><strong>$1</strong>: ')
-                    .replace(/- (.*?) : /g, '<li>$1: ');
-                
-                botDiv.innerHTML = formatted;
+                botMsgElem.innerHTML = formatMarkdown(data.response);
             } catch (e) {
-                botDiv.textContent = "Je n'arrive pas à me connecter au serveur de l'agent. Veuillez vérifier qu'il est bien démarré.";
+                console.error(e);
+                botMsgElem.textContent = "Désolé, une erreur est survenue lors du traitement de votre message.";
             }
+        }
+
+        function askQuestion(q) {
+            switchTab('chat');
+            document.getElementById('chat-input').value = q;
+            sendChatMessage();
+        }
+
+        function checkEnter(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        function appendChatMessage(sender, text) {
+            const container = document.getElementById('chat-messages-container');
+            const msg = document.createElement('div');
+            msg.className = `message message-${sender}`;
+            msg.innerHTML = sender === 'bot' ? formatMarkdown(text) : escapeHtml(text);
+            container.appendChild(msg);
             container.scrollTop = container.scrollHeight;
-        }
-        // Simulation & Planning Logic
-        let monthlyOverrides = [];
-
-        // Initialisation de la simulation au démarrage
-        document.addEventListener('DOMContentLoaded', () => {
-            initSimulation();
-        });
-
-        function initSimulation() {
-            // Charger les apports mensuels sauvegardés ou par défaut
-            const savedOverrides = localStorage.getItem('agent_trading_monthly_overrides');
-            const defaultApport = parseFloat(document.getElementById('input-apport-mensuel').value);
-            
-            if (savedOverrides) {
-                monthlyOverrides = JSON.parse(savedOverrides);
-            } else {
-                monthlyOverrides = Array(12).fill(defaultApport);
-            }
-            
-            renderMonthOverrides();
-            renderHistoryTable();
-            updateSimulationValues();
+            return msg;
         }
 
-        function getHistoryLog() {
-            return JSON.parse(localStorage.getItem('agent_trading_real_history') || '[]');
+        function formatMarkdown(text) {
+            if (!text) return '';
+            let html = text
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                .replace(/`\[(.*?)\]`/gim, '<span class="badge badge-primary">$1</span>')
+                .replace(/`(.*?)`/gim, '<code>$1</code>')
+                .replace(/\n\n/gim, '<br><br>')
+                .replace(/\n- /gim, '<br>• ');
+            return html;
         }
 
-        function renderHistoryTable() {
-            const history = getHistoryLog();
-            const tbody = document.querySelector('#history-points-table tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            
-            if (history.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1rem;">Aucun point enregistré.</td></tr>`;
-                return;
-            }
-            
-            // Tri par mois croissant
-            history.sort((a, b) => a.month - b.month);
-            
-            history.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="padding: 0.35rem 0.5rem; font-weight:600;">Mois ${item.month}</td>
-                    <td style="padding: 0.35rem 0.5rem;">${item.capital.toLocaleString()} €</td>
-                    <td style="padding: 0.35rem 0.5rem; text-align: right;">
-                        <button class="btn btn-secondary" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;" onclick="deleteHistoryPoint(${item.month})">Supprimer</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
         }
 
-        function addHistoryPoint() {
-            const month = parseInt(document.getElementById('hist-month').value);
-            const capital = parseFloat(document.getElementById('hist-capital').value);
-            
-            if (isNaN(capital) || capital < 0) {
-                alert('Veuillez entrer un capital réel valide.');
-                return;
-            }
-            
-            let history = getHistoryLog();
-            // Supprimer s'il y a déjà un point pour ce mois
-            history = history.filter(item => item.month !== month);
-            history.push({ month, capital });
-            
-            localStorage.setItem('agent_trading_real_history', JSON.stringify(history));
-            document.getElementById('hist-capital').value = '';
-            
-            renderHistoryTable();
-            runSimulation();
-        }
+        // ---------------------------------------------------------------------
+        // R-MAX CALCULATOR & SIMULATION TAB
+        // ---------------------------------------------------------------------
+        function recalculateRMaxTool() {
+            const capital = parseFloat(document.getElementById('calc-rmax-capital').value) || 5000;
+            const regime = document.getElementById('calc-rmax-regime').value;
+            const entry = parseFloat(document.getElementById('calc-rmax-entry').value) || 100;
+            const stop = parseFloat(document.getElementById('calc-rmax-stop').value) || 97;
 
-        function deleteHistoryPoint(month) {
-            let history = getHistoryLog();
-            history = history.filter(item => item.month !== month);
-            localStorage.setItem('agent_trading_real_history', JSON.stringify(history));
-            renderHistoryTable();
-            runSimulation();
-        }
+            const stopDistPct = Math.max(0.01, ((entry - stop) / entry));
+            document.getElementById('res-stop-dist').textContent = `-${(stopDistPct * 100).toFixed(2)} %`;
 
-        function renderMonthOverrides() {
-            const container = document.getElementById('month-override-inputs');
-            if (!container) return;
-            container.innerHTML = '';
-            
-            for (let i = 0; i < 12; i++) {
-                const div = document.createElement('div');
-                div.className = 'month-input-container';
-                div.innerHTML = `
-                    <label>Mois ${i + 1}</label>
-                    <input type="number" value="${monthlyOverrides[i]}" onchange="updateMonthOverride(${i}, this.value)">
-                `;
-                container.appendChild(div);
-            }
-        }
+            let rMaxPct = 0.01;
+            if (regime === 'NEUTRE' || regime === 'DRAWDOWN') rMaxPct = 0.005;
+            if (regime === 'RISK-OFF') rMaxPct = 0.0;
 
-        function updateMonthOverride(index, val) {
-            monthlyOverrides[index] = parseFloat(val) || 0;
-            localStorage.setItem('agent_trading_monthly_overrides', JSON.stringify(monthlyOverrides));
-            runSimulation();
+            const rMaxAmount = capital * rMaxPct;
+            document.getElementById('res-rmax-amount').textContent = `${rMaxAmount.toFixed(2)} € (${(rMaxPct * 100).toFixed(1)}%)`;
+
+            const maxLineNominal = capital * 0.25;
+            let rawNominal = (rMaxPct > 0) ? (rMaxAmount / stopDistPct) : 0;
+            let suggestedNominal = Math.min(rawNominal, maxLineNominal);
+
+            const sharesCount = Math.floor(suggestedNominal / entry);
+            const actualNominal = sharesCount * entry;
+            const actualLoss = sharesCount * (entry - stop);
+
+            document.getElementById('res-nominal-alloc').textContent = `${actualNominal.toFixed(2)} € (${((actualNominal/capital)*100).toFixed(1)}%)`;
+            document.getElementById('res-shares-count').textContent = `${sharesCount} action(s)`;
+
+            const tp1Gain = sharesCount * (entry * 1.0125 - entry);
+            const tp2Gain = sharesCount * (entry * 1.0225 - entry);
+
+            document.getElementById('res-tp1-gain').textContent = `+${tp1Gain.toFixed(2)} €`;
+            document.getElementById('res-tp2-gain').textContent = `+${tp2Gain.toFixed(2)} €`;
+            document.getElementById('res-sl-loss').textContent = `-${actualLoss.toFixed(2)} €`;
         }
 
         function updateSimulationValues() {
-            const capVal = document.getElementById('input-cap-initial').value;
-            const apportVal = document.getElementById('input-apport-mensuel').value;
-            
-            document.getElementById('val-cap-initial').textContent = parseFloat(capVal).toLocaleString() + ' €';
-            document.getElementById('val-apport-mensuel').textContent = parseFloat(apportVal).toLocaleString() + ' €';
-            
-            // Mettre à jour les inputs mensuels si l'utilisateur change l'apport global
-            const currentOverrides = JSON.parse(localStorage.getItem('agent_trading_monthly_overrides') || '[]');
-            if (currentOverrides.length === 0) {
-                monthlyOverrides = Array(12).fill(parseFloat(apportVal));
-                renderMonthOverrides();
-            }
-            
+            const cap = document.getElementById('input-cap-initial').value;
+            const apport = document.getElementById('input-apport-mensuel').value;
+            document.getElementById('val-cap-initial').textContent = `${parseInt(cap).toLocaleString()} €`;
+            document.getElementById('val-apport-mensuel').textContent = `${parseInt(apport).toLocaleString()} €`;
             runSimulation();
         }
 
         function runSimulation() {
-            const initialCap = parseFloat(document.getElementById('input-cap-initial').value);
-            const defaultApport = parseFloat(document.getElementById('input-apport-mensuel').value);
-            const reservePct = parseFloat(document.getElementById('input-reserve-pct').value) / 100;
-            const rule = document.getElementById('input-repartition-rule').value;
-            
-            // Swing Strategy Parameters
-            const winRate = parseFloat(document.getElementById('input-win-rate').value) / 100;
-            const tp = parseFloat(document.getElementById('input-tp-pct').value) / 100;
-            const sl = parseFloat(document.getElementById('input-sl-pct').value) / 100;
-            const maxPosPct = parseFloat(document.getElementById('input-max-pos-pct').value) / 100;
-            const rotations = parseFloat(document.getElementById('input-rotations').value);
-            
-            // Other channels
-            const goldYield = parseFloat(document.getElementById('input-gold-yield').value) / 100;
-            const goldAlloc = parseFloat(document.getElementById('input-gold-alloc').value);
-            
-            const scpiYield = parseFloat(document.getElementById('input-scpi-yield').value) / 100;
-            const scpiAlloc = parseFloat(document.getElementById('input-scpi-alloc').value);
-            
-            const immoYield = parseFloat(document.getElementById('input-immo-yield').value) / 100;
-            const immoAlloc = parseFloat(document.getElementById('input-immo-alloc').value);
+            const capInitial = parseFloat(document.getElementById('input-cap-initial').value) || 5000;
+            const apport = parseFloat(document.getElementById('input-apport-mensuel').value) || 300;
+            const winRate = (parseFloat(document.getElementById('input-win-rate').value) || 75) / 100;
+            const rotations = parseFloat(document.getElementById('input-rotations').value) || 3;
 
-            // 1. Math expectation per trade
-            const expectedReturn = (winRate * tp) - ((1 - winRate) * sl);
-            const avgPosSize = initialCap * maxPosPct;
-            const expectedEuro = avgPosSize * expectedReturn;
-            
-            const expLabel = document.getElementById('sim-expected-value');
-            if (expectedEuro >= 0) {
-                expLabel.textContent = `+${expectedEuro.toFixed(2)} € par trade`;
-                expLabel.style.color = 'var(--success)';
-            } else {
-                expLabel.textContent = `${expectedEuro.toFixed(2)} € par trade`;
-                expLabel.style.color = 'var(--danger)';
+            const tpPct = 0.015;
+            const slPct = 0.015;
+            const posSizePct = 0.25;
+
+            const expectedReturnPerTrade = (winRate * tpPct) - ((1 - winRate) * slPct);
+            const expectedReturnTradeEur = (capInitial * posSizePct) * expectedReturnPerTrade;
+
+            let months = 36;
+            let dataRealiste = [capInitial];
+            let dataOptimiste = [capInitial];
+            let dataPrudente = [capInitial];
+
+            let currReal = capInitial;
+            let currOpt = capInitial;
+            let currPess = capInitial;
+
+            for (let m = 1; m <= months; m++) {
+                const gainMonthlyReal = (currReal * posSizePct) * expectedReturnPerTrade * rotations;
+                currReal += gainMonthlyReal + apport;
+                dataRealiste.push(currReal);
+
+                const optWinRate = 0.85;
+                const gainOpt = (currOpt * posSizePct) * ((optWinRate * tpPct) - ((1 - optWinRate) * slPct)) * rotations;
+                currOpt += gainOpt + apport;
+                dataOptimiste.push(currOpt);
+
+                const pessWinRate = 0.55;
+                const gainPess = (currPess * posSizePct) * ((pessWinRate * tpPct) - ((1 - pessWinRate) * slPct)) * rotations;
+                currPess += gainPess + apport;
+                dataPrudente.push(currPess);
             }
 
-            // Month-by-month calculation loops for 36 months
-            let capReal = initialCap;
-            let capOpt = initialCap;
-            let capPess = initialCap;
-            
-            let realHistory = [capReal];
-            let optHistory = [capOpt];
-            let pessHistory = [capPess];
-            
-            // Dynamic channels balances
-            let goldReal = 0, scpiReal = 0, immoReal = 0;
-            let goldOpt = 0, scpiOpt = 0, immoOpt = 0;
-            let goldPess = 0, scpiPess = 0, immoPess = 0;
+            updateGauge('gauge-1', currReal, 10000);
+            updateGauge('gauge-2', currReal, 25000);
+            updateGauge('gauge-3', currReal, 50000);
 
-            for (let m = 1; m <= 36; m++) {
-                // Get monthly contribution
-                let monthlyContribution = defaultApport;
-                if (m <= 12) {
-                    monthlyContribution = monthlyOverrides[m - 1] !== undefined ? monthlyOverrides[m - 1] : defaultApport;
-                }
-                
-                // Règle de Répartition allocation (Option B splits reserve cash out of trading)
-                let tradingApport = monthlyContribution;
-                let reserveApport = 0;
-                
-                if (rule === 'B') {
-                    tradingApport = monthlyContribution * 0.8;
-                    reserveApport = monthlyContribution * 0.2;
-                }
-                
-                // Compute returns
-                // Swing trading return (compound on capital)
-                const swingReturnReal = capReal * maxPosPct * expectedReturn * rotations;
-                const swingReturnOpt = capOpt * maxPosPct * ((winRate + 0.05) * tp - (1 - (winRate + 0.05)) * sl) * rotations;
-                const swingReturnPess = capPess * maxPosPct * ((winRate - 0.1) * tp - (1 - (winRate - 0.1)) * sl) * rotations;
-                
-                // Gold, SCPI, Immo returns (compounded monthly)
-                goldReal = (goldReal + goldAlloc) * (1 + goldYield / 12);
-                scpiReal = (scpiReal + scpiAlloc) * (1 + scpiYield / 12);
-                immoReal = (immoReal + immoAlloc) * (1 + immoYield / 12);
-
-                goldOpt = (goldOpt + goldAlloc) * (1 + (goldYield + 0.02) / 12);
-                scpiOpt = (scpiOpt + scpiAlloc) * (1 + (scpiYield + 0.015) / 12);
-                immoOpt = (immoOpt + immoAlloc) * (1 + (immoYield + 0.02) / 12);
-
-                goldPess = (goldPess + goldAlloc * 0.5) * (1 + (goldYield - 0.02) / 12);
-                scpiPess = (scpiPess + scpiAlloc * 0.5) * (1 + (scpiYield - 0.02) / 12);
-                immoPess = (immoPess + immoAlloc * 0.5) * (1 + (immoYield - 0.02) / 12);
-
-                // Total Capital N = Previous + Contribution + Swing Returns + Alternative Channels Assets
-                capReal = capReal + tradingApport + swingReturnReal;
-                capOpt = capOpt + tradingApport * 1.2 + swingReturnOpt;
-                // Pessimistic has regular losses/apports halved
-                capPess = capPess + tradingApport * 0.5 + swingReturnPess;
-                
-                realHistory.push(capReal + goldReal + scpiReal + immoReal);
-                optHistory.push(capOpt + goldOpt + scpiOpt + immoOpt);
-                pessHistory.push(capPess + goldPess + scpiPess + immoPess);
-            }
-
-            // 3. Update Gauges using realistic cap Real at Month 12
-            const currentCap = capReal; // Capital attained
-            updateGauge('gauge-1', currentCap, 10000);
-            updateGauge('gauge-2', currentCap, 25000);
-            updateGauge('gauge-3', currentCap, 50000);
-
-            // 4. Render responsive SVG Line Chart
-            renderProjectionsChart(realHistory, optHistory, pessHistory);
-            
-            // 5. Update Trade Calculator Pos Size Limit
-            runTradeCalculator(capReal);
+            renderSvgProjectionChart(dataRealiste, dataOptimiste, dataPrudente);
         }
 
-        function updateGauge(gaugeId, current, target) {
-            const pct = Math.min(100, (current / target) * 100);
-            const bar = document.getElementById(`${gaugeId}-inner`);
-            const label = document.getElementById(`${gaugeId}-current`);
-            
-            if (bar) bar.style.width = `${pct}%`;
-            if (label) label.textContent = `${parseFloat(current).toFixed(0)} €`;
+        function updateGauge(idPrefix, currentVal, targetVal) {
+            const inner = document.getElementById(`${idPrefix}-inner`);
+            const label = document.getElementById(`${idPrefix}-current`);
+            const pct = Math.min(100, Math.max(0, (currentVal / targetVal) * 100));
+            inner.style.width = `${pct}%`;
+            label.textContent = `${Math.round(currentVal).toLocaleString()} € (${pct.toFixed(0)}%)`;
         }
 
-        function renderProjectionsChart(real, opt, pess) {
+        function renderSvgProjectionChart(real, opt, pess) {
             const container = document.getElementById('sim-chart-container');
-            if (!container) return;
-            
-            const w = container.clientWidth || 400;
-            const h = container.clientHeight || 250;
-            
-            // Find bounds
-            const allVals = real.concat(opt).concat(pess);
-            const minVal = 0;
-            const maxVal = Math.max(...allVals) * 1.05;
-            
-            const padding = { top: 20, right: 20, bottom: 30, left: 55 };
-            const graphW = w - padding.left - padding.right;
-            const graphH = h - padding.top - padding.bottom;
-            
-            const getX = (i) => padding.left + (i / 36) * graphW;
-            const getY = (val) => padding.top + graphH - ((val - minVal) / (maxVal - minVal)) * graphH;
-            
-            let svg = `<svg width="${w}" height="${h}" style="background: rgba(0,0,0,0.1); border-radius: 8px;">`;
-            
-            // Grid lines & Y Axis Labels
-            const ticks = 5;
-            for (let i = 0; i <= ticks; i++) {
-                const val = minVal + (maxVal - minVal) * (i / ticks);
-                const y = getY(val);
-                svg += `
-                    <line x1="${padding.left}" y1="${y}" x2="${w - padding.right}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2,2"/>
-                    <text x="${padding.left - 8}" y="${y + 4}" fill="var(--text-muted)" font-size="9" text-anchor="end">${Math.round(val).toLocaleString()} €</text>
-                `;
-            }
-            
-            // X Axis Labels (Mois)
-            for (let m = 0; m <= 36; m += 6) {
-                const x = getX(m);
-                svg += `
-                    <line x1="${x}" y1="${padding.top}" x2="${x}" y2="${h - padding.bottom}" stroke="rgba(255,255,255,0.03)"/>
-                    <text x="${x}" y="${h - padding.bottom + 15}" fill="var(--text-muted)" font-size="9" text-anchor="middle">M${m}</text>
-                `;
-            }
-            
-            // Generate paths
-            const buildPath = (history) => {
-                let d = `M ${getX(0)} ${getY(history[0])} `;
-                for (let i = 1; i < history.length; i++) {
-                    d += `L ${getX(i)} ${getY(history[i])} `;
-                }
-                return d;
-            };
-            
-            svg += `<path d="${buildPath(opt)}" fill="none" stroke="#3b82f6" stroke-width="2.5" opacity="0.6"/>`;
-            svg += `<path d="${buildPath(pess)}" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"/>`;
-            svg += `<path d="${buildPath(real)}" fill="none" stroke="#10b981" stroke-width="3"/>`;
-            
-            // Plot des points de suivi réel
-            const histLog = getHistoryLog();
-            if (histLog.length > 0) {
-                histLog.sort((a, b) => a.month - b.month);
-                
-                let lineD = `M ${getX(histLog[0].month)} ${getY(histLog[0].capital)} `;
-                for (let i = 1; i < histLog.length; i++) {
-                    lineD += `L ${getX(histLog[i].month)} ${getY(histLog[i].capital)} `;
-                }
-                if (histLog.length > 1) {
-                    svg += `<path d="${lineD}" fill="none" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"/>`;
-                }
-                
-                histLog.forEach(item => {
-                    svg += `
-                        <circle cx="${getX(item.month)}" cy="${getY(item.capital)}" r="5.5" fill="#a855f7" stroke="white" stroke-width="1.5"/>
-                        <title>Mois ${item.month}: ${item.capital.toLocaleString()} €</title>
-                    `;
-                });
-            }
-            
-            svg += `</svg>`;
-            container.innerHTML = svg;
-        }
+            const w = container.clientWidth || 500;
+            const h = container.clientHeight || 220;
+            const pad = 35;
 
-        function runTradeCalculator(optCapital) {
-            const cap = optCapital || parseFloat(document.getElementById('input-cap-initial').value);
-            const currentPrice = parseFloat(document.getElementById('calc-current-price').value) || 100;
-            const dropTrigger = parseFloat(document.getElementById('calc-drop-trigger').value) || 5;
-            
-            // TP/SL from inputs
-            const tpPct = parseFloat(document.getElementById('input-tp-pct').value) || 1.5;
-            const slPct = parseFloat(document.getElementById('input-sl-pct').value) || 1.5;
-            const maxPosPct = parseFloat(document.getElementById('input-max-pos-pct').value) || 20;
+            const maxVal = Math.max(...opt) * 1.05;
+            const minVal = Math.min(...pess) * 0.95;
 
-            const entryPrice = currentPrice * (1 - dropTrigger / 100);
-            const tpPrice = entryPrice * (1 + tpPct / 100);
-            const slPrice = entryPrice * (1 - slPct / 100);
-            
-            const maxPosEuro = cap * (maxPosPct / 100);
-            const sharesCount = Math.floor(maxPosEuro / entryPrice);
-            
-            document.getElementById('calc-entry-price').textContent = entryPrice.toFixed(2);
-            document.getElementById('calc-pos-size').textContent = maxPosEuro.toLocaleString('fr-FR', {maximumFractionDigits:2}) + ' €';
-            document.getElementById('calc-tp-price').textContent = tpPrice.toFixed(2);
-            document.getElementById('calc-sl-price').textContent = slPrice.toFixed(2);
-            
-            if (sharesCount > 0) {
-                document.getElementById('calc-shares-count').textContent = `Volume optimal : acheter ${sharesCount} actions à ${entryPrice.toFixed(2)} (Total engagé : ${(sharesCount * entryPrice).toFixed(2)} €)`;
-            } else {
-                document.getElementById('calc-shares-count').textContent = `Capital insuffisant pour acheter une seule action sous cette limite.`;
-            }
+            const getX = (m) => pad + (m / 36) * (w - 2 * pad);
+            const getY = (v) => h - pad - ((v - minVal) / (maxVal - minVal)) * (h - 2 * pad);
+
+            const makePath = (data) => data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getY(v).toFixed(1)}`).join(' ');
+
+            container.innerHTML = `
+                <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" style="overflow: visible;">
+                    <line x1="${pad}" y1="${getY(10000)}" x2="${w-pad}" y2="${getY(10000)}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4" />
+                    <text x="${w-pad+5}" y="${getY(10000)+3}" fill="rgba(255,255,255,0.3)" font-size="10">10k€</text>
+                    
+                    <line x1="${pad}" y1="${getY(25000)}" x2="${w-pad}" y2="${getY(25000)}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4" />
+                    <text x="${w-pad+5}" y="${getY(25000)+3}" fill="rgba(255,255,255,0.3)" font-size="10">25k€</text>
+
+                    <path d="${makePath(opt)}" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.8" />
+                    <path d="${makePath(pess)}" fill="none" stroke="#ef4444" stroke-width="2" opacity="0.8" />
+                    <path d="${makePath(real)}" fill="none" stroke="#10b981" stroke-width="3" />
+
+                    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="rgba(255,255,255,0.15)" />
+                    <text x="${pad}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">M0</text>
+                    <text x="${getX(12)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">An 1</text>
+                    <text x="${getX(24)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">An 2</text>
+                    <text x="${getX(36)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">An 3</text>
+                </svg>
+            `;
         }
     </script>
 </body>

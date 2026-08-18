@@ -1,114 +1,177 @@
 import os
 import re
+import concurrent.futures
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import yfinance as yf
 from datetime import datetime
+import requests
 
 from src.sharia_screen import screen_ticker
-from src.market_data import fetch_market_data, analyze_technical_setup, qualify_price_drop, check_earnings_blackout
-from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets
+from src.macro_regime import get_macro_barometer
+from src.market_data import (
+    fetch_market_data,
+    analyze_technical_setup,
+    qualify_price_drop,
+    check_earnings_blackout,
+    check_fundamental_quality,
+    categorize_ticker
+)
+from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
+from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets, add_ticker_to_sheets
 from src.config import (
     DEFAULT_WATCHLIST,
+    DEFAULT_MARKET_POOL,
+    CAPITAL_REFERENCE_DEFAULT,
     MIN_DROP_PCT,
     MAX_DROP_PCT,
-    TARGET_REBOUND_MIN,
-    TARGET_REBOUND_MAX
+    TARGET_TP1_DEFAULT,
+    TARGET_TP2_DEFAULT
 )
 
 app = Flask(__name__, template_folder="templates")
 CORS(app)
 
-# Cache simple en mémoire pour stocker les dernières analyses
 analysis_cache = {}
 
-def get_detailed_analysis(ticker_symbol):
+def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT):
+    """
+    Exécute le protocole complet en 8 étapes pour un ticker spécifique (v2.0).
+    """
     ticker_symbol = ticker_symbol.upper().strip()
     
-    # 1. Conformité Sharia
+    # 1. Étape 1 : Conformité Sharia (AAOIFI)
     sharia_res = screen_ticker(ticker_symbol)
     
-    # 2. Données de marché et technique
-    ticker_obj, hist_or_err = fetch_market_data(ticker_symbol)
-    if isinstance(hist_or_err, str):
-        return {"error": hist_or_err}
-        
-    hist = hist_or_err
-    tech_setup = analyze_technical_setup(hist)
-    has_qualified_drop, drop_details = qualify_price_drop(hist)
-    has_blackout, blackout_reason = check_earnings_blackout(ticker_obj)
+    # 2. Étape 2 : Contexte Macroéconomique Top-Down
+    macro_barometer = get_macro_barometer()
     
-    # Nom de l'entreprise
-    company_name = ticker_symbol
+    # 3. Données de marché et technique
     try:
-        info = ticker_obj.info
-        company_name = info.get("longName") or info.get("shortName") or ticker_symbol
-    except:
-        pass
+        ticker_obj, hist_or_err = fetch_market_data(ticker_symbol)
+        if isinstance(hist_or_err, str):
+            return {"error": hist_or_err, "symbol": ticker_symbol}
+            
+        hist = hist_or_err
+        tech_setup = analyze_technical_setup(hist)
+        has_qualified_drop, drop_details = qualify_price_drop(hist)
         
-    curr_price = tech_setup["current_price"]
-    support = tech_setup["support"]
-    target_min = curr_price * (1 + TARGET_REBOUND_MIN / 100)
-    target_max = curr_price * (1 + TARGET_REBOUND_MAX / 100)
-    invalidation = support * 0.99
-    
-    potential_gain = ((target_min - curr_price) / curr_price) * 100
-    potential_loss = ((curr_price - invalidation) / curr_price) * 100
-    risk_reward = potential_gain / potential_loss if potential_loss != 0 else 0
-    
-    # Verdict final
-    is_above_sma200 = curr_price >= tech_setup["sma_200"]
-    mrc_oversold = tech_setup["mrc_oversold"]
-    qqe_buy = tech_setup["qqe_buy_signal"]
-    volume_confirmed = tech_setup["volume_confirmed"]
-    
-    if sharia_res.get("status") == "NON CONFORME":
-        verdict = "EXCLU (Non conforme Sharia)"
-    elif has_blackout:
-        verdict = "ÉVITER (Proximité des résultats)"
-    elif not is_above_sma200:
-        verdict = "ÉVITER (Tendance baissière - sous SMA 200)"
-    elif not has_qualified_drop:
-        verdict = "ATTENDRE REPLI (Baisse non qualifiée)"
-    elif tech_setup["rsi"] > 70:
-        verdict = "ÉVITER (Titre suracheté)"
-    elif not mrc_oversold:
-        verdict = "ATTENDRE (Pas encore étiré sous MRC)"
-    elif not qqe_buy:
-        verdict = "ATTENDRE TRIGGER (Pas de signal QQE)"
-    elif not volume_confirmed:
-        verdict = "ATTENDRE VOLUME (Volume faible)"
-    else:
-        verdict = "ACHETER REBOND"
+        # 4. Fondamentaux & Calendrier des Risques
+        fund_quality = check_fundamental_quality(ticker_obj, symbol=ticker_symbol)
+        has_blackout, blackout_reason = check_earnings_blackout(ticker_obj)
         
-    analysis = {
-        "symbol": ticker_symbol,
-        "company_name": company_name,
-        "sharia": sharia_res,
-        "technical": tech_setup,
-        "drop": drop_details,
-        "has_qualified_drop": has_qualified_drop,
-        "earnings_blackout": {
-            "active": has_blackout,
-            "reason": blackout_reason
-        },
-        "trade_plan": {
-            "entry": curr_price,
-            "target_min": target_min,
-            "target_max": target_max,
-            "invalidation": invalidation,
-            "potential_gain_min": potential_gain,
-            "potential_gain_max": ((target_max - curr_price) / curr_price) * 100,
-            "potential_loss": potential_loss,
-            "risk_reward": risk_reward
-        },
-        "verdict": verdict,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    
-    # Mettre en cache
-    analysis_cache[ticker_symbol] = analysis
-    return analysis
+        company_name = ticker_symbol
+        try:
+            info = ticker_obj.info
+            company_name = info.get("longName") or info.get("shortName") or ticker_symbol
+        except:
+            pass
+            
+        curr_price = tech_setup["current_price"]
+        support = tech_setup["support"]
+        invalidation = support * 0.99
+        
+        # 5. Plan de Trade & Dimensionnement R-Max
+        trade_plan = calculate_trade_sizing(
+            capital_total=capital,
+            entry_price=curr_price,
+            stop_loss_price=invalidation,
+            macro_regime=macro_barometer["regime"]
+        )
+        
+        # 6. Score de Confluence Globale & Verdict Décisionnel
+        confluence = calculate_confluence_score(
+            sharia_res=sharia_res,
+            macro_barometer=macro_barometer,
+            drop_details=drop_details,
+            has_qualified_drop=has_qualified_drop,
+            tech_setup=tech_setup,
+            has_blackout=has_blackout,
+            trade_plan=trade_plan
+        )
+        
+        # 7. Rapport structuré en 8 étapes avec métadonnées PEA et Catégories
+        analysis = {
+            "symbol": ticker_symbol,
+            "company_name": company_name,
+            "currency": tech_setup.get("currency", "USD"),
+            "category": fund_quality.get("category", "Autres"),
+            "category_icon": fund_quality.get("category_icon", "📦"),
+            "is_pea": fund_quality.get("is_pea", False),
+            "account_type": fund_quality.get("account_type", "CTO (US)"),
+            "step_1_sharia": sharia_res,
+            "step_2_macro": {
+                "regime": macro_barometer["regime"],
+                "badge": macro_barometer["badge"],
+                "sizing_multiplier": macro_barometer["sizing_multiplier"],
+                "r_max_pct": macro_barometer["r_max_pct"],
+                "action_rule": macro_barometer["action_rule"],
+                "summary": macro_barometer["summary"],
+                "indicators": macro_barometer["indicators"]
+            },
+            "step_3_drop": drop_details,
+            "step_4_fundamentals": {
+                "health_status": fund_quality["health_status"],
+                "market_cap": fund_quality["market_cap"],
+                "is_large_cap": fund_quality["is_large_cap"],
+                "free_cash_flow": fund_quality["free_cash_flow"],
+                "operating_margin": fund_quality["operating_margin"],
+                "sector": fund_quality["sector"],
+                "industry": fund_quality["industry"],
+                "category": fund_quality["category"],
+                "is_pea": fund_quality["is_pea"],
+                "account_type": fund_quality["account_type"],
+                "summary": fund_quality["summary"],
+                "earnings_blackout": {
+                    "active": has_blackout,
+                    "reason": blackout_reason
+                }
+            },
+            "step_5_technical": tech_setup,
+            "step_6_trade_plan": trade_plan,
+            "step_7_risk_sizing": {
+                "capital_reference": trade_plan["capital_reference"],
+                "r_max_pct": trade_plan["r_max_pct"],
+                "r_max_amount": trade_plan["r_max_amount"],
+                "suggested_nominal": trade_plan["suggested_nominal"],
+                "shares_count": trade_plan["shares_count"],
+                "actual_monetary_risk": trade_plan["actual_monetary_risk"],
+                "max_line_limit": trade_plan["max_line_limit"],
+                "risk_reward_tp1": trade_plan["risk_reward_tp1"],
+                "risk_reward_tp2": trade_plan["risk_reward_tp2"]
+            },
+            "step_8_confluence": confluence,
+            
+            "sharia": sharia_res,
+            "technical": tech_setup,
+            "drop": drop_details,
+            "has_qualified_drop": has_qualified_drop,
+            "earnings_blackout": {
+                "active": has_blackout,
+                "reason": blackout_reason
+            },
+            "trade_plan": {
+                "entry": curr_price,
+                "target_min": trade_plan["tp1_price"],
+                "target_max": trade_plan["tp2_price"],
+                "invalidation": invalidation,
+                "potential_gain_min": trade_plan["tp1_pct"],
+                "potential_gain_max": trade_plan["tp2_pct"],
+                "potential_loss": trade_plan["stop_distance_pct"],
+                "risk_reward": trade_plan["risk_reward_tp1"],
+                "suggested_nominal": trade_plan["suggested_nominal"],
+                "shares_count": trade_plan["shares_count"],
+                "r_max_amount": trade_plan["r_max_amount"]
+            },
+            "verdict": confluence["verdict"],
+            "confluence_score": confluence["confluence_score"],
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        analysis_cache[ticker_symbol] = analysis
+        return analysis
+    except Exception as e:
+        return {"error": str(e), "symbol": ticker_symbol}
 
 @app.route("/")
 def home():
@@ -119,6 +182,56 @@ def get_watchlist():
     watchlist = read_watchlist_from_sheets()
     return jsonify({"watchlist": watchlist})
 
+@app.route("/api/watchlist/add", methods=["POST"])
+def add_watchlist_ticker():
+    """
+    Endpoint pour ajouter une nouvelle action dans Google Sheets et la Watchlist active.
+    """
+    data = request.json or {}
+    symbol = data.get("ticker", "").upper().strip()
+    if not symbol:
+        return jsonify({"success": False, "error": "Le symbole de l'action est requis."}), 400
+
+    # 1. Vérifier et récupérer les informations avec yfinance
+    try:
+        t = yf.Ticker(symbol)
+        info = t.info
+        name = info.get("longName") or info.get("shortName") or symbol
+        fund_q = check_fundamental_quality(t, info, symbol=symbol)
+    except Exception as e:
+        name = symbol
+        fund_q = {"category": "Autres", "is_pea": ".PA" in symbol, "account_type": "PEA" if ".PA" in symbol else "CTO"}
+
+    sharia_res = screen_ticker(symbol)
+    sharia_status = sharia_res.get("status", "À VÉRIFIER")
+
+    # 2. Écrire dans Google Sheets
+    category = data.get("category") or fund_q.get("category", "Autres")
+    is_pea = data.get("is_pea") if data.get("is_pea") is not None else fund_q.get("is_pea", False)
+    
+    success, msg = add_ticker_to_sheets(
+        ticker_symbol=symbol,
+        name=name,
+        category=category,
+        is_pea=is_pea,
+        sharia_status=sharia_status
+    )
+
+    # 3. Lancer l'analyse complète
+    analysis = get_detailed_analysis(symbol)
+
+    return jsonify({
+        "success": True,
+        "message": msg,
+        "ticker": symbol,
+        "name": name,
+        "category": category,
+        "is_pea": is_pea,
+        "account_type": "PEA (Europe)" if is_pea else "CTO (US)",
+        "sharia_status": sharia_status,
+        "data": analysis
+    })
+
 @app.route("/api/scan/watchlist")
 def scan_watchlist():
     watchlist = read_watchlist_from_sheets()
@@ -126,108 +239,160 @@ def scan_watchlist():
     signals_to_write = []
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    for symbol in watchlist:
-        try:
-            analysis = get_detailed_analysis(symbol)
-            if "error" in analysis:
-                continue
-                
-            results.append({
+    # Exécution parallèle rapide (8 threads)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        analyses = list(executor.map(get_detailed_analysis, watchlist))
+        
+    for analysis in analyses:
+        if not analysis or "error" in analysis:
+            continue
+            
+        symbol = analysis.get("symbol")
+        results.append({
+            "symbol": symbol,
+            "name": analysis.get("company_name", symbol),
+            "category": analysis.get("category", "Autres"),
+            "category_icon": analysis.get("category_icon", "📦"),
+            "is_pea": analysis.get("is_pea", False),
+            "account_type": analysis.get("account_type", "CTO (US)"),
+            "sharia": analysis["sharia"].get("status"),
+            "price": analysis["technical"]["current_price"],
+            "drop": analysis["drop"]["drop_pct"],
+            "rsi": analysis["technical"]["rsi"],
+            "rsi_divergence": analysis["technical"]["rsi_divergence"]["type"],
+            "confluence_score": analysis["confluence_score"],
+            "verdict": analysis["verdict"],
+            "currency": analysis["technical"].get("currency", "USD")
+        })
+        
+        if "ACHETER" in analysis["verdict"]:
+            signals_to_write.append({
+                "date": now_str,
                 "symbol": symbol,
-                "name": analysis.get("company_name", symbol),
-                "sharia": analysis["sharia"].get("status"),
-                "price": analysis["technical"]["current_price"],
-                "drop": analysis["drop"]["drop_pct"],
-                "rsi": analysis["technical"]["rsi"],
-                "verdict": analysis["verdict"],
-                "currency": analysis["technical"].get("currency", "USD")
+                "sharia_status": analysis["sharia"].get("status"),
+                "category": analysis.get("category", "Autres"),
+                "account_type": analysis.get("account_type", "CTO (US)"),
+                "macro_regime": analysis["step_2_macro"]["regime"],
+                "current_price": analysis["technical"]["current_price"],
+                "drop_pct": analysis["drop"]["drop_pct"],
+                "support": analysis["technical"]["support"],
+                "tp1_target": analysis["trade_plan"]["target_min"],
+                "tp2_target": analysis["trade_plan"]["target_max"],
+                "stop_loss": analysis["trade_plan"]["invalidation"],
+                "r_max_amount": analysis["step_7_risk_sizing"]["r_max_amount"],
+                "suggested_nominal": analysis["step_7_risk_sizing"]["suggested_nominal"],
+                "confluence_score": analysis["confluence_score"],
+                "verdict": analysis["verdict"]
             })
             
-            if analysis["verdict"] == "ACHETER REBOND":
-                signals_to_write.append({
-                    "date": now_str,
-                    "symbol": symbol,
-                    "sharia_status": analysis["sharia"].get("status"),
-                    "current_price": analysis["technical"]["current_price"],
-                    "drop_pct": analysis["drop"]["drop_pct"],
-                    "support": analysis["technical"]["support"],
-                    "target_exit": analysis["technical"]["current_price"] * 1.015,
-                    "rsi": analysis["technical"]["rsi"],
-                    "verdict": analysis["verdict"]
-                })
-        except Exception as e:
-            print(f"Erreur sur {symbol}: {e}")
-            
     if signals_to_write:
-        write_signals_to_sheets(signals_to_write)
+        try:
+            write_signals_to_sheets(signals_to_write)
+        except Exception as e:
+            print(f"Erreur écriture signaux: {e}")
         
     return jsonify({"results": results, "signals_sent": len(signals_to_write)})
 
 @app.route("/api/scan/market")
 def scan_market():
-    MARKET_POOL = [
-        "MSFT", "AAPL", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "COST", "AMD",
-        "MC.PA", "OR.PA", "AIR.PA", "RMS.PA", "KER.PA", "EL.PA", "SAN.PA", "TTE.PA"
-    ]
     results = []
+    signals_to_write = []
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    for symbol in MARKET_POOL:
-        try:
-            analysis = get_detailed_analysis(symbol)
-            if "error" in analysis:
-                continue
-                
-            # Ne renvoyer que les opportunités intéressantes ou notables
-            results.append({
-                "symbol": symbol,
-                "name": analysis.get("company_name", symbol),
-                "sharia": analysis["sharia"].get("status"),
-                "price": analysis["technical"]["current_price"],
-                "drop": analysis["drop"]["drop_pct"],
-                "rsi": analysis["technical"]["rsi"],
-                "verdict": analysis["verdict"],
-                "currency": analysis["technical"].get("currency", "USD")
-            })
-        except Exception as e:
-            print(f"Erreur sur {symbol}: {e}")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        analyses = list(executor.map(get_detailed_analysis, DEFAULT_MARKET_POOL))
+    
+    for analysis in analyses:
+        if not analysis or "error" in analysis:
+            continue
             
+        symbol = analysis.get("symbol")
+        results.append({
+            "symbol": symbol,
+            "name": analysis.get("company_name", symbol),
+            "category": analysis.get("category", "Autres"),
+            "category_icon": analysis.get("category_icon", "📦"),
+            "is_pea": analysis.get("is_pea", False),
+            "account_type": analysis.get("account_type", "CTO (US)"),
+            "sharia": analysis["sharia"].get("status"),
+            "price": analysis["technical"]["current_price"],
+            "drop": analysis["drop"]["drop_pct"],
+            "rsi": analysis["technical"]["rsi"],
+            "rsi_divergence": analysis["technical"]["rsi_divergence"]["type"],
+            "confluence_score": analysis["confluence_score"],
+            "verdict": analysis["verdict"],
+            "currency": analysis["technical"].get("currency", "USD")
+        })
+        
+        if "ACHETER" in analysis["verdict"]:
+            signals_to_write.append({
+                "date": now_str,
+                "symbol": symbol,
+                "sharia_status": analysis["sharia"].get("status"),
+                "category": analysis.get("category", "Autres"),
+                "account_type": analysis.get("account_type", "CTO (US)"),
+                "macro_regime": analysis["step_2_macro"]["regime"],
+                "current_price": analysis["technical"]["current_price"],
+                "drop_pct": analysis["drop"]["drop_pct"],
+                "support": analysis["technical"]["support"],
+                "tp1_target": analysis["trade_plan"]["target_min"],
+                "tp2_target": analysis["trade_plan"]["target_max"],
+                "stop_loss": analysis["trade_plan"]["invalidation"],
+                "r_max_amount": analysis["step_7_risk_sizing"]["r_max_amount"],
+                "suggested_nominal": analysis["step_7_risk_sizing"]["suggested_nominal"],
+                "confluence_score": analysis["confluence_score"],
+                "verdict": analysis["verdict"]
+            })
+            
+    if signals_to_write:
+        try:
+            write_signals_to_sheets(signals_to_write)
+        except Exception as e:
+            print(f"Erreur écriture signaux: {e}")
+        
     return jsonify({"results": results})
 
 @app.route("/api/analyze/<ticker>")
-def analyze_ticker(ticker):
-    res = get_detailed_analysis(ticker)
+def analyze_ticker_endpoint(ticker):
+    capital = request.args.get("capital", default=CAPITAL_REFERENCE_DEFAULT, type=float)
+    res = get_detailed_analysis(ticker, capital=capital)
     if "error" in res:
         return jsonify({"success": False, "error": res["error"]}), 400
     return jsonify({"success": True, "data": res})
 
 @app.route("/api/macro")
-def get_macro():
-    commodities = {"Pétrole Brent": "BZ=F", "Pétrole WTI": "CL=F", "Or": "GC=F"}
-    comm_data = {}
-    for name, ticker in commodities.items():
-        try:
-            t = yf.Ticker(ticker)
-            price = t.history(period="1d")['Close'].values[-1]
-            comm_data[name] = f"{price:.2f} $"
-        except:
-            comm_data[name] = "N/A"
-            
-    return jsonify({
-        "commodities": comm_data,
-        "rules": [
-            "Pas d'ouverture de position si CPI, réunion FED/BCE, ou NFP sous 24-48h.",
-            "Toujours vérifier le calendrier économique réel avant de lancer un ordre."
-        ]
-    })
+def get_macro_endpoint():
+    force = request.args.get("refresh", default=False, type=bool)
+    barometer = get_macro_barometer(force_refresh=force)
+    return jsonify(barometer)
 
-import requests
+@app.route("/api/risk-calc", methods=["POST"])
+def risk_calc_endpoint():
+    data = request.json or {}
+    capital = float(data.get("capital", CAPITAL_REFERENCE_DEFAULT))
+    entry_price = float(data.get("entry_price", 100.0))
+    stop_loss_price = float(data.get("stop_loss_price", entry_price * 0.97))
+    macro_regime = data.get("macro_regime", "RÉGIME RISK-ON (Favorable)")
+    is_drawdown = bool(data.get("is_drawdown_circuit_breaker", False))
+    tp1_pct = float(data.get("tp1_pct", TARGET_TP1_DEFAULT))
+    tp2_pct = float(data.get("tp2_pct", TARGET_TP2_DEFAULT))
+    
+    result = calculate_trade_sizing(
+        capital_total=capital,
+        entry_price=entry_price,
+        stop_loss_price=stop_loss_price,
+        macro_regime=macro_regime,
+        is_drawdown_circuit_breaker=is_drawdown,
+        tp1_pct=tp1_pct,
+        tp2_pct=tp2_pct
+    )
+    return jsonify({"success": True, "data": result})
 
 def lookup_ticker_by_name(query):
     query = query.strip()
     if not query:
         return None, None
         
-    # Si la requête ressemble à un ticker déjà valide (ex: STX, AAPL, MC.PA)
     if query.isupper() and len(query) <= 6 and not query.isdigit():
         try:
             t = yf.Ticker(query)
@@ -236,7 +401,6 @@ def lookup_ticker_by_name(query):
         except:
             pass
 
-    # Utiliser l'API Yahoo Finance Autocomplete
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         url = f"https://query1.finance.yahoo.com/v1/finance/search?q={query}"
@@ -261,15 +425,13 @@ def find_ticker_in_message(message):
     if not message_clean:
         return None, None
 
-    # 1. Expressions de type "action XXX", "ticker YYY"
-    match_action = re.search(r'(?:action|ticker|cours|analyse|screen|conforme)\s+(?:de\s+|d\'\s+)?([A-Za-z0-9\.\-= ]{2,20})', message_clean, re.IGNORECASE)
+    match_action = re.search(r'(?:action|ticker|cours|analyse|screen|conforme|ajoute|ajouter)\s+(?:de\s+|d\'\s+)?([A-Za-z0-9\.\-= ]{2,20})', message_clean, re.IGNORECASE)
     if match_action:
         candidate = match_action.group(1).strip()
         ticker, name = lookup_ticker_by_name(candidate)
         if ticker:
             return ticker, name
 
-    # 2. Liste étendue des mots vides en français et anglais
     french_stop_words = {
         "je", "tu", "il", "elle", "nous", "vous", "ils", "elles", "le", "la", "les", "un", "une", "des",
         "du", "de", "d", "l", "j", "m", "t", "s", "se", "ce", "cet", "cette", "ces", "qui", "que", "quoi",
@@ -280,27 +442,23 @@ def find_ticker_in_message(message):
         "analyse", "non", "oui", "acheter", "vendre", "cours", "prix", "action", "actions", "bourse",
         "halal", "sharia", "conforme", "indicateur", "indicateurs", "support", "resistance", "vix", "rsi",
         "sma", "ema", "macd", "trading", "investir", "investissement", "portefeuille", "bon", "moment",
-        "quelle", "serait", "acheté", "acheter", "vendre", "vend", "achète", "combien"
+        "macro", "regime", "barometre", "dxy", "petrole", "yield", "courbe", "pea", "pharma"
     }
 
-    # Séparer en mots
     words = re.findall(r'\b[A-Za-z\.\-=]{2,12}\b', message_clean)
     candidates = [w for w in words if w.lower() not in french_stop_words]
 
-    # 3. Essayer en premier les mots en majuscule ou contenant un point (ticker potentiel)
     for cand in candidates:
         if cand.isupper() or "." in cand:
             ticker, name = lookup_ticker_by_name(cand)
             if ticker:
                 return ticker, name
 
-    # 4. Essayer les autres mots de la phrase
     for cand in candidates:
         ticker, name = lookup_ticker_by_name(cand)
         if ticker:
             return ticker, name
 
-    # 5. Recherche globale sur le message entier nettoyé
     search_query = " ".join([w for w in message_clean.split() if w.lower() not in french_stop_words])
     if search_query:
         ticker, name = lookup_ticker_by_name(search_query)
@@ -318,76 +476,122 @@ def chat():
         
     message_lower = message.lower()
     
-    # Extraction intelligente du ticker / entreprise
+    # 1. Si l'utilisateur demande d'ajouter un ticker
+    if any(w in message_lower for w in ["ajoute", "ajouter", "add"]) and any(w in message_lower for w in ["watchlist", "feuille", "sheet", "action", "ticker"]):
+        ticker, company_name = find_ticker_in_message(message)
+        if ticker:
+            try:
+                t = yf.Ticker(ticker)
+                fund_q = check_fundamental_quality(t, symbol=ticker)
+                sharia_res = screen_ticker(ticker)
+                success, msg = add_ticker_to_sheets(
+                    ticker_symbol=ticker,
+                    name=company_name or ticker,
+                    category=fund_q.get("category", "Autres"),
+                    is_pea=fund_q.get("is_pea", False),
+                    sharia_status=sharia_res.get("status", "")
+                )
+                return jsonify({
+                    "response": f"✅ **{ticker}** ({company_name or ticker}) a été ajouté à votre **Watchlist Google Sheet** !\n\n"
+                                f"- 🏷️ **Catégorie :** {fund_q.get('category_icon', '📦')} {fund_q.get('category')}\n"
+                                f"- 💳 **Compte :** {fund_q.get('account_type')}\n"
+                                f"- 🕌 **Conformité Sharia :** `{sharia_res.get('status')}`\n\n"
+                                f"Vous pouvez maintenant le retrouver dans le tableau de bord lors de vos scans !"
+                })
+            except Exception as e:
+                return jsonify({"response": f"Erreur lors de l'ajout de {ticker} : {str(e)}"})
+
+    # 2. Si la question porte sur le Baromètre Macroéconomique
+    if any(w in message_lower for w in ["macro", "baromètre", "regime", "vix", "dxy", "taux", "féd", "fed", "bce", "petrole", "pétrole", "inflation"]):
+        macro = get_macro_barometer()
+        resp = f"### 🌍 Baromètre Macroéconomique Top-Down (v2.0)\n\n"
+        resp += f"- **Régime Global** : **{macro['regime']}**\n"
+        resp += f"- **Action & Exposition** : {macro['action_rule']}\n"
+        resp += f"- **Sizing Multiplicateur** : **{macro['sizing_multiplier']*100:.0f}%** (R-Max: {macro['r_max_pct']*100:.1f}%)\n"
+        resp += f"- **Synthèse** : {macro['summary']}\n\n"
+        resp += "#### Indicateurs Surveillés :\n"
+        for k, v in macro["indicators"].items():
+            resp += f"- **{k}** : {v.get('value')} ➔ *{v.get('status')}* ({v.get('desc')})\n"
+        resp += "\n#### Matières Premières :\n"
+        for k, v in macro["commodities"].items():
+            resp += f"- {k} : **{v}**\n"
+        return jsonify({"response": resp})
+    
+    # 3. Si un ticker ou une action est mentionné
     ticker, company_name = find_ticker_in_message(message)
     
     if ticker:
-        # Effectuer ou récupérer l'analyse
         analysis = get_detailed_analysis(ticker)
         if "error" in analysis:
             return jsonify({
-                "response": f"J'ai détecté une demande pour **{company_name or ticker}**, mais j'ai rencontré l'erreur suivante lors de l'analyse : *{analysis['error']}*. S'agit-il d'un ticker ou d'une entreprise valide ?"
+                "response": f"J'ai détecté une demande pour **{company_name or ticker}**, mais une erreur est survenue lors de l'analyse : *{analysis['error']}*."
             })
             
         sharia_status = analysis["sharia"].get("status", "À VÉRIFIER")
         sharia_reason = analysis["sharia"].get("reason", "")
-        current_price = analysis["technical"]["current_price"]
-        rsi = analysis["technical"]["rsi"]
-        support = analysis["technical"]["support"]
-        resistance = analysis["technical"]["resistance"] or (current_price * 1.03)
-        verdict = analysis["verdict"]
+        tech = analysis["step_5_technical"]
+        plan = analysis["step_6_trade_plan"]
+        risk = analysis["step_7_risk_sizing"]
+        confluence = analysis["step_8_confluence"]
+        sym_char = "€" if tech.get("currency") == "EUR" else "$"
         
-        # Si la question porte spécifiquement sur le screening Sharia
-        if any(w in message_lower for w in ["sharia", "conforme", "halal", "islam", "religion"]):
-            response = f"### 🕌 Conformité Sharia pour **{ticker}** ({company_name})\n\n"
-            response += f"- **Verdict** : **{sharia_status}**\n"
-            response += f"- **Motif** : {sharia_reason}\n\n"
-            if "details" in analysis["sharia"]:
-                d = analysis["sharia"]["details"]
-                response += "#### Ratios financiers calculés (Seuil réglementaire < 33%) :\n"
-                response += f"- 💳 **Ratio de Dette** : {d.get('debt_ratio', 0)*100:.2f}%\n"
-                response += f"- 💵 **Ratio de Trésorerie** : {d.get('cash_ratio', 0)*100:.2f}%\n"
-                response += f"- 📝 **Ratio de Créances** : {d.get('receivables_ratio', 0)*100:.2f}%\n"
-            return jsonify({"response": response})
+        response = f"### 📋 Rapport Protocolaire en 8 Étapes : **{ticker}** ({company_name})\n\n"
+        response += f"- **Catégorie :** {analysis.get('category_icon', '📦')} {analysis.get('category')} | **Compte :** {analysis.get('account_type')}\n"
+        response += f"- **Verdict de l'Agent** : `[{confluence['verdict']}]` | **Score de Confluence** : **{confluence['confluence_score']} / 10**\n\n"
+        
+        response += f"#### 1. Conformité Sharia (AAOIFI)\n"
+        response += f"- Statut : **{sharia_status}** ({sharia_reason})\n"
+        if "details" in analysis["sharia"] and isinstance(analysis["sharia"]["details"], dict):
+            d = analysis["sharia"]["details"]
+            response += f"- Ratios : Dette: {d.get('debt_ratio', 0)*100:.2f}% | Cash: {d.get('cash_ratio', 0)*100:.2f}% | Créances: {d.get('receivables_ratio', 0)*100:.2f}% (< 33%)\n\n"
             
-        # Si la question porte sur l'analyse technique ou les indicateurs
-        if any(w in message_lower for w in ["technique", "rsi", "support", "sma", "cours", "indicateur", "volatil", "volatilité", "vix", "resistance", "résistance"]):
-            response = f"### 📊 Analyse Technique pour **{ticker}** ({company_name})\n\n"
-            response += f"- **Cours Actuel** : {current_price:.2f} $\n"
-            response += f"- **RSI (14)** : {rsi:.2f} ({'Survendu 📉' if rsi < 30 else 'Suracheté 📈' if rsi > 70 else 'Neutre ⚖️'})\n"
-            response += f"- **Support Technique** : {support:.2f} $ | **Résistance** : {resistance:.2f} $\n"
-            response += f"- **Volatilité (Action)** : {analysis['technical']['historical_volatility']:.2f}% (annuelle)\n"
-            response += f"- **VIX Marché** : {analysis['technical']['vix']:.2f}\n"
-            response += f"- **Moyenne Mobile 20 (SMA)** : {analysis['technical']['sma_20']:.2f} $\n"
-            response += f"- **Moyenne Mobile 50 (SMA)** : {analysis['technical']['sma_50']:.2f} $\n"
-            return jsonify({"response": response})
-
-        # Par défaut, donner le rapport complet
-        response = f"### 📋 Rapport d'analyse : **{ticker}** ({company_name})\n\n"
-        response += f"**Verdict** : **{verdict}**\n\n"
-        response += f"1. **Conformité Sharia** : {sharia_status} ({sharia_reason})\n"
-        response += f"2. **Baisse récente** : {analysis['drop']['drop_pct']:.2f}% sur {analysis['drop']['lookback_days']} jours. (Nature: {analysis['drop']['nature']})\n"
-        response += f"3. **RSI (14)** : {rsi:.2f} | **Support** : {support:.2f} $ | **Résistance** : {resistance:.2f} $\n"
-        response += f"4. **Plan de Trade** :\n"
-        response += f"   - 📥 **Entrée** : {current_price:.2f} $\n"
-        response += f"   - 🎯 **Objectif** : {analysis['trade_plan']['target_min']:.2f} à {analysis['trade_plan']['target_max']:.2f} $ (+{analysis['trade_plan']['potential_gain_min']:.2f}% à +{analysis['trade_plan']['potential_gain_max']:.2f}%)\n"
-        response += f"   - 🛑 **Invalidation (Stop-Loss)** : {analysis['trade_plan']['invalidation']:.2f} $\n"
-        response += f"   - ⚖️ **Ratio R/R** : 1 : {analysis['trade_plan']['risk_reward']:.2f}\n"
+        response += f"#### 2. Contexte Macroéconomique\n"
+        response += f"- Régime Global : **{analysis['step_2_macro']['regime']}** ({analysis['step_2_macro']['action_rule']})\n\n"
+        
+        response += f"#### 3. Diagnostic de la Baisse (-3% à -8%)\n"
+        response += f"- Baisse : **{analysis['step_3_drop']['drop_pct']:.2f}%** sur {analysis['step_3_drop']['lookback_days']}j. Nature : **{analysis['step_3_drop']['nature']}**\n\n"
+        
+        response += f"#### 4. Fondamentaux & Calendrier\n"
+        response += f"- Santé : {analysis['step_4_fundamentals']['health_status']} ({analysis['step_4_fundamentals']['summary']})\n"
+        response += f"- Blackout Résultats : {'🔴 Actif' if analysis['step_4_fundamentals']['earnings_blackout']['active'] else '🟢 Inactif (Fenêtre sécurisée)'}\n\n"
+        
+        response += f"#### 5. Analyse Technique & Flux\n"
+        response += f"- Cours Actuel : **{tech['current_price']:.2f} {sym_char}** | Tendance SMA 200 : **{tech['trend_daily']}**\n"
+        response += f"- Support Majeur : **{tech['support']:.2f} {sym_char}** | Résistance : **{tech['resistance']:.2f} {sym_char}**\n"
+        response += f"- RSI (14) : **{tech['rsi']:.1f}** | Divergence : **{tech['rsi_divergence']['type']}**\n\n"
+        
+        response += f"#### 6. Plan de Trade Tactique\n"
+        response += f"- 📥 **Zone d'Entrée** : {plan['entry_price']:.2f} {sym_char}\n"
+        response += f"- 🎯 **Take Profit 1 (+1,0% à +1,5%)** : {plan['tp1_price']:.2f} {sym_char} (+{plan['tp1_pct']:.2f}%)\n"
+        response += f"- 🎯 **Take Profit 2 (+2,0% à +2,5%)** : {plan['tp2_price']:.2f} {sym_char} (+{plan['tp2_pct']:.2f}%)\n"
+        response += f"- 🛑 **Stop-Loss Invalidation** : {plan['stop_loss_price']:.2f} {sym_char} (-{plan['stop_distance_pct']:.2f}%)\n"
+        response += f"- ⏱️ **Horizon de Détention** : {plan['holding_range']}\n\n"
+        
+        response += f"#### 7. Dimensionnement R-Max (Capital Réf: {risk['capital_reference']:,.0f} €)\n"
+        response += f"- Allocation Nominale Suggérée : **{risk['suggested_nominal']:,.2f} €** ({risk['shares_count']} actions)\n"
+        response += f"- Risque Monétaire Engagé : **{risk['actual_monetary_risk']:.2f} €** (R-Max max : {risk['r_max_amount']:.2f} € / {risk['r_max_pct']:.1f}%)\n"
+        response += f"- Ratios R:R : TP1 = 1:{risk['risk_reward_tp1']:.2f} | TP2 = 1:{risk['risk_reward_tp2']:.2f}\n\n"
+        
+        response += f"#### 8. Verdict & Synthèse Décisionnelle\n"
+        response += f"- **Avis** : `[{confluence['verdict']}]`\n"
+        response += f"- **Thèse** : *{confluence['synthesis']}*\n"
         
         return jsonify({"response": response})
         
-    # Si aucun ticker n'est mentionné
     if any(w in message_lower for w in ["bonjour", "salut", "hello", "hi"]):
         return jsonify({
-            "response": "Bonjour ! Je suis votre assistant de Swing Trading. Vous pouvez me demander :\n"
-                        "1. L'analyse d'un ticker particulier (ex: *'Analyse AAPL'* ou *'Screen MSFT'*)\n"
-                        "2. De vérifier la conformité d'une action (ex: *'Est-ce que LVMH (MC.PA) est Sharia-conforme ?'*)\n"
-                        "3. D'afficher l'analyse technique d'un titre (*'Quels sont les indicateurs de NVDA ?'*)\n"
-                        "Comment puis-je vous aider aujourd'hui ?"
+            "response": "Bonjour ! Je suis votre **Macro & Sharia Mean Reversion Trading Assistant (v2.0)**.\n\n"
+                        "Vous pouvez me demander :\n"
+                        "1. **L'analyse protocolaire en 8 étapes** d'une action (ex: *'Analyse Sanofi (SAN.PA)'*, *'Screen LVMH'*)\n"
+                        "2. **D'ajouter une action au Google Sheet** (*'Ajoute Sanofi (SAN.PA) à ma watchlist'*)\n"
+                        "3. **De filtrer par éligibilité PEA ou Catégorie (Pharma, Tech, Luxe, etc.)**\n"
+                        "4. **Le point Macroéconomique Top-Down** (*'Quel est le régime macro ?'*)\n"
+                        "5. **Le dimensionnement de risque R-Max** pour votre portefeuille.\n\n"
+                        "Que souhaitez-vous faire ?"
         })
         
     return jsonify({
-        "response": f"J'ai bien reçu votre message : *\"{message}\"*.\n\nPour que je puisse vous aider au mieux, veuillez préciser le nom de l'entreprise ou son ticker d'action (ex: `Seagate`, `AAPL`, `MSFT`, `LVMH`)."
+        "response": f"J'ai bien reçu votre message : *\"{message}\"*.\n\nPour une analyse ou un ajout, veuillez préciser le nom de l'entreprise ou son ticker boursier (ex: `SAN.PA`, `AAPL`, `MSFT`, `MC.PA`, `AIR.PA`), ou tapez *'Ajoute [TICKER] à ma watchlist'*."
     })
 
 if __name__ == "__main__":
