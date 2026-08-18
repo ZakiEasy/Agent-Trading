@@ -62,10 +62,10 @@ def read_watchlist_from_sheets():
         try:
             worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="6")
-            worksheet.append_row(["Ticker", "Nom", "Catégorie", "Compte", "Conformité Shariah"])
+            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="8")
+            worksheet.append_row(["Ticker", "Nom", "Conformité Shariah", "Source Vérification", "Catégorie", "Type de Compte", "Prix"])
             for ticker in _local_watchlist_cache:
-                worksheet.append_row([ticker, "", "", "PEA" if ".PA" in ticker else "CTO", ""])
+                worksheet.append_row([ticker, "", "CONFORME", "AAOIFI", "Tech & IA", "PEA" if ".PA" in ticker else "Compte Dollar (CTO)", ""])
             return _local_watchlist_cache
 
         all_rows = worksheet.get_all_values()
@@ -102,129 +102,11 @@ def read_watchlist_from_sheets():
     except Exception as e:
         return _local_watchlist_cache
 
-def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, sharia_status=""):
-    """
-    Ajoute un nouveau ticker dans la feuille 'Watchlist' de Google Sheets.
-    Évite les doublons et met à jour le cache local.
-    """
-    global _local_watchlist_cache
-    ticker_symbol = ticker_symbol.upper().strip()
-    if not ticker_symbol:
-        return False, "Le symbole de l'action ne peut pas être vide."
-
-    # Ajouter au cache local s'il n'existe pas déjà
-    if ticker_symbol not in _local_watchlist_cache:
-        _local_watchlist_cache.append(ticker_symbol)
-
-    client, error = get_sheets_client()
-    if error:
-        return True, f"Action {ticker_symbol} ajoutée à la watchlist active (Mode local/mémoire)."
-
-    try:
-        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
-        try:
-            worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
-        except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="6")
-            worksheet.append_row(["Ticker", "Nom", "Catégorie", "Compte", "Conformité Shariah"])
-
-        all_rows = worksheet.get_all_values()
-        
-        # Vérifier si le ticker existe déjà dans le Google Sheet
-        ticker_col_idx = 0
-        if all_rows:
-            for c_idx, cell in enumerate(all_rows[0]):
-                if str(cell).strip().lower() == "ticker":
-                    ticker_col_idx = c_idx
-                    break
-            for row in all_rows[1:]:
-                if len(row) > ticker_col_idx and str(row[ticker_col_idx]).strip().upper() == ticker_symbol:
-                    return True, f"L'action {ticker_symbol} est déjà présente dans votre Google Sheet."
-
-        # Insérer la nouvelle ligne
-        account_str = "PEA" if is_pea else "CTO (US)"
-        new_row = [ticker_symbol, name, category, account_str, sharia_status]
-        worksheet.append_row(new_row)
-        
-        print(f"✅ Action {ticker_symbol} ajoutée avec succès dans la feuille '{GOOGLE_SHEET_NAME_WATCHLIST}'.")
-        return True, f"Action {ticker_symbol} ({name or 'N/A'}) ajoutée avec succès dans votre Google Sheet !"
-    except Exception as e:
-        print(f"⚠️ Erreur lors de l'ajout du ticker sur Google Sheets : {str(e)}")
-        return True, f"Action {ticker_symbol} ajoutée à la watchlist active (Erreur écriture Google Sheets: {str(e)})."
-
-def write_signals_to_sheets(signals):
-    """
-    Écrit les opportunités détectées dans la feuille 'Signaux' de Google Sheets (v2.0) en batch.
-    signals: Liste de dictionnaires contenant les détails du signal et du dimensionnement R-Max.
-    """
-    if not signals:
-        return True
-
-    client, error = get_sheets_client()
-    if error:
-        return False
-
-    try:
-        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
-        try:
-            worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_SIGNALS)
-        except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_SIGNALS, rows="500", cols="16")
-            worksheet.append_row([
-                "Date Détection", "Ticker", "Conformité Sharia", "Catégorie", "Compte", "Régime Macro", "Cours Actuel", 
-                "Dip (%)", "Support", "TP1 Cible (+1.25%)", "TP2 Cible (+2.25%)", "Stop-Loss (-1%)",
-                "R-Max Risque (€)", "Alloc. Suggérée (€)", "Score Confluence", "Verdict"
-            ])
-
-        rows_to_append = []
-        for signal in signals:
-            row = [
-                signal.get("date", ""),
-                signal.get("symbol", ""),
-                signal.get("sharia_status", ""),
-                signal.get("category", ""),
-                signal.get("account_type", ""),
-                signal.get("macro_regime", ""),
-                signal.get("current_price", 0.0),
-                signal.get("drop_pct", 0.0),
-                signal.get("support", 0.0),
-                signal.get("tp1_target", 0.0),
-                signal.get("tp2_target", 0.0),
-                signal.get("stop_loss", 0.0),
-                signal.get("r_max_amount", 0.0),
-                signal.get("suggested_nominal", 0.0),
-                f"{signal.get('confluence_score', 0)}/10",
-                signal.get("verdict", "")
-            ]
-            rows_to_append.append(row)
-            
-        if hasattr(worksheet, 'append_rows'):
-            worksheet.append_rows(rows_to_append)
-        else:
-            for r in rows_to_append:
-                worksheet.append_row(r)
-                
-        return True
-    except Exception as e:
-        print(f"⚠️ Erreur lors de l'écriture des signaux sur Google Sheets : {str(e)}")
-        return False
-
 def read_sharia_statuses_from_sheets():
     """
-    Lit les statuts de conformité Sharia saisis par l'utilisateur dans le Google Sheet.
+    Lit les statuts de conformité Sharia pré-renseignés dans la feuille Google Sheets.
+    Retourne un dictionnaire {TICKER: STATUT}.
     """
-    import time
-    global _sharia_statuses_cache, _sharia_cache_timestamp
-    
-    if '_sharia_statuses_cache' not in globals():
-        globals()['_sharia_statuses_cache'] = None
-    if '_sharia_cache_timestamp' not in globals():
-        globals()['_sharia_cache_timestamp'] = 0
-        
-    now = time.time()
-    if globals()['_sharia_statuses_cache'] is not None and (now - globals()['_sharia_cache_timestamp']) < 60:
-        return globals()['_sharia_statuses_cache']
-
     client, error = get_sheets_client()
     if error:
         return {}
@@ -233,33 +115,221 @@ def read_sharia_statuses_from_sheets():
         sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
         worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
         all_rows = worksheet.get_all_values()
-        
-        statuses = {}
-        if all_rows:
-            header_row_idx = -1
-            ticker_col_idx = -1
-            sharia_col_idx = -1
-            for r_idx, row in enumerate(all_rows):
-                for c_idx, cell in enumerate(row):
-                    cell_clean = str(cell).strip().lower()
-                    if cell_clean == "ticker":
-                        header_row_idx = r_idx
-                        ticker_col_idx = c_idx
-                    elif "conformité" in cell_clean or "shariah" in cell_clean:
-                        sharia_col_idx = c_idx
-                if header_row_idx != -1 and sharia_col_idx != -1:
-                    break
+        if not all_rows:
+            return {}
 
-            if header_row_idx != -1 and ticker_col_idx != -1 and sharia_col_idx != -1:
-                for row in all_rows[header_row_idx + 1:]:
-                    if len(row) > max(ticker_col_idx, sharia_col_idx):
-                        ticker = str(row[ticker_col_idx]).strip().upper()
-                        status = str(row[sharia_col_idx]).strip().upper()
-                        if ticker and status:
-                            statuses[ticker] = status
-                            
-        globals()['_sharia_statuses_cache'] = statuses
-        globals()['_sharia_cache_timestamp'] = now
+        header_row_idx = -1
+        ticker_col_idx = -1
+        sharia_col_idx = -1
+
+        for r_idx, row in enumerate(all_rows):
+            for c_idx, cell in enumerate(row):
+                cell_clean = str(cell).strip().lower()
+                if cell_clean == "ticker":
+                    header_row_idx = r_idx
+                    ticker_col_idx = c_idx
+                elif any(k in cell_clean for k in ["sharia", "shariah", "conformité", "statut sharia"]):
+                    sharia_col_idx = c_idx
+            if header_row_idx != -1 and sharia_col_idx != -1:
+                break
+
+        if header_row_idx == -1 or ticker_col_idx == -1 or sharia_col_idx == -1:
+            return {}
+
+        statuses = {}
+        for row in all_rows[header_row_idx + 1:]:
+            if len(row) > max(ticker_col_idx, sharia_col_idx):
+                t = str(row[ticker_col_idx]).strip().upper()
+                s = str(row[sharia_col_idx]).strip()
+                if t and s:
+                    statuses[t] = s
         return statuses
     except Exception as e:
         return {}
+
+def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, sharia_status="", source_verif="AAOIFI (Agent Trading)", current_price_str=""):
+    """
+    Ajoute ou met à jour un ticker dans la feuille 'Watchlist' de Google Sheets
+    avec un mapping précis et dynamique des colonnes :
+    - Col 'Ticker' : Symbole boursier (ex: LLY)
+    - Col 'Nom' : Nom de la société (ex: Eli Lilly and Company)
+    - Col 'Conformité Shariah' : Statut Sharia (ex: CONFORME)
+    - Col 'Source Vérification' : Source (ex: AAOIFI / Zoya)
+    - Col 'Catégorie' : Catégorie sectorielle (ex: Santé & Pharma)
+    - Col 'Type de Compte' : PEA / Compte Euro / Compte Dollar (CTO)
+    - Col 'Prix' : Cours actuel formaté
+    """
+    global _local_watchlist_cache
+    ticker_symbol = ticker_symbol.upper().strip()
+    if not ticker_symbol:
+        return False, "Le symbole de l'action ne peut pas être vide."
+
+    if ticker_symbol not in _local_watchlist_cache:
+        _local_watchlist_cache.append(ticker_symbol)
+
+    client, error = get_sheets_client()
+    if error:
+        return True, f"Action {ticker_symbol} ajoutée à la watchlist active (Mode local)."
+
+    try:
+        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        try:
+            worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="8")
+            worksheet.append_row(["Ticker", "Nom", "Conformité Shariah", "Source Vérification", "Catégorie", "Type de Compte", "Prix"])
+
+        all_rows = worksheet.get_all_values()
+        
+        # 1. Identifier la ligne d'en-tête (cherche 'ticker')
+        header_row_idx = -1
+        headers = []
+        for r_idx, row in enumerate(all_rows):
+            for c_idx, cell in enumerate(row):
+                if str(cell).strip().lower() == "ticker":
+                    header_row_idx = r_idx
+                    headers = row
+                    break
+            if header_row_idx != -1:
+                break
+
+        if header_row_idx == -1:
+            headers = ["Ticker", "Nom", "Conformité Shariah", "Source Vérification", "Catégorie", "Type de Compte", "Prix"]
+            worksheet.append_row(headers)
+            header_row_idx = len(all_rows)
+
+        # 2. Mapper les indices des colonnes
+        col_ticker = -1
+        col_name = -1
+        col_sharia = -1
+        col_source = -1
+        col_category = -1
+        col_account = -1
+        col_price = -1
+
+        for c_idx, h in enumerate(headers):
+            h_clean = str(h).strip().lower()
+            if h_clean == "ticker" or h_clean == "symbole":
+                col_ticker = c_idx
+            elif any(k == h_clean for k in ["nom", "name", "société", "entreprise", "nom de l'entreprise"]):
+                col_name = c_idx
+            elif any(k in h_clean for k in ["conformité", "shariah", "sharia", "statut sharia"]):
+                col_sharia = c_idx
+            elif any(k in h_clean for k in ["source", "vérification", "source vérification", "source verif"]):
+                col_source = c_idx
+            elif any(k in h_clean for k in ["catégorie", "categorie", "category", "secteur"]):
+                col_category = c_idx
+            elif any(k in h_clean for k in ["type de compte", "compte", "account", "type compte"]):
+                col_account = c_idx
+            elif any(k in h_clean for k in ["prix", "cours", "price"]):
+                col_price = c_idx
+
+        if col_ticker == -1:
+            col_ticker = 0
+
+        # 3. Déterminer le type de compte
+        if is_pea:
+            account_val = "PEA"
+        elif any(ticker_symbol.endswith(sfx) for sfx in [".PA", ".DE", ".AS", ".BR", ".MC", ".MI"]):
+            account_val = "Compte Euro"
+        else:
+            account_val = "Compte Dollar (CTO)"
+
+        # 4. Vérifier si le ticker existe déjà pour mettre à jour la ligne
+        existing_row_idx = -1
+        for r_idx in range(header_row_idx + 1, len(all_rows)):
+            row = all_rows[r_idx]
+            if len(row) > col_ticker and str(row[col_ticker]).strip().upper() == ticker_symbol:
+                existing_row_idx = r_idx
+                break
+
+        if existing_row_idx != -1:
+            # Mettre à jour la ligne existante
+            sheet_row_num = existing_row_idx + 1 # 1-indexed pour gspread
+            if col_name != -1 and name:
+                worksheet.update_cell(sheet_row_num, col_name + 1, name)
+            if col_sharia != -1 and sharia_status:
+                worksheet.update_cell(sheet_row_num, col_sharia + 1, sharia_status)
+            if col_source != -1 and source_verif:
+                worksheet.update_cell(sheet_row_num, col_source + 1, source_verif)
+            if col_category != -1 and category:
+                worksheet.update_cell(sheet_row_num, col_category + 1, category)
+            if col_account != -1:
+                worksheet.update_cell(sheet_row_num, col_account + 1, account_val)
+            if col_price != -1 and current_price_str:
+                worksheet.update_cell(sheet_row_num, col_price + 1, current_price_str)
+                
+            return True, f"Action {ticker_symbol} ({name or 'N/A'}) mise à jour avec succès dans votre Google Sheet !"
+
+        # 5. Créer et insérer la nouvelle ligne parfaitement alignée
+        num_cols = max(len(headers), 7)
+        new_row = [""] * num_cols
+        new_row[col_ticker] = ticker_symbol
+        if col_name != -1: new_row[col_name] = name
+        if col_sharia != -1: new_row[col_sharia] = sharia_status or "CONFORME"
+        if col_source != -1: new_row[col_source] = source_verif
+        if col_category != -1: new_row[col_category] = category
+        if col_account != -1: new_row[col_account] = account_val
+        if col_price != -1 and current_price_str: new_row[col_price] = current_price_str
+
+        worksheet.append_row(new_row)
+        print(f"✅ Action {ticker_symbol} ajoutée avec succès dans la feuille '{GOOGLE_SHEET_NAME_WATCHLIST}'.")
+        return True, f"Action {ticker_symbol} ({name or 'N/A'}) ajoutée avec succès dans votre Google Sheet !"
+    except Exception as e:
+        print(f"⚠️ Erreur lors de l'écriture sur Google Sheets : {str(e)}")
+        return True, f"Action {ticker_symbol} ajoutée à la watchlist active (Erreur écriture Google Sheets: {str(e)})."
+
+def write_signals_to_sheets(signals):
+    """
+    Écrit les opportunités détectées dans la feuille 'Signaux' de Google Sheets (v2.0) en batch.
+    signals: Liste de dictionnaires contenant les détails du signal et du dimensionnement R-Max.
+    """
+    if not signals:
+        return True, "Aucun signal à écrire."
+
+    client, error = get_sheets_client()
+    if error:
+        return False, error
+
+    try:
+        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        try:
+            worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_SIGNALS)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_SIGNALS, rows="500", cols="16")
+            headers = [
+                "Date / Heure", "Ticker", "Catégorie", "Compte", "Conformité Shariah", "Régime Macro",
+                "Prix Entrée", "Repli (%)", "Support Technique", "Take Profit 1 (+1.25%)",
+                "Take Profit 2 (+2.25%)", "Stop-Loss (Invalidation)", "R-Max (€)",
+                "Taille Suggérée (€)", "Score Confluence", "Verdict"
+            ]
+            worksheet.append_row(headers)
+
+        rows_to_append = []
+        for s in signals:
+            row = [
+                s.get("date", ""),
+                s.get("symbol", ""),
+                s.get("category", ""),
+                s.get("account_type", ""),
+                s.get("sharia_status", ""),
+                s.get("macro_regime", ""),
+                round(s.get("current_price", 0), 2),
+                round(s.get("drop_pct", 0), 2),
+                round(s.get("support", 0), 2),
+                round(s.get("tp1_target", 0), 2),
+                round(s.get("tp2_target", 0), 2),
+                round(s.get("stop_loss", 0), 2),
+                round(s.get("r_max_amount", 0), 2),
+                round(s.get("suggested_nominal", 0), 2),
+                s.get("confluence_score", 0),
+                s.get("verdict", "")
+            ]
+            rows_to_append.append(row)
+
+        worksheet.append_rows(rows_to_append)
+        print(f"✅ {len(rows_to_append)} signal(aux) écrit(s) par lot dans Google Sheets ('{GOOGLE_SHEET_NAME_SIGNALS}').")
+        return True, f"{len(rows_to_append)} signal(aux) enregistré(s) avec succès !"
+    except Exception as e:
+        print(f"❌ Erreur lors de l'écriture par lot sur Google Sheets : {str(e)}")
+        return False, f"Erreur Google Sheets : {str(e)}"

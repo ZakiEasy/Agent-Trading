@@ -1206,7 +1206,16 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Catégorie Manuelle (Optionnel)</label>
+                        <label>Conformité Shariah (AAOIFI)</label>
+                        <select id="modal-sharia-select">
+                            <option value="">Auto-détectée (Screening Financier & Sectoriel)</option>
+                            <option value="CONFORME">🟢 CONFORME (Halal)</option>
+                            <option value="NON CONFORME">🔴 NON CONFORME</option>
+                            <option value="À VÉRIFIER">🟡 À VÉRIFIER</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Catégorie Sectorielle</label>
                         <select id="modal-category-select">
                             <option value="">Auto-détectée</option>
                             <option value="Santé & Pharma">💊 Santé & Pharma</option>
@@ -1220,13 +1229,21 @@
                             <option value="Autres">📦 Autres</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="form-row">
                     <div class="form-group">
-                        <label>Éligibilité Compte</label>
+                        <label>Type de Compte</label>
                         <select id="modal-account-select">
                             <option value="auto">Auto-détecté</option>
                             <option value="pea">🇫🇷 Éligible PEA (Europe)</option>
-                            <option value="cto">🇺🇸 Marchés US (CTO)</option>
+                            <option value="cto">🇺🇸 Marchés US (CTO Dollar)</option>
+                            <option value="euro">💶 Compte Euro (CTO)</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Source de Vérification</label>
+                        <input type="text" id="modal-source-input" class="text-input" placeholder="Ex: AAOIFI / Agent Trading" value="AAOIFI (Agent Trading)">
                     </div>
                 </div>
 
@@ -1584,8 +1601,31 @@
                     document.getElementById('modal-preview-category').textContent = `${d.category_icon || '📦'} ${d.category || 'Autres'}`;
                     
                     const shariaElem = document.getElementById('modal-preview-sharia');
-                    shariaElem.textContent = d.sharia.status;
-                    shariaElem.className = `badge ${d.sharia.status === 'CONFORME' ? 'badge-success' : 'badge-danger'}`;
+                    const shariaStatus = (d.sharia && d.sharia.status) ? d.sharia.status : 'À VÉRIFIER';
+                    shariaElem.textContent = shariaStatus;
+                    shariaElem.className = `badge ${shariaStatus === 'CONFORME' ? 'badge-success' : 'badge-danger'}`;
+
+                    // Pré-remplissage automatique des champs du formulaire
+                    if (d.category) {
+                        const catSel = document.getElementById('modal-category-select');
+                        for (let opt of catSel.options) {
+                            if (opt.value === d.category) {
+                                catSel.value = d.category;
+                                break;
+                            }
+                        }
+                    }
+                    if (shariaStatus) {
+                        const shariaSel = document.getElementById('modal-sharia-select');
+                        shariaSel.value = shariaStatus;
+                    }
+                    if (d.is_pea) {
+                        document.getElementById('modal-account-select').value = 'pea';
+                    } else if (ticker.endsWith('.PA') || ticker.endsWith('.DE') || ticker.endsWith('.AS')) {
+                        document.getElementById('modal-account-select').value = 'euro';
+                    } else {
+                        document.getElementById('modal-account-select').value = 'cto';
+                    }
                 } else {
                     document.getElementById('modal-preview-name').textContent = ticker;
                 }
@@ -1607,9 +1647,11 @@
 
             const catSelect = document.getElementById('modal-category-select').value;
             const accSelect = document.getElementById('modal-account-select').value;
+            const shariaSelect = document.getElementById('modal-sharia-select').value;
+            const sourceInput = document.getElementById('modal-source-input').value;
             let isPea = null;
             if (accSelect === 'pea') isPea = true;
-            if (accSelect === 'cto') isPea = false;
+            if (accSelect === 'cto' || accSelect === 'euro') isPea = false;
 
             try {
                 const res = await fetch(`${API_URL}/watchlist/add`, {
@@ -1618,7 +1660,9 @@
                     body: JSON.stringify({
                         ticker: ticker,
                         category: catSelect || undefined,
-                        is_pea: isPea !== null ? isPea : undefined
+                        is_pea: isPea !== null ? isPea : undefined,
+                        sharia_status: shariaSelect || undefined,
+                        source_verif: sourceInput || undefined
                     })
                 });
                 const payload = await res.json();
@@ -1702,31 +1746,36 @@
             try {
                 const res = await fetch(`${API_URL}/analyze/${symbol}`);
                 const payload = await res.json();
-                if (!payload.success) {
-                    container.innerHTML = `<p style="color: var(--danger); padding: 1rem;">Erreur: ${payload.error}</p>`;
+                if (!payload.success || !payload.data) {
+                    container.innerHTML = `<p style="color: var(--danger); padding: 1rem;">Erreur: ${payload.error || 'Impossible de charger les données.'}</p>`;
                     return;
                 }
 
                 const d = payload.data;
                 const symChar = d.currency === "EUR" ? "€" : "$";
-                const tech = d.step_5_technical || d.technical;
-                const plan = d.step_6_trade_plan || d.trade_plan;
-                const risk = d.step_7_risk_sizing || d.trade_plan;
-                const confluence = d.step_8_confluence || { confluence_score: d.confluence_score || 0, verdict: d.verdict };
+                const tech = d.step_5_technical || d.technical || { current_price: 0, sma_200: 0, trend_daily: "N/A", support: 0, resistance: 0, rsi: 50, rsi_divergence: { type: "AUCUNE", description: "" } };
+                const plan = d.step_6_trade_plan || d.trade_plan || { tp1_price: 0, tp2_price: 0, stop_loss_price: 0, stop_distance_pct: 0, holding_range: "N/A" };
+                const risk = d.step_7_risk_sizing || d.trade_plan || { capital_reference: 5000, suggested_nominal: 0, actual_monetary_risk: 0, r_max_amount: 50, risk_reward_tp1: 0, risk_reward_tp2: 0, shares_count: 0 };
+                const confluence = d.step_8_confluence || { confluence_score: d.confluence_score || 0, verdict: d.verdict || "ATTENDRE" };
+                const sharia = d.sharia || d.step_1_sharia || { status: "À VÉRIFIER", reason: "" };
+                const macro = d.step_2_macro || { regime: "N/A", action_rule: "" };
+                const drop = d.step_3_drop || { drop_pct: 0, lookback_days: 1, nature: "N/A" };
+                const fund = d.step_4_fundamentals || { health_status: "N/A", summary: "", earnings_blackout: { active: false } };
 
                 // Score pill update
                 const scorePill = document.getElementById('detail-score-pill');
-                scorePill.textContent = `${confluence.confluence_score || d.confluence_score}/10`;
-                scorePill.className = `score-pill ${(confluence.confluence_score >= 7) ? 'score-high' : (confluence.confluence_score >= 4) ? 'score-med' : 'score-low'}`;
+                const finalScore = confluence.confluence_score !== undefined ? confluence.confluence_score : (d.confluence_score || 0);
+                scorePill.textContent = `${finalScore}/10`;
+                scorePill.className = `score-pill ${(finalScore >= 7) ? 'score-high' : (finalScore >= 4) ? 'score-med' : 'score-low'}`;
 
                 renderTradingViewWidget(d.symbol);
 
                 // Sharia Ratios display
                 let shariaRatiosHtml = '';
-                if (d.sharia && d.sharia.details && d.sharia.details.debt_ratio !== undefined) {
-                    const debt = (d.sharia.details.debt_ratio * 100);
-                    const cash = (d.sharia.details.cash_ratio * 100);
-                    const rec = (d.sharia.details.receivables_ratio * 100);
+                if (sharia && sharia.details && sharia.details.debt_ratio !== undefined) {
+                    const debt = (sharia.details.debt_ratio * 100);
+                    const cash = (sharia.details.cash_ratio * 100);
+                    const rec = (sharia.details.receivables_ratio * 100);
 
                     shariaRatiosHtml = `
                         <div class="ratio-bar-container">
@@ -1744,87 +1793,91 @@
                     `;
                 }
 
+                const vText = d.verdict || "ATTENDRE";
+                const isBuy = vText.includes('ACHETER');
+                const isWait = vText.includes('ATTENDRE');
+
                 container.innerHTML = `
                     <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: 8px;">
                         <div>
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span style="font-size: 1.2rem; font-weight: 800;">${d.symbol}</span>
                                 <span class="badge ${d.is_pea ? 'badge-pea' : 'badge-cto'}">${d.account_type || (d.is_pea ? 'PEA' : 'CTO')}</span>
-                                <span class="badge-cat">${d.category_icon || '📦'} ${d.category}</span>
+                                <span class="badge-cat">${d.category_icon || '📦'} ${d.category || 'Autres'}</span>
                             </div>
                             <span style="font-size: 0.8rem; color: var(--text-muted);">${d.company_name || ''}</span>
                         </div>
-                        <span class="badge ${d.verdict.includes('ACHETER') ? 'badge-success' : d.verdict.includes('ATTENDRE') ? 'badge-warning' : 'badge-danger'}">${d.verdict}</span>
+                        <span class="badge ${isBuy ? 'badge-success' : isWait ? 'badge-warning' : 'badge-danger'}">${vText}</span>
                     </div>
 
                     <div class="report-section">
                         <!-- Étape 1 -->
                         <div class="report-step">
                             <div class="report-step-title">🕌 1. Conformité Sharia (AAOIFI)</div>
-                            <div>Statut : <span class="badge ${d.sharia.status === 'CONFORME' ? 'badge-success' : 'badge-danger'}">${d.sharia.status}</span></div>
-                            <div style="font-size:0.8rem; color:var(--text-muted); margin: 0.25rem 0;">${d.sharia.reason}</div>
+                            <div>Statut : <span class="badge ${sharia.status === 'CONFORME' ? 'badge-success' : 'badge-danger'}">${sharia.status}</span></div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin: 0.25rem 0;">${sharia.reason || ''}</div>
                             ${shariaRatiosHtml}
                         </div>
 
                         <!-- Étape 2 -->
                         <div class="report-step">
                             <div class="report-step-title">🌍 2. Contexte Macroéconomique</div>
-                            <div>Régime Global : <strong>${d.step_2_macro.regime}</strong></div>
-                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">${d.step_2_macro.action_rule}</div>
+                            <div>Régime Global : <strong>${macro.regime || 'N/A'}</strong></div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">${macro.action_rule || ''}</div>
                         </div>
 
                         <!-- Étape 3 -->
                         <div class="report-step">
                             <div class="report-step-title">📉 3. Diagnostic de la Baisse (-3% à -8%)</div>
-                            <div>Ampleur : <strong style="color:var(--danger);">${parseFloat(d.step_3_drop.drop_pct).toFixed(2)}%</strong> sur ${d.step_3_drop.lookback_days} session(s)</div>
-                            <div style="font-size:0.8rem; color:var(--text-muted);">Nature : <strong>${d.step_3_drop.nature}</strong></div>
+                            <div>Ampleur : <strong style="color:${(drop.drop_pct || 0) <= -3.0 ? 'var(--danger)' : 'var(--text-muted)'};">${parseFloat(drop.drop_pct || 0).toFixed(2)}%</strong> sur ${drop.lookback_days || 1} session(s)</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">Nature : <strong>${drop.nature || 'N/A'}</strong></div>
                         </div>
 
                         <!-- Étape 4 -->
                         <div class="report-step">
                             <div class="report-step-title">🏢 4. Fondamentaux & Calendrier Risques</div>
-                            <div>Santé : <strong>${d.step_4_fundamentals.health_status}</strong> (${d.step_4_fundamentals.summary})</div>
-                            <div style="margin-top:0.2rem;">Blackout Résultats (10j) : ${d.step_4_fundamentals.earnings_blackout.active ? '<strong style="color:var(--danger);">Actif 🔴</strong>' : '<span style="color:var(--success);">Inactif (Sécurisé) 🟢</span>'}</div>
+                            <div>Santé : <strong>${fund.health_status || 'N/A'}</strong> (${fund.summary || ''})</div>
+                            <div style="margin-top:0.2rem;">Blackout Résultats (10j) : ${fund.earnings_blackout && fund.earnings_blackout.active ? '<strong style="color:var(--danger);">Actif 🔴</strong>' : '<span style="color:var(--success);">Inactif (Sécurisé) 🟢</span>'}</div>
                         </div>
 
                         <!-- Étape 5 -->
                         <div class="report-step">
                             <div class="report-step-title">📊 5. Analyse Technique & Flux</div>
-                            <div>Cours Actuel : <strong>${tech.current_price.toFixed(2)} ${symChar}</strong> | SMA 200 : <strong>${tech.sma_200.toFixed(2)} ${symChar}</strong> (${tech.trend_daily})</div>
-                            <div>Support : <strong>${tech.support.toFixed(2)} ${symChar}</strong> | Résistance : <strong>${tech.resistance.toFixed(2)} ${symChar}</strong></div>
-                            <div>RSI (14) : <strong>${tech.rsi.toFixed(1)}</strong> | Divergence : <strong>${tech.rsi_divergence.type}</strong></div>
-                            <div style="font-size:0.8rem; color:var(--text-muted);">${tech.rsi_divergence.description}</div>
+                            <div>Cours Actuel : <strong>${(tech.current_price || 0).toFixed(2)} ${symChar}</strong> | SMA 200 : <strong>${(tech.sma_200 || 0).toFixed(2)} ${symChar}</strong> (${tech.trend_daily || 'N/A'})</div>
+                            <div>Support : <strong>${(tech.support || 0).toFixed(2)} ${symChar}</strong> | Résistance : <strong>${(tech.resistance || 0).toFixed(2)} ${symChar}</strong></div>
+                            <div>RSI (14) : <strong>${(tech.rsi || 50).toFixed(1)}</strong> | Divergence : <strong>${tech.rsi_divergence ? tech.rsi_divergence.type : 'AUCUNE'}</strong></div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">${tech.rsi_divergence ? tech.rsi_divergence.description : ''}</div>
                             <div style="margin-top:0.25rem;">Volume : ${tech.volume_confirmed ? '<strong style="color:var(--success);">Confirmé (&gt; MA 20) 🔥</strong>' : '<span style="color:var(--text-muted);">Faible</span>'} | Momentum QQE : ${tech.qqe_buy_signal ? '<strong style="color:var(--success);">Signal ACHAT 🟢</strong>' : '<span style="color:var(--text-muted);">Neutre</span>'}</div>
                         </div>
 
                         <!-- Étape 6 -->
                         <div class="report-step">
                             <div class="report-step-title">🎯 6. Plan de Trade Tactique</div>
-                            <div>📥 Entrée : <strong>${tech.current_price.toFixed(2)} ${symChar}</strong></div>
-                            <div>🎯 TP1 (+1.25%) : <strong>${(plan.tp1_price || plan.target_min).toFixed(2)} ${symChar}</strong> | TP2 (+2.25%) : <strong>${(plan.tp2_price || plan.target_max).toFixed(2)} ${symChar}</strong></div>
-                            <div>🛑 Stop-Loss : <strong style="color:var(--danger);">${(plan.stop_loss_price || plan.invalidation).toFixed(2)} ${symChar}</strong> (-${(plan.stop_distance_pct || plan.potential_loss).toFixed(2)}%)</div>
+                            <div>📥 Entrée : <strong>${(tech.current_price || 0).toFixed(2)} ${symChar}</strong></div>
+                            <div>🎯 TP1 (+1.25%) : <strong>${((plan.tp1_price || plan.target_min || 0)).toFixed(2)} ${symChar}</strong> | TP2 (+2.25%) : <strong>${((plan.tp2_price || plan.target_max || 0)).toFixed(2)} ${symChar}</strong></div>
+                            <div>🛑 Stop-Loss : <strong style="color:var(--danger);">${((plan.stop_loss_price || plan.invalidation || 0)).toFixed(2)} ${symChar}</strong> (-${((plan.stop_distance_pct || plan.potential_loss || 0)).toFixed(2)}%)</div>
                             <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">Horizon : <strong>${plan.holding_range || '3 à 15 jours (cible ~10j)'}</strong></div>
                         </div>
 
                         <!-- Étape 7 -->
                         <div class="report-step">
                             <div class="report-step-title">🛡️ 7. Dimensionnement R-Max (Capital ${risk.capital_reference || 5000} €)</div>
-                            <div>Allocation Nominale Suggérée : <strong style="color:#60a5fa;">${(risk.suggested_nominal).toFixed(2)} €</strong> (${risk.shares_count} actions)</div>
-                            <div>Risque Monétaire Engagé : <strong style="color:#fbbf24;">${(risk.actual_monetary_risk).toFixed(2)} €</strong> (R-Max autorisé : ${(risk.r_max_amount).toFixed(2)} €)</div>
-                            <div>Ratios R:R : TP1 = <strong>1:${(risk.risk_reward_tp1 || plan.risk_reward).toFixed(2)}</strong> | TP2 = <strong>1:${(risk.risk_reward_tp2 || plan.risk_reward*1.5).toFixed(2)}</strong></div>
+                            <div>Allocation Nominale Suggérée : <strong style="color:#60a5fa;">${((risk.suggested_nominal || 0)).toFixed(2)} €</strong> (${risk.shares_count || 0} actions)</div>
+                            <div>Risque Monétaire Engagé : <strong style="color:#fbbf24;">${((risk.actual_monetary_risk || 0)).toFixed(2)} €</strong> (R-Max autorisé : ${((risk.r_max_amount || 50)).toFixed(2)} €)</div>
+                            <div>Ratios R:R : TP1 = <strong>1:${((risk.risk_reward_tp1 || plan.risk_reward || 0)).toFixed(2)}</strong> | TP2 = <strong>1:${((risk.risk_reward_tp2 || (plan.risk_reward ? plan.risk_reward*1.5 : 0))).toFixed(2)}</strong></div>
                         </div>
 
                         <!-- Étape 8 -->
                         <div class="report-step" style="background: rgba(59,130,246,0.04); border-radius: 8px; padding: 0.75rem; border: 1px solid rgba(59,130,246,0.2);">
                             <div class="report-step-title">🏆 8. Verdict Final & Synthèse Décisionnelle</div>
-                            <div style="font-size: 0.95rem; margin-bottom: 0.35rem;">Avis : <strong>${d.verdict}</strong> (Score : <strong>${confluence.confluence_score}/10</strong>)</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">${confluence.synthesis || d.trade_plan.summary || ''}</div>
+                            <div style="font-size: 0.95rem; margin-bottom: 0.35rem;">Avis : <strong>${vText}</strong> (Score : <strong>${finalScore}/10</strong>)</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">${confluence.synthesis || ''}</div>
                         </div>
                     </div>
                 `;
             } catch (e) {
                 console.error(e);
-                container.innerHTML = `<p style="color: var(--danger); padding: 1rem;">Erreur de chargement du rapport.</p>`;
+                container.innerHTML = `<p style="color: var(--danger); padding: 1rem;">Erreur de chargement du rapport : ${e.message}</p>`;
             }
         }
 

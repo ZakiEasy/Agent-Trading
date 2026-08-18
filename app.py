@@ -185,7 +185,7 @@ def get_watchlist():
 @app.route("/api/watchlist/add", methods=["POST"])
 def add_watchlist_ticker():
     """
-    Endpoint pour ajouter une nouvelle action dans Google Sheets et la Watchlist active.
+    Endpoint pour ajouter ou mettre à jour une action dans Google Sheets et la Watchlist active.
     """
     data = request.json or {}
     symbol = data.get("ticker", "").upper().strip()
@@ -193,32 +193,47 @@ def add_watchlist_ticker():
         return jsonify({"success": False, "error": "Le symbole de l'action est requis."}), 400
 
     # 1. Vérifier et récupérer les informations avec yfinance
+    info = {}
     try:
         t = yf.Ticker(symbol)
-        info = t.info
-        name = info.get("longName") or info.get("shortName") or symbol
+        raw_info = getattr(t, 'info', None)
+        if isinstance(raw_info, dict):
+            info = raw_info
+        name = data.get("name") or info.get("longName") or info.get("shortName") or symbol
         fund_q = check_fundamental_quality(t, info, symbol=symbol)
     except Exception as e:
-        name = symbol
-        fund_q = {"category": "Autres", "is_pea": ".PA" in symbol, "account_type": "PEA" if ".PA" in symbol else "CTO"}
+        name = data.get("name") or symbol
+        fund_q = {"category": "Autres", "is_pea": ".PA" in symbol, "account_type": "PEA" if ".PA" in symbol else "CTO (US)"}
 
+    # 2. Screening Sharia
     sharia_res = screen_ticker(symbol)
-    sharia_status = sharia_res.get("status", "À VÉRIFIER")
+    default_sharia = sharia_res.get("status", "À VÉRIFIER")
+    sharia_status = data.get("sharia_status") or default_sharia
 
-    # 2. Écrire dans Google Sheets
     category = data.get("category") or fund_q.get("category", "Autres")
     is_pea = data.get("is_pea") if data.get("is_pea") is not None else fund_q.get("is_pea", False)
-    
+    source_verif = data.get("source_verif") or "AAOIFI (Agent Trading)"
+
+    # 3. Lancer l'analyse pour récupérer le prix actuel et le rapport
+    analysis = get_detailed_analysis(symbol)
+    price = 0.0
+    currency = "USD"
+    if isinstance(analysis, dict) and "step_5_technical" in analysis:
+        price = analysis["step_5_technical"].get("current_price", 0.0)
+        currency = analysis.get("currency", "USD")
+
+    price_str = f"{price:.2f} €" if currency == "EUR" else f"{price:.2f} $" if price > 0 else ""
+
+    # 4. Écrire dans Google Sheets
     success, msg = add_ticker_to_sheets(
         ticker_symbol=symbol,
         name=name,
         category=category,
         is_pea=is_pea,
-        sharia_status=sharia_status
+        sharia_status=sharia_status,
+        source_verif=source_verif,
+        current_price_str=price_str
     )
-
-    # 3. Lancer l'analyse complète
-    analysis = get_detailed_analysis(symbol)
 
     return jsonify({
         "success": True,

@@ -14,17 +14,19 @@ def categorize_ticker(symbol, info=None):
     """
     Détermine l'éligibilité au PEA (Euronext / Europe) et la catégorie sectorielle en français.
     """
-    symbol = symbol.upper().strip()
+    symbol = str(symbol or "").upper().strip()
+    if not isinstance(info, dict):
+        info = {}
     
     # 1. Éligibilité PEA (Titres européens / français Euronext)
     eu_suffixes = ['.PA', '.AS', '.BR', '.DE', '.MC', '.MI', '.LS', '.VI', '.IR', '.HE']
     is_pea = any(symbol.endswith(sfx) for sfx in eu_suffixes) or symbol in [
-        'MC.PA', 'OR.PA', 'AIR.PA', 'RMS.PA', 'KER.PA', 'SAN.PA', 'TTE.PA', 'EL.PA', 'ASML.AS', 'SAP.DE'
+        'MC.PA', 'OR.PA', 'AIR.PA', 'RMS.PA', 'KER.PA', 'SAN.PA', 'TTE.PA', 'EL.PA', 'ASML.AS', 'SAP.DE', 'LR.PA', 'GTT.PA', 'STMPA.PA', 'AI.PA', 'ENGI.PA', 'SU.PA'
     ]
     account_type = "PEA (Europe)" if is_pea else "CTO (US)"
     
-    sector = info.get('sector', '') if info else ''
-    industry = info.get('industry', '') if info else ''
+    sector = str(info.get('sector', '') or '')
+    industry = str(info.get('industry', '') or '')
     sec_lower = (sector + ' ' + industry).lower()
     
     # 2. Catégories Thématiques & Sectorielles
@@ -207,16 +209,18 @@ def fetch_market_data(ticker_symbol):
     """
     ticker_obj = yf.Ticker(ticker_symbol)
     hist = ticker_obj.history(period="300d")
-    if hist.empty:
+    if hist is None or hist.empty:
         return None, "Aucun historique de cours disponible."
         
     hist = hist.dropna(subset=['Close'])
     if hist.empty:
         return None, "Données de cours incomplètes."
 
+    currency = "USD"
     try:
-        info = ticker_obj.info
-        currency = info.get("currency", "USD").upper()
+        raw_info = getattr(ticker_obj, 'info', None)
+        if isinstance(raw_info, dict):
+            currency = raw_info.get("currency", "USD").upper()
     except:
         currency = "USD"
         
@@ -280,9 +284,10 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None):
     - Capitalisation boursière Large/Mid Cap (> 2 Mrd $/€)
     - Free Cash Flow récurrent et marges opérationnelles solides
     """
-    if info is None:
+    if info is None or not isinstance(info, dict):
         try:
-            info = ticker_obj.info
+            raw_info = getattr(ticker_obj, 'info', None)
+            info = raw_info if isinstance(raw_info, dict) else {}
         except:
             info = {}
             
@@ -422,6 +427,15 @@ def qualify_price_drop(hist):
     Détermine si le titre a subi une baisse récente de -3% à -8% sur 1 à 3 sessions (Section 4.B).
     Qualifie la baisse comme CONJONCTURELLE (Opportunité) vs STRUCTURELLE (À Éviter).
     """
+    if hist is None or hist.empty:
+        return False, {
+            "drop_pct": 0.0,
+            "lookback_days": 1,
+            "reference_price": 0.0,
+            "nature": "HISTORIQUE INDISPONIBLE",
+            "cause_summary": "Pas de données de cours."
+        }
+        
     close_prices = hist['Close'].values
     current_price = close_prices[-1]
     
@@ -463,7 +477,7 @@ def check_earnings_blackout(ticker_obj):
     Vérifie si une publication de résultats (Earnings) est prévue dans les 7 à 10 jours ouvrés (Section 4.A).
     """
     try:
-        calendar = ticker_obj.calendar
+        calendar = getattr(ticker_obj, 'calendar', None)
         if calendar is None or (isinstance(calendar, dict) and not calendar):
             return False, "Aucun événement corporatif immédiat trouvé."
             
