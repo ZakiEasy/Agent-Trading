@@ -254,7 +254,15 @@ from src.portfolio_tracker import (
     get_live_portfolio_summary,
     calculate_trading_performance_stats,
     calculate_cash_and_treasury_summary,
-    calculate_portfolio_diversification
+    calculate_portfolio_diversification,
+    calculate_xtb_monthly_turnover,
+    find_anti_fifo_opportunities
+)
+from src.trading212_connector import (
+    test_trading212_connection,
+    get_trading212_cash,
+    get_trading212_open_positions,
+    set_runtime_trading212_config
 )
 from src.sheets_connector import (
     add_position_to_sheets,
@@ -269,10 +277,73 @@ from src.sheets_connector import (
 @app.route("/api/portfolio/live")
 def get_live_portfolio():
     """
-    Retourne la liste des positions actives avec calcul en direct du P&L, cours actuels et alertes.
+    Retourne la liste des positions actives avec calcul en direct du P&L, cours actuels, alertes et broker.
     """
     summary = get_live_portfolio_summary()
     return jsonify({"success": True, "data": summary})
+
+@app.route("/api/portfolio/xtb_quota")
+def get_xtb_quota():
+    """
+    Retourne la consommation du quota mensuel de 100 000 € de transactions à 0% de commission chez XTB.
+    """
+    quota = calculate_xtb_monthly_turnover()
+    return jsonify({"success": True, "data": quota})
+
+@app.route("/api/trading212/status")
+def get_trading212_status():
+    """
+    Retourne le statut de connexion et le solde de trésorerie Trading 212.
+    """
+    test_res = test_trading212_connection()
+    cash_data = get_trading212_cash()
+    return jsonify({
+        "success": True,
+        "connection": test_res,
+        "cash": cash_data
+    })
+
+@app.route("/api/trading212/portfolio")
+def get_trading212_portfolio():
+    """
+    Retourne les positions ouvertes en direct depuis l'API Trading 212.
+    """
+    positions = get_trading212_open_positions(force_refresh=True)
+    return jsonify({
+        "success": True,
+        "total": len(positions),
+        "positions": positions
+    })
+
+@app.route("/api/trading212/config", methods=["POST"])
+def configure_trading212():
+    """
+    Enregistre et teste la clé API Trading 212 fournie depuis l'interface.
+    """
+    data = request.json or {}
+    api_key = data.get("api_key", "")
+    api_secret = data.get("api_secret", "")
+    env = data.get("environment", "live")
+
+    set_runtime_trading212_config(api_key=api_key, api_secret=api_secret, environment=env)
+    test_res = test_trading212_connection(api_key=api_key, api_secret=api_secret, environment=env)
+
+    return jsonify({
+        "success": test_res.get("connected", False),
+        "result": test_res
+    })
+
+@app.route("/api/portfolio/anti_fifo_opportunities")
+def get_anti_fifo_opportunities():
+    """
+    Retourne les opportunités d'arbitrage Anti-FIFO recommandant d'utiliser le broker alternatif.
+    """
+    opportunities = find_anti_fifo_opportunities()
+    return jsonify({
+        "success": True,
+        "total": len(opportunities),
+        "opportunities": opportunities
+    })
 
 @app.route("/api/portfolio/treasury")
 def get_portfolio_treasury():
@@ -291,7 +362,7 @@ def get_portfolio_treasury():
 @app.route("/api/portfolio/diversification")
 def get_portfolio_diversification():
     """
-    Retourne la décomposition complète du portefeuille (catégorie/secteur, compte PEA/CTO, Actions vs Cash).
+    Retourne la décomposition complète du portefeuille (catégorie/secteur, compte PEA/CTO, courtier, Actions vs Cash).
     """
     live_summary = get_live_portfolio_summary()
     live_positions = live_summary.get("positions", [])

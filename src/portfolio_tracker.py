@@ -137,15 +137,27 @@ def fetch_live_quote_for_position(pos):
         "status_label": status_label,
         "status_action": status_action,
         "progress_pct": progress_pct,
+        "broker": pos.get("broker") or ("Trading 212" if "Trading 212" in pos.get("account", "") else "XTB"),
         "notes": pos.get("notes", "")
     }
 
 def get_live_portfolio_summary():
     """
-    Récupère l'ensemble des positions ouvertes et calcule les indicateurs clés du portefeuille.
+    Récupère l'ensemble des positions ouvertes (XTB + Trading 212) et calcule les indicateurs clés du portefeuille.
     """
-    raw_positions = read_positions_from_sheets()
-    if not raw_positions:
+    from src.trading212_connector import get_trading212_open_positions
+    raw_positions = read_positions_from_sheets() or []
+    
+    # Taguer les positions Google Sheets avec broker XTB par défaut
+    for p in raw_positions:
+        if "broker" not in p or not p["broker"]:
+            p["broker"] = "Trading 212" if "Trading 212" in p.get("account", "") else "XTB"
+
+    # Récupérer les positions Trading 212 en direct si configuré
+    t212_positions = get_trading212_open_positions() or []
+    all_raw_positions = raw_positions + t212_positions
+
+    if not all_raw_positions:
         return {
             "total_invested": 0.0,
             "total_current_value": 0.0,
@@ -153,18 +165,40 @@ def get_live_portfolio_summary():
             "total_pnl_pct": 0.0,
             "open_positions_count": 0,
             "alerts_count": 0,
+            "brokers_summary": {
+                "XTB": {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0},
+                "Trading 212": {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0}
+            },
             "positions": []
         }
 
     # Calcul parallèle multi-threadé
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        positions_live = list(executor.map(fetch_live_quote_for_position, raw_positions))
+        positions_live = list(executor.map(fetch_live_quote_for_position, all_raw_positions))
 
     total_invested = sum(p["invested_amount"] for p in positions_live)
     total_value = sum(p["current_value"] for p in positions_live)
     total_pnl = total_value - total_invested
     total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
     alerts_count = sum(1 for p in positions_live if p["status_badge"] in ["tp1_reached", "tp2_reached", "sl_danger", "time_warning"])
+
+    brokers_summary = {
+        "XTB": {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0},
+        "Trading 212": {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0}
+    }
+    for p in positions_live:
+        b = p.get("broker", "XTB")
+        if b not in brokers_summary:
+            brokers_summary[b] = {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0}
+        brokers_summary[b]["count"] += 1
+        brokers_summary[b]["invested"] += p.get("invested_amount", 0.0)
+        brokers_summary[b]["value"] += p.get("current_value", 0.0)
+        brokers_summary[b]["pnl"] += p.get("pnl_amount", 0.0)
+
+    for b in brokers_summary:
+        brokers_summary[b]["invested"] = round(brokers_summary[b]["invested"], 2)
+        brokers_summary[b]["value"] = round(brokers_summary[b]["value"], 2)
+        brokers_summary[b]["pnl"] = round(brokers_summary[b]["pnl"], 2)
 
     return {
         "total_invested": round(total_invested, 2),
@@ -173,6 +207,7 @@ def get_live_portfolio_summary():
         "total_pnl_pct": round(total_pnl_pct, 2),
         "open_positions_count": len(positions_live),
         "alerts_count": alerts_count,
+        "brokers_summary": brokers_summary,
         "positions": positions_live
     }
 
@@ -954,11 +989,54 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             "weight_pct": round(weight, 1)
         })
 
-    # 3. Allocation d'Actifs (Actions vs Cash)
+    # 3. Analyse par Courtier (Broker)
+    from src.trading212_connector import get_trading212_cash
     cash_eur = (cash_summary.get("total_cash_eur", 0.0) if cash_summary else 0.0) or 0.0
-    total_nav_eur = total_equity_value_eur + cash_eur
+    t212_cash_data = get_trading212_cash()
+    t212_cash_eur = t212_cash_data.get("free", 0.0) if t212_cash_data.get("connected") else 0.0
+
+    brokers_map = {
+        "XTB": {"name": "XTB", "icon": "🔵", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": cash_eur},
+        "Trading 212": {"name": "Trading 212", "icon": "🟠", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": t212_cash_eur}
+    }
+
+    for pos in live_positions:
+        b = pos.get("broker", "XTB")
+        if b not in brokers_map:
+            brokers_map[b] = {"name": b, "icon": "💼", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": 0.0}
+
+        rate = usd_to_eur if pos.get("currency") == "USD" else 1.0
+        val_eur = float(pos.get("current_value", 0.0)) * rate
+        inv_eur = float(pos.get("invested_amount", 0.0)) * rate
+        pnl_eur = float(pos.get("pnl_amount", 0.0)) * rate
+
+        brokers_map[b]["count"] += 1
+        brokers_map[b]["invested_eur"] += inv_eur
+        brokers_map[b]["value_eur"] += val_eur
+        brokers_map[b]["pnl_eur"] += pnl_eur
+
+    brokers_list = []
+    for b_id, b_data in brokers_map.items():
+        weight = (b_data["value_eur"] / total_equity_value_eur * 100) if total_equity_value_eur > 0 else 0.0
+        pnl_pct = (b_data["pnl_eur"] / b_data["invested_eur"] * 100) if b_data["invested_eur"] > 0 else 0.0
+        brokers_list.append({
+            "broker_id": b_id,
+            "broker_name": b_data["name"],
+            "icon": b_data["icon"],
+            "positions_count": b_data["count"],
+            "invested_eur": round(b_data["invested_eur"], 2),
+            "value_eur": round(b_data["value_eur"], 2),
+            "pnl_eur": round(b_data["pnl_eur"], 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "cash_eur": round(b_data["cash_eur"], 2),
+            "weight_pct": round(weight, 1)
+        })
+
+    # 4. Allocation d'Actifs (Actions vs Cash)
+    total_cash_all_brokers = cash_eur + t212_cash_eur
+    total_nav_eur = total_equity_value_eur + total_cash_all_brokers
     equity_weight = (total_equity_value_eur / total_nav_eur * 100) if total_nav_eur > 0 else 100.0
-    cash_weight = (cash_eur / total_nav_eur * 100) if total_nav_eur > 0 else 0.0
+    cash_weight = (total_cash_all_brokers / total_nav_eur * 100) if total_nav_eur > 0 else 0.0
 
     return {
         "total_nav_eur": round(total_nav_eur, 2),
@@ -966,10 +1044,173 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
         "total_equity_invested_eur": round(total_equity_invested_eur, 2),
         "total_pnl_latent_eur": round(total_pnl_latent_eur, 2),
         "total_pnl_latent_pct": round((total_pnl_latent_eur / total_equity_invested_eur * 100), 2) if total_equity_invested_eur > 0 else 0.0,
-        "cash_eur": round(cash_eur, 2),
+        "cash_eur": round(total_cash_all_brokers, 2),
+        "xtb_cash_eur": round(cash_eur, 2),
+        "trading212_cash_eur": round(t212_cash_eur, 2),
         "equity_weight_pct": round(equity_weight, 1),
         "cash_weight_pct": round(cash_weight, 1),
         "categories": categories_list,
         "accounts": accounts_list,
+        "brokers": brokers_list,
         "cash_summary": cash_summary
     }
+
+def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash_operations=None):
+    """
+    Calcule le volume total de transaction (achats + ventes) sur les comptes XTB
+    pour le mois civil en cours, afin de suivre le quota des 100 000 € à 0% de commission.
+    """
+    from src.sheets_connector import read_journal_from_sheets, read_positions_from_sheets, read_treasury_from_sheets
+    from src.config import XTB_MONTHLY_ZERO_COMMISSION_LIMIT, XTB_COMMISSION_RATE_OVER_LIMIT
+    
+    usd_to_eur = get_usd_to_eur_rate()
+    now_dt = datetime.now()
+    current_month_str = now_dt.strftime("%Y-%m")
+
+    if closed_trades is None:
+        closed_trades = read_journal_from_sheets() or []
+    if open_positions is None:
+        open_positions = read_positions_from_sheets() or []
+    if cash_operations is None:
+        cash_operations = read_treasury_from_sheets() or []
+
+    monthly_turnover = {}
+
+    def add_volume(month_key, buy_amt, sell_amt):
+        if not month_key or len(month_key) < 7:
+            return
+        m = month_key[:7]
+        if m not in monthly_turnover:
+            monthly_turnover[m] = {"purchases": 0.0, "sales": 0.0, "total": 0.0}
+        monthly_turnover[m]["purchases"] += buy_amt
+        monthly_turnover[m]["sales"] += sell_amt
+        monthly_turnover[m]["total"] += (buy_amt + sell_amt)
+
+    # 1. Closed trades XTB
+    for t in closed_trades:
+        if t.get("broker") == "Trading 212":
+            continue
+            
+        cur = t.get("currency", "EUR")
+        fx = usd_to_eur if cur == "USD" else 1.0
+        
+        pru = float(t.get("pru", 0.0))
+        qty = float(t.get("quantity", 0.0))
+        exit_p = float(t.get("exit_price", pru))
+        
+        buy_vol = (pru * qty) * fx
+        sell_vol = (exit_p * qty) * fx
+        
+        entry_date = str(t.get("entry_date", ""))
+        exit_date = str(t.get("exit_date", ""))
+        
+        if entry_date:
+            add_volume(entry_date, buy_vol, 0.0)
+        if exit_date:
+            add_volume(exit_date, 0.0, sell_vol)
+        elif not entry_date:
+            add_volume(current_month_str, buy_vol, sell_vol)
+
+    # 2. Open positions XTB
+    for o in open_positions:
+        if o.get("broker") == "Trading 212":
+            continue
+        cur = o.get("currency", "EUR")
+        fx = usd_to_eur if cur == "USD" else 1.0
+        pru = float(o.get("pru", 0.0))
+        qty = float(o.get("quantity", 0.0))
+        buy_vol = (pru * qty) * fx
+        entry_date = str(o.get("entry_date", ""))
+        if entry_date:
+            add_volume(entry_date, buy_vol, 0.0)
+
+    cur_data = monthly_turnover.get(current_month_str, {"purchases": 0.0, "sales": 0.0, "total": 0.0})
+    turnover_eur = cur_data["total"]
+    limit_eur = XTB_MONTHLY_ZERO_COMMISSION_LIMIT
+    remaining_eur = max(0.0, limit_eur - turnover_eur)
+    usage_pct = round((turnover_eur / limit_eur * 100), 1) if limit_eur > 0 else 0.0
+
+    if usage_pct >= 100:
+        status = "LIMIT_EXCEEDED"
+        status_label = "Plafond 100k€ Dépassé (0.2% Frais) 🔴"
+        badge_class = "badge-danger"
+    elif usage_pct >= 80:
+        status = "WARNING_80_PCT"
+        status_label = "Vigilance Plafond 🟡 (>80%)"
+        badge_class = "badge-warning"
+    else:
+        status = "ACTIVE_ZERO_COMMISSION"
+        status_label = "0% Commission Actif 🟢"
+        badge_class = "badge-success"
+
+    fees_saved_eur = turnover_eur * XTB_COMMISSION_RATE_OVER_LIMIT
+
+    sorted_months = sorted(monthly_turnover.keys(), reverse=True)[:6]
+    history = []
+    for m in sorted_months:
+        d = monthly_turnover[m]
+        history.append({
+            "month": m,
+            "purchases_eur": round(d["purchases"], 2),
+            "sales_eur": round(d["sales"], 2),
+            "total_turnover_eur": round(d["total"], 2),
+            "usage_pct": round((d["total"] / limit_eur * 100), 1)
+        })
+
+    return {
+        "current_month": current_month_str,
+        "limit_eur": limit_eur,
+        "turnover_current_month_eur": round(turnover_eur, 2),
+        "purchases_current_month_eur": round(cur_data["purchases"], 2),
+        "sales_current_month_eur": round(cur_data["sales"], 2),
+        "remaining_zero_commission_eur": round(remaining_eur, 2),
+        "usage_pct": usage_pct,
+        "status": status,
+        "status_label": status_label,
+        "badge_class": badge_class,
+        "estimated_fees_saved_eur": round(fees_saved_eur, 2),
+        "history": history
+    }
+
+def find_anti_fifo_opportunities(scan_signals=None, live_positions=None):
+    """
+    Identifie les opportunités où un titre est déjà détenu chez un broker (ex: XTB) avec un P&L latent négatif,
+    et recommande d'exécuter un nouvel achat sur le 2ème broker (ex: Trading 212) afin d'isoler le lot
+    et d'encaisser les gains au TP1/TP2 sans être bloqué par la contrainte FIFO.
+    """
+    if live_positions is None:
+        summary = get_live_portfolio_summary()
+        live_positions = summary.get("positions", [])
+
+    held_by_symbol = {}
+    for p in live_positions:
+        sym = p.get("symbol", "").upper().strip()
+        if sym not in held_by_symbol:
+            held_by_symbol[sym] = []
+        held_by_symbol[sym].append(p)
+
+    opportunities = []
+    
+    for sym, pos_list in held_by_symbol.items():
+        for p in pos_list:
+            pnl_pct = float(p.get("pnl_pct", 0.0))
+            current_broker = p.get("broker", "XTB")
+            alt_broker = "Trading 212" if current_broker == "XTB" else "XTB"
+            
+            if pnl_pct < -1.0:
+                opportunities.append({
+                    "symbol": sym,
+                    "name": p.get("name", sym),
+                    "current_price": p.get("current_price", 0.0),
+                    "held_broker": current_broker,
+                    "held_pru": p.get("pru", 0.0),
+                    "held_pnl_pct": round(pnl_pct, 2),
+                    "held_pnl_amount": round(p.get("pnl_amount", 0.0), 2),
+                    "recommended_broker": alt_broker,
+                    "account": p.get("account", "CTO"),
+                    "action_title": f"Stratégie Anti-FIFO : Acheter 2ème lot sur {alt_broker}",
+                    "rationale": f"Titre déjà en portefeuille sur {current_broker} (PRU: {p.get('pru')} €, P&L: {pnl_pct:.1f}%). En achetant sur {alt_broker}, ce nouveau lot restera 100% indépendant et pourra être revendu dès le TP1 (+1.25%) sans subir la règle FIFO de vente du 1er lot."
+                })
+
+    return opportunities
+

@@ -142,3 +142,27 @@ GOOGLE_SHEET_NAME_SIGNALS = os.getenv("GOOGLE_SHEET_NAME_SIGNALS", "Signaux")
 GOOGLE_SHEET_NAME_POSITIONS = os.getenv("GOOGLE_SHEET_NAME_POSITIONS", "Positions")
 GOOGLE_SHEET_NAME_JOURNAL = os.getenv("GOOGLE_SHEET_NAME_JOURNAL", "Journal de Trading")
 GOOGLE_SHEET_NAME_TREASURY = os.getenv("GOOGLE_SHEET_NAME_TREASURY", "Trésorerie")
+
+# ==============================================================================
+# --- 6. Plafond XTB Commissions à 0% & Tarification ---
+# ==============================================================================
+
+# Plafond mensuel de volume de transaction (achats + ventes) à 0% de commission
+XTB_MONTHLY_ZERO_COMMISSION_LIMIT = 100_000.0  # 100 000 € par mois civil
+# Taux de commission au-delà du plafond mensuel (0.20%, minimum 10 €)
+XTB_COMMISSION_RATE_OVER_LIMIT = 0.002
+XTB_MIN_COMMISSION_OVER_LIMIT_EUR = 10.0
+
+# ==============================================================================
+# --- 7. Intégration API Trading 212 (Multi-Broker & Anti-FIFO) ---
+# ==============================================================================
+
+TRADING212_API_KEY = os.getenv("TRADING212_API_KEY", "")
+TRADING212_API_SECRET = os.getenv("TRADING212_API_SECRET", "")
+TRADING212_ENVIRONMENT = os.getenv("TRADING212_ENVIRONMENT", "live").lower().strip()  # "live" ou "demo"
+
+if TRADING212_ENVIRONMENT == "demo":
+    TRADING212_BASE_URL = "https://demo.trading212.com/api/v0"
+else:
+    TRADING212_BASE_URL = "https://live.trading212.com/api/v0"
+

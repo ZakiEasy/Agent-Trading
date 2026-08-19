@@ -1023,24 +1023,85 @@
                 </div>
             </div>
 
+            <!-- XTB 100k€ ZERO COMMISSION QUOTA WIDGET -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem; border-left: 4px solid #10b981;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">⚡</span>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <h3 style="font-size: 1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Plafond XTB : 100 000 € / mois à 0% de Commission</h3>
+                                <span class="badge badge-success" id="xtb-quota-badge">0% ACTIF 🟢</span>
+                            </div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);" id="xtb-quota-details">
+                                Volume négocié ce mois : 0.00 € / 100 000.00 € — Reste 100 000.00 € sans frais
+                            </p>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #10b981;" id="xtb-quota-pct">0.0%</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);" id="xtb-quota-savings">Économies estimées : +0.00 €</div>
+                    </div>
+                </div>
+                <div style="height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden;">
+                    <div id="xtb-quota-bar" style="height: 100%; background: linear-gradient(90deg, #10b981, #3b82f6); width: 0%; transition: width 0.4s ease;"></div>
+                </div>
+            </div>
+
+            <!-- ANTI-FIFO ARBITRAGE OPPORTUNITIES BANNER -->
+            <div id="anti-fifo-banner" class="glass-card" style="display: none; margin-bottom: 1.5rem; padding: 1.25rem; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.3rem;">💡</span>
+                        <strong style="font-size: 0.95rem; color: #fbbf24;">Opportunités Stratégiques Anti-FIFO (Multi-Broker)</strong>
+                    </div>
+                    <span class="badge badge-warning" id="anti-fifo-count">0 Alerte(s)</span>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                    Des titres sont actuellement en moins-value sur votre courtier principal (XTB). Pour moyenner ou saisir un rebond court terme sans être bloqué par la contrainte fiscale/courtage FIFO (qui vendrait le 1er lot plus cher), <strong>achetez le 2ème lot sur Trading 212</strong> pour dénouer immédiatement au TP1 (+1.25%).
+                </p>
+                <div id="anti-fifo-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+            </div>
+
             <!-- Positions Actions & Filter Bar -->
             <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <div>
-                        <h2 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💼 Suivi des Positions Actives (Flux Live)</h2>
-                        <p style="font-size: 0.8rem; color: var(--text-muted);">Surveillance continue des objectifs TP1 (+1.25%), TP2 (+2.25%) et des invalidations de Stop-Loss.</p>
+                        <h2 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💼 Suivi des Positions Actives (Flux Live Multi-Broker)</h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Surveillance continue XTB & Trading 212, objectifs TP1/TP2 et Stop-Loss.</p>
                     </div>
                     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                         <button class="btn btn-primary" onclick="openAddPositionModal()">
                             ➕ Ajouter une Position
                         </button>
                         <button class="btn btn-secondary" onclick="openUploadCsvModal()">
-                            📂 Importer CSV (XTB / Courtier)
+                            📂 Importer Fichier
+                        </button>
+                        <button class="btn btn-secondary" onclick="openTrading212ConfigModal()">
+                            ⚙️ Configurer Trading 212
                         </button>
                         <button class="btn btn-secondary" onclick="loadLivePortfolio()">
                             🔄 Actualiser les Cours
                         </button>
                     </div>
+                </div>
+
+                <!-- Filter Row -->
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <input type="text" id="pos-search-input" class="text-input" placeholder="🔍 Filtrer par Ticker ou Société..." style="width: 220px; font-size: 0.85rem;" oninput="applyPositionFilters()">
+                    
+                    <select id="pos-broker-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyPositionFilters()">
+                        <option value="all">Tous les courtiers (XTB & Trading 212)</option>
+                        <option value="XTB">🔵 XTB uniquement</option>
+                        <option value="Trading 212">🟠 Trading 212 uniquement</option>
+                    </select>
+
+                    <select id="pos-status-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyPositionFilters()">
+                        <option value="all">Tous les statuts</option>
+                        <option value="profit">En gain latent 🟢</option>
+                        <option value="loss">En perte latente 🔴</option>
+                        <option value="alert">Alertes TP / SL 🔔</option>
+                    </select>
                 </div>
             </div>
 
@@ -1051,7 +1112,7 @@
                         <thead>
                             <tr>
                                 <th>Ticker & Société</th>
-                                <th>Compte</th>
+                                <th>Courtier & Compte</th>
                                 <th>Date & Durée</th>
                                 <th>PRU & Quantité</th>
                                 <th>Cours Actuel</th>
@@ -1153,15 +1214,36 @@
                     </div>
                 </div>
 
-                <!-- Accounts Breakdown Card -->
-                <div class="glass-card">
-                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border);">
-                        <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💳 Répartition par Enveloppe Fiscale</h3>
-                        <p style="font-size: 0.75rem; color: var(--text-muted);">Exposition et soldes espèces par compte</p>
+                <!-- Right Column: Accounts Breakdown & Brokers Breakdown -->
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    
+                    <!-- Accounts Breakdown Card -->
+                    <div class="glass-card">
+                        <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border);">
+                            <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💳 Répartition par Enveloppe Fiscale</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Exposition et soldes espèces par compte</p>
+                        </div>
+                        <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;" id="div-accounts-container">
+                            <!-- Filled dynamically -->
+                        </div>
                     </div>
-                    <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;" id="div-accounts-container">
-                        <!-- Filled dynamically -->
+
+                    <!-- Brokers Breakdown Card -->
+                    <div class="glass-card">
+                        <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">🏛️ Répartition Multi-Broker</h3>
+                                <p style="font-size: 0.75rem; color: var(--text-muted);">Allocation du capital XTB vs Trading 212</p>
+                            </div>
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="openTrading212ConfigModal()">
+                                ⚙️ API T212
+                            </button>
+                        </div>
+                        <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;" id="div-brokers-container">
+                            <!-- Filled dynamically -->
+                        </div>
                     </div>
+
                 </div>
 
             </div>
@@ -1773,6 +1855,45 @@
         </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- MODAL : CONFIGURATION API TRADING 212 -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="trading212-config-modal">
+        <div class="modal-box" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">⚙️ Configuration API Trading 212</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeTrading212ConfigModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Renseignez votre clé API générée dans l'application Trading 212 (Menu ➔ Paramètres ➔ API). Vos identifiants permettent la lecture automatique des positions et du solde d'espèces.
+                </p>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Clé API (API Key) *</label>
+                    <input type="password" id="t212-key-input" class="text-input" placeholder="Collez votre clé API Trading 212...">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Secret API (Optionnel si applicable)</label>
+                    <input type="password" id="t212-secret-input" class="text-input" placeholder="Optionnel...">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Environnement</label>
+                    <select id="t212-env-select" style="padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); width: 100%;">
+                        <option value="live">Compte Réel (Live Trading)</option>
+                        <option value="demo">Compte Démo (Paper Trading)</option>
+                    </select>
+                </div>
+                <div id="t212-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeTrading212ConfigModal()">Fermer</button>
+                <button class="btn btn-primary" id="btn-submit-t212-config" onclick="submitTrading212Config()">
+                    ⚡ Tester & Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
         const API_URL = '/api';
@@ -1834,12 +1955,17 @@
                     renderDiversificationKPIs(diversificationData);
                     renderDiversificationCategories(diversificationData.categories || []);
                     renderDiversificationAccounts(diversificationData.accounts || []);
+                    renderDiversificationBrokers(diversificationData.brokers || []);
                 }
 
                 if (tresPayload.success) {
                     treasuryData = tresPayload;
                     renderTreasuryOperations(tresPayload.recent_operations || []);
                 }
+
+                // Charger également le quota XTB et les opportunités Anti-FIFO
+                loadXtbQuota();
+                loadAntiFifoOpportunities();
             } catch (e) {
                 console.error("Erreur chargement diversification & trésorerie:", e);
             }
@@ -1863,7 +1989,10 @@
                 const peaCash = data.cash_summary.accounts.PEA ? data.cash_summary.accounts.PEA.cash_balance : 0;
                 const eurCash = data.cash_summary.accounts["CTO Euro"] ? data.cash_summary.accounts["CTO Euro"].cash_balance : 0;
                 const usdCash = data.cash_summary.accounts["CTO Dollar"] ? data.cash_summary.accounts["CTO Dollar"].cash_balance : 0;
-                cashBreakdownElem.textContent = `PEA: ${peaCash.toFixed(2)}€ | CTO: ${eurCash.toFixed(2)}€ | USD: ${usdCash.toFixed(2)}$`;
+                const t212Cash = Number(data.trading212_cash_eur) || 0;
+                let text = `PEA: ${peaCash.toFixed(2)}€ | CTO: ${eurCash.toFixed(2)}€ | USD: ${usdCash.toFixed(2)}$`;
+                if (t212Cash > 0) text += ` | T212: ${t212Cash.toFixed(2)}€`;
+                cashBreakdownElem.textContent = text;
             }
 
             const divElem = document.getElementById('div-dividends-val');
@@ -1980,6 +2109,213 @@
                 `;
             });
             container.innerHTML = html;
+        }
+
+        function renderDiversificationBrokers(brokers) {
+            const container = document.getElementById('div-brokers-container');
+            if (!container) return;
+
+            if (!brokers || brokers.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:1rem;">Aucun courtier détecté.</div>`;
+                return;
+            }
+
+            let html = '';
+            brokers.forEach(b => {
+                const isXtb = b.broker_id === 'XTB';
+                const borderLeft = isXtb ? 'border-left: 4px solid #3b82f6;' : 'border-left: 4px solid #f97316;';
+                const badgeColor = isXtb ? 'background:#1e40af;' : 'background:#c2410c;';
+
+                html += `
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); ${borderLeft} border-radius: 8px; padding: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                <span style="font-size: 1.1rem;">${b.icon || '💼'}</span>
+                                <strong style="font-size: 0.95rem;">${b.broker_name}</strong>
+                            </div>
+                            <span class="badge" style="${badgeColor} color:#fff;">${b.weight_pct}% de l'actif</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
+                            <span style="font-size: 1.2rem; font-weight: 700; color: var(--text-main);">${(Number(b.value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${b.positions_count} position(s)</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.4rem; margin-top: 0.4rem;">
+                            <span>P&L Latent : <strong style="color:${b.pnl_eur >= 0 ? 'var(--success)' : 'var(--danger)'};">${b.pnl_eur >= 0 ? '+' : ''}${b.pnl_eur.toFixed(2)} € (${b.pnl_pct}%)</strong></span>
+                            <span>Cash dispo : <strong style="color:#fbbf24;">${(Number(b.cash_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong></span>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // ---------------------------------------------------------------------
+        // XTB 100k€ QUOTA & ANTI-FIFO ENGINE
+        // ---------------------------------------------------------------------
+        async function loadXtbQuota() {
+            try {
+                const res = await fetch(`${API_URL}/portfolio/xtb_quota`);
+                const payload = await res.json();
+                if (!payload.success || !payload.data) return;
+
+                const q = payload.data;
+                const badge = document.getElementById('xtb-quota-badge');
+                if (badge) {
+                    badge.className = `badge ${q.badge_class || 'badge-success'}`;
+                    badge.textContent = q.status_label || '0% ACTIF 🟢';
+                }
+
+                const details = document.getElementById('xtb-quota-details');
+                if (details) {
+                    details.innerHTML = `Volume négocié ce mois : <strong>${(Number(q.turnover_current_month_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong> / ${(Number(q.limit_eur) || 100000).toLocaleString('fr-FR')} € — Reste <strong>${(Number(q.remaining_zero_commission_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong> sans commission`;
+                }
+
+                const pctElem = document.getElementById('xtb-quota-pct');
+                if (pctElem) {
+                    pctElem.textContent = `${q.usage_pct}%`;
+                    pctElem.style.color = q.usage_pct >= 100 ? 'var(--danger)' : q.usage_pct >= 80 ? 'var(--warning)' : 'var(--success)';
+                }
+
+                const savingsElem = document.getElementById('xtb-quota-savings');
+                if (savingsElem) {
+                    savingsElem.textContent = `Économies estimées : +${(Number(q.estimated_fees_saved_eur) || 0).toFixed(2)} €`;
+                }
+
+                const bar = document.getElementById('xtb-quota-bar');
+                if (bar) {
+                    bar.style.width = `${Math.min(100, Math.max(0, q.usage_pct))}%`;
+                    bar.style.background = q.usage_pct >= 100 ? 'var(--danger)' : q.usage_pct >= 80 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #10b981, #3b82f6)';
+                }
+            } catch (e) {
+                console.error("Erreur chargement quota XTB:", e);
+            }
+        }
+
+        async function loadAntiFifoOpportunities() {
+            try {
+                const res = await fetch(`${API_URL}/portfolio/anti_fifo_opportunities`);
+                const payload = await res.json();
+                if (!payload.success) return;
+
+                const opps = payload.opportunities || [];
+                const banner = document.getElementById('anti-fifo-banner');
+                const countBadge = document.getElementById('anti-fifo-count');
+                const listContainer = document.getElementById('anti-fifo-list');
+
+                if (!banner || !listContainer) return;
+
+                if (opps.length === 0) {
+                    banner.style.display = 'none';
+                    return;
+                }
+
+                banner.style.display = 'block';
+                if (countBadge) countBadge.textContent = `${opps.length} Alerte(s)`;
+
+                let html = '';
+                opps.forEach(op => {
+                    html += `
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(245,158,11,0.2); border-radius: 6px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <strong style="color: #60a5fa; font-size: 0.95rem;">${op.symbol}</strong>
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">(${op.name})</span>
+                                    <span class="badge badge-danger">Moins-value sur ${op.held_broker} : ${op.held_pnl_pct}%</span>
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-main); margin-top: 0.25rem;">
+                                    👉 <strong>Action conseillée :</strong> ${op.action_title}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; max-width: 750px;">
+                                    ${op.rationale}
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;" onclick="showTickerDetail('${op.symbol}')">
+                                📊 Voir Analyse & Dips
+                            </button>
+                        </div>
+                    `;
+                });
+                listContainer.innerHTML = html;
+            } catch (e) {
+                console.error("Erreur chargement opportunités anti-fifo:", e);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // TRADING 212 API CONFIG MODAL
+        // ---------------------------------------------------------------------
+        function openTrading212ConfigModal() {
+            const modal = document.getElementById('trading212-config-modal');
+            if (modal) modal.classList.add('active');
+            const fb = document.getElementById('t212-feedback');
+            if (fb) fb.style.display = 'none';
+        }
+
+        function closeTrading212ConfigModal() {
+            const modal = document.getElementById('trading212-config-modal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        async function submitTrading212Config() {
+            const key = document.getElementById('t212-key-input')?.value.trim();
+            const secret = document.getElementById('t212-secret-input')?.value.trim();
+            const env = document.getElementById('t212-env-select')?.value || 'live';
+            const fb = document.getElementById('t212-feedback');
+            const btn = document.getElementById('btn-submit-t212-config');
+
+            if (!key) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = 'Veuillez saisir votre clé API Trading 212.';
+                }
+                return;
+            }
+
+            if (btn) btn.disabled = true;
+            if (fb) {
+                fb.style.display = 'block';
+                fb.style.background = 'rgba(59, 130, 246, 0.15)';
+                fb.style.color = '#60a5fa';
+                fb.textContent = '⏳ Test de connexion en direct à l\'API Trading 212...';
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: key, api_secret: secret, environment: env })
+                });
+                const payload = await res.json();
+                
+                if (payload.success) {
+                    if (fb) {
+                        fb.style.background = 'rgba(34, 197, 94, 0.15)';
+                        fb.style.color = '#4ade80';
+                        fb.textContent = '✅ Connexion réussie à Trading 212 ! Portefeuille synchronisé.';
+                    }
+                    setTimeout(() => {
+                        closeTrading212ConfigModal();
+                        loadLivePortfolio();
+                        loadDiversificationData();
+                    }, 1200);
+                } else {
+                    if (fb) {
+                        fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                        fb.style.color = '#f87171';
+                        fb.textContent = `❌ Échec: ${payload.result?.error || 'Identifiants invalides ou réseau inaccessible.'}`;
+                    }
+                }
+            } catch (e) {
+                if (fb) {
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = `❌ Erreur de communication: ${e.message}`;
+                }
+            } finally {
+                if (btn) btn.disabled = false;
+            }
         }
 
         function renderTreasuryOperations(operations) {
@@ -2236,6 +2572,7 @@
         // LIVE PORTFOLIO & POSITIONS TRACKING
         // ---------------------------------------------------------------------
         let livePortfolioData = null;
+        let allLivePositions = [];
         let selectedClosePos = null;
 
         async function loadLivePortfolio() {
@@ -2252,6 +2589,7 @@
 
                 const d = payload.data;
                 livePortfolioData = d;
+                allLivePositions = d.positions || [];
 
                 // Update KPIs safely
                 const invElem = document.getElementById('port-total-invested');
@@ -2295,11 +2633,39 @@
                     }
                 }
 
-                renderPortfolioTable(d.positions || []);
+                // Actualiser le quota XTB et les opportunités Anti-FIFO
+                loadXtbQuota();
+                loadAntiFifoOpportunities();
+
+                applyPositionFilters();
             } catch (e) {
                 console.error("Erreur live portfolio:", e);
                 if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur réseau: ${e.message}</td></tr>`;
             }
+        }
+
+        function applyPositionFilters() {
+            const query = (document.getElementById('pos-search-input')?.value || '').trim().toLowerCase();
+            const brokerFilter = document.getElementById('pos-broker-filter')?.value || 'all';
+            const statusFilter = document.getElementById('pos-status-filter')?.value || 'all';
+
+            const filtered = (allLivePositions || []).filter(p => {
+                const sym = (p.symbol || '').toLowerCase();
+                const name = (p.name || '').toLowerCase();
+                if (query && !sym.includes(query) && !name.includes(query)) return false;
+
+                const b = p.broker || 'XTB';
+                if (brokerFilter !== 'all' && b !== brokerFilter) return false;
+
+                const pnl = Number(p.pnl_amount) || 0;
+                if (statusFilter === 'profit' && pnl < 0) return false;
+                if (statusFilter === 'loss' && pnl >= 0) return false;
+                if (statusFilter === 'alert' && !['tp1_reached', 'tp2_reached', 'sl_danger', 'time_warning'].includes(p.status_badge)) return false;
+
+                return true;
+            });
+
+            renderPortfolioTable(filtered);
         }
 
         function renderPortfolioTable(positions) {
@@ -2312,8 +2678,8 @@
                     <tr>
                         <td colspan="9" style="text-align:center; color:var(--text-muted); padding:3.5rem 1rem;">
                             <div style="font-size: 2rem; margin-bottom: 0.5rem;">💼</div>
-                            <strong>Aucune position ouverte actuellement dans votre portefeuille.</strong><br>
-                            <span style="font-size: 0.85rem;">Ajoutez une position manuellement ou importez votre relevé CSV / Excel (XTB / Courtier).</span><br>
+                            <strong>Aucune position ne correspond aux critères de recherche.</strong><br>
+                            <span style="font-size: 0.85rem;">Ajoutez une position manuellement ou modifiez les filtres de courtier / statut.</span><br>
                             <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem; justify-content: center;">
                                 <button class="btn btn-primary" onclick="openAddPositionModal()">➕ Ajouter une Position</button>
                                 <button class="btn btn-secondary" onclick="openUploadCsvModal()">📂 Importer Fichier</button>
@@ -2352,6 +2718,11 @@
                 const isPea = p.account && p.account.includes("PEA");
                 const isUsd = p.account && p.account.includes("Dollar");
                 const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' : '<span class="badge badge-success">💶 CTO EUR</span>';
+                
+                const broker = p.broker || 'XTB';
+                const brokerBadge = broker === 'Trading 212' 
+                    ? '<span class="badge" style="background:#c2410c; color:#fff; font-size:0.7rem;">🟠 T212</span>' 
+                    : '<span class="badge" style="background:#1e40af; color:#fff; font-size:0.7rem;">🔵 XTB</span>';
 
                 // Target Progress Track Calculation
                 let progressPercent = 50;
@@ -2367,7 +2738,12 @@
                         <strong style="font-size: 1rem; cursor:pointer; color:#60a5fa;" onclick="showTickerDetail('${p.symbol}')">${p.symbol}</strong><br>
                         <span style="font-size:0.75rem; color:var(--text-muted);">${p.name || ''}</span>
                     </td>
-                    <td>${accountBadge}</td>
+                    <td>
+                        <div style="display:flex; flex-direction:column; gap:0.25rem; align-items:flex-start;">
+                            ${brokerBadge}
+                            ${accountBadge}
+                        </div>
+                    </td>
                     <td>
                         <span style="font-size:0.85rem;">${p.entry_date || '--'}</span><br>
                         <span style="font-size:0.75rem; color:${(p.days_held || 0) >= 15 ? 'var(--warning)' : 'var(--text-muted)'};">⏱️ ${p.days_held || 0} jour(s)</span>
