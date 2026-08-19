@@ -252,6 +252,13 @@ def get_usd_conversion_rate(currency_code):
     _FX_CACHE[currency_code] = {"rate": rate, "ts": now}
     return rate
 
+def get_usd_to_eur_rate():
+    """
+    Retourne le taux de conversion 1 USD vers EUR (ex: 0.92 EUR pour 1 USD).
+    """
+    eur_usd = get_usd_conversion_rate("EUR")
+    return (1.0 / eur_usd) if eur_usd > 0 else 0.92
+
 def fetch_market_data(ticker_symbol):
     """
     Récupère les données historiques de cours avec cache TTL de 5 minutes et gestion de reprise en cas de rate-limit.

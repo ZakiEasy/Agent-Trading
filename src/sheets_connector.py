@@ -814,3 +814,133 @@ def batch_import_positions_to_sheets(open_positions):
     except Exception as e:
         print(f"⚠️ Erreur batch update Positions Google Sheets : {e}")
         return True, f"{len(open_positions)} positions enregistrées en local."
+
+_TREASURY_SHEETS_CACHE = {"data": [], "ts": 0}
+GOOGLE_SHEET_NAME_TREASURY = "Trésorerie"
+
+def get_or_create_treasury_sheet():
+    """
+    Récupère ou crée la feuille 'Trésorerie' dans Google Sheets.
+    """
+    client, error = get_sheets_client()
+    if error or not client:
+        return None, error
+
+    try:
+        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        try:
+            worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_TREASURY)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_TREASURY, rows="1500", cols="10")
+            headers = ["ID Opération", "Type", "Instrument", "Ticker", "Date/Heure", "Montant", "Compte", "Devise", "Commentaire"]
+            worksheet.append_row(headers)
+        return worksheet, None
+    except Exception as e:
+        return None, f"Erreur accès feuille Trésorerie: {str(e)}"
+
+def batch_import_treasury_to_sheets(cash_operations):
+    """
+    Écrit en batch les opérations de trésorerie dans l'onglet 'Trésorerie' de Google Sheets.
+    """
+    global _TREASURY_SHEETS_CACHE
+    import time
+    if not cash_operations:
+        return True, "Aucune opération de trésorerie à écrire."
+
+    worksheet, err = get_or_create_treasury_sheet()
+    if err or not worksheet:
+        _TREASURY_SHEETS_CACHE = {"data": cash_operations, "ts": time.time()}
+        return True, f"{len(cash_operations)} opérations de trésorerie enregistrées en local."
+
+    try:
+        headers = ["ID Opération", "Type", "Instrument", "Ticker", "Date/Heure", "Montant", "Compte", "Devise", "Commentaire"]
+        rows_to_write = [headers]
+        for op in cash_operations:
+            rows_to_write.append([
+                str(op.get("id", "")),
+                str(op.get("type", "")),
+                str(op.get("instrument", "")),
+                str(op.get("symbol", "")),
+                str(op.get("time", "")),
+                float(op.get("amount", 0.0)),
+                str(op.get("account", "")),
+                str(op.get("currency", "EUR")),
+                str(op.get("comment", ""))
+            ])
+
+        worksheet.clear()
+        worksheet.update('A1', rows_to_write)
+        _TREASURY_SHEETS_CACHE = {"data": cash_operations, "ts": time.time()}
+        print(f"✅ {len(cash_operations)} opérations de trésorerie écrites en batch dans '{GOOGLE_SHEET_NAME_TREASURY}'.")
+        return True, f"{len(cash_operations)} opérations de trésorerie synchronisées dans Google Sheets !"
+    except Exception as e:
+        print(f"⚠️ Erreur batch update Trésorerie Google Sheets : {e}")
+        _TREASURY_SHEETS_CACHE = {"data": cash_operations, "ts": time.time()}
+        return True, f"{len(cash_operations)} opérations enregistrées en local."
+
+def read_treasury_from_sheets(force_refresh=False):
+    """
+    Lit les opérations de trésorerie depuis Google Sheets avec cache TTL de 3 minutes.
+    """
+    global _TREASURY_SHEETS_CACHE
+    import time
+    now = time.time()
+    if not force_refresh and _TREASURY_SHEETS_CACHE["data"] and (now - _TREASURY_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+        return _TREASURY_SHEETS_CACHE["data"]
+
+    worksheet, err = get_or_create_treasury_sheet()
+    if err or not worksheet:
+        return _TREASURY_SHEETS_CACHE["data"]
+
+    try:
+        all_rows = worksheet.get_all_values()
+        if not all_rows or len(all_rows) <= 1:
+            return _TREASURY_SHEETS_CACHE["data"]
+
+        headers = [str(c).strip().lower() for c in all_rows[0]]
+        col_map = {h: idx for idx, h in enumerate(headers)}
+
+        ops = []
+        for r in all_rows[1:]:
+            if not r or len(r) <= 1:
+                continue
+
+            def get_val(keys, default=""):
+                for k in keys:
+                    if k in col_map and len(r) > col_map[k]:
+                        val = str(r[col_map[k]]).strip()
+                        if val: return val
+                return default
+
+            op_id = get_val(["id opération", "id", "id operation"])
+            op_type = get_val(["type", "type opération"])
+            instrument = get_val(["instrument", "nom"])
+            ticker = get_val(["ticker", "symbole"])
+            time_val = get_val(["date/heure", "date", "time"])
+            amt_str = get_val(["montant", "amount"]).replace("€", "").replace("$", "").replace(" ", "").replace(",", ".")
+            try:
+                amt = float(amt_str) if amt_str else 0.0
+            except:
+                amt = 0.0
+            account = get_val(["compte", "account"], "CTO Euro")
+            currency = get_val(["devise", "currency"], "EUR")
+            comment = get_val(["commentaire", "comment", "notes"])
+
+            ops.append({
+                "id": op_id,
+                "type": op_type,
+                "instrument": instrument,
+                "symbol": ticker,
+                "time": time_val,
+                "amount": amt,
+                "account": account,
+                "currency": currency,
+                "comment": comment
+            })
+
+        _TREASURY_SHEETS_CACHE = {"data": ops, "ts": now}
+        return ops
+    except Exception as e:
+        print(f"⚠️ Erreur lecture Trésorerie Google Sheets : {e}")
+        return _TREASURY_SHEETS_CACHE["data"]
+

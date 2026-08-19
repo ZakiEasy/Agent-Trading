@@ -10,7 +10,7 @@ from src.sheets_connector import (
     add_position_to_sheets,
     close_position_in_sheets
 )
-from src.market_data import get_usd_conversion_rate
+from src.market_data import get_usd_conversion_rate, get_usd_to_eur_rate
 
 _LIVE_QUOTE_CACHE = {}  # symbol -> {"price": float, "day_change": float, "ts": float}
 LIVE_QUOTE_TTL = 60  # 60 secondes
@@ -19,7 +19,7 @@ def fetch_live_quote_for_position(pos):
     """
     Récupère le cours en direct, la variation du jour et les métadonnées pour une position active.
     """
-    symbol = pos.get("symbol", "").upper().strip()
+    symbol = normalize_xtb_ticker(pos.get("symbol", ""))
     pru = float(pos.get("pru", 0.0))
     qty = float(pos.get("quantity", 1.0))
     sl = float(pos.get("stop_loss", pru * 0.97))
@@ -316,16 +316,24 @@ def parse_broker_csv(csv_text_or_bytes):
 def normalize_xtb_ticker(raw_sym):
     """
     Convertit les tickers au format standard XTB vers le format universel Yahoo Finance / Google Sheets.
-    Exemples: 'STM.FR' -> 'STM.PA', 'AAPL.US' -> 'AAPL', 'HIJP.UK' -> 'HIJP.L'
+    Exemples: 'STM.FR' -> 'STM.PA', 'AAPL.US' -> 'AAPL', 'HIJP.UK' -> 'HIJP.L', 'BY6.DE' -> 'BAYN.DE', 'GOOGC' -> 'GOOGL'
     """
     sym = str(raw_sym).strip().upper()
     if sym.endswith(".FR"):
-        return sym[:-3] + ".PA"
+        sym = sym[:-3] + ".PA"
     elif sym.endswith(".US"):
-        return sym[:-3]
+        sym = sym[:-3]
     elif sym.endswith(".UK"):
-        return sym[:-3] + ".L"
-    return sym
+        sym = sym[:-3] + ".L"
+
+    # Alias spécifiques XTB -> Yahoo Finance
+    aliases = {
+        "BY6.DE": "BAYN.DE",
+        "GOOGC": "GOOGL",
+        "BRKB": "BRK-B",
+        "BFB": "BF-B"
+    }
+    return aliases.get(sym, sym)
 
 def parse_xtb_excel_file(file_content_or_path, default_account=None):
     """
@@ -522,6 +530,68 @@ def parse_xtb_excel_file(file_content_or_path, default_account=None):
         except Exception as e:
             print(f"⚠️ Erreur parsing Open Positions : {e}")
 
+    # 3. PARSER CASH OPERATIONS
+    if "Cash Operations" in xls.sheet_names:
+        try:
+            df_cash = xls.parse("Cash Operations", header=None)
+            header_idx = -1
+            for i in range(min(15, len(df_cash))):
+                row_str = [str(x).strip().lower() for x in df_cash.iloc[i] if pd.notna(x)]
+                if "type" in row_str and ("amount" in row_str or "time" in row_str or "comment" in row_str):
+                    header_idx = i
+                    break
+
+            if header_idx != -1:
+                headers = [str(x).strip() for x in df_cash.iloc[header_idx]]
+                data_df = df_cash.iloc[header_idx + 1:].copy()
+                data_df.columns = headers
+
+                for _, r in data_df.iterrows():
+                    op_type = str(r.get("Type", "")).strip()
+                    if not op_type or op_type.lower() in ["nan", "type"]:
+                        continue
+
+                    raw_amount = r.get("Amount", 0.0)
+                    try:
+                        amount = float(raw_amount or 0.0)
+                    except:
+                        amount = 0.0
+
+                    time_val = str(r.get("Time", ""))
+                    comment = str(r.get("Comment", "")).strip()
+                    op_id = str(r.get("ID", "")).strip()
+                    product = str(r.get("Product", "")).strip()
+                    raw_ticker = str(r.get("Ticker", "")).strip()
+                    ticker = normalize_xtb_ticker(raw_ticker) if raw_ticker and raw_ticker.lower() != "nan" else ""
+                    instrument = str(r.get("Instrument", "")).strip()
+                    if instrument.lower() == "nan":
+                        instrument = ""
+
+                    # Compte & Devise
+                    if "PEA" in product or "PEA" in account_hint:
+                        account = "PEA"
+                        currency = "EUR"
+                    elif "USD" in account_hint or "USD" in product or "Dollar" in account_hint:
+                        account = "CTO Dollar"
+                        currency = "USD"
+                    else:
+                        account = "CTO Euro"
+                        currency = "EUR"
+
+                    result["cash_operations"].append({
+                        "id": op_id or f"CASH-{time_val[:10]}-{len(result['cash_operations'])}",
+                        "type": op_type,
+                        "instrument": instrument,
+                        "symbol": ticker,
+                        "time": time_val[:19] if len(time_val) >= 10 else "",
+                        "amount": amount,
+                        "comment": comment,
+                        "account": account,
+                        "currency": currency
+                    })
+        except Exception as e:
+            print(f"⚠️ Erreur parsing Cash Operations : {e}")
+
     return result
 
 def aggregate_open_positions(open_positions_list):
@@ -645,4 +715,261 @@ def calculate_trading_performance_stats(closed_trades):
         "best_trade": best_trade,
         "worst_trade": worst_trade,
         "by_account": by_account
+    }
+
+def calculate_cash_and_treasury_summary(cash_ops_list):
+    """
+    Agrège les opérations de trésorerie par compte et calcule les liquidités disponibles (Cash),
+    les dépôts cumulés, les retraits, les dividendes perçus et les intérêts.
+    """
+    usd_to_eur = get_usd_to_eur_rate()
+    
+    accounts = {
+        "PEA": {
+            "currency": "EUR",
+            "deposits": 0.0,
+            "withdrawals": 0.0,
+            "dividends": 0.0,
+            "interest": 0.0,
+            "taxes": 0.0,
+            "purchases": 0.0,
+            "sales": 0.0,
+            "transfers": 0.0,
+            "cash_balance": 0.0
+        },
+        "CTO Euro": {
+            "currency": "EUR",
+            "deposits": 0.0,
+            "withdrawals": 0.0,
+            "dividends": 0.0,
+            "interest": 0.0,
+            "taxes": 0.0,
+            "purchases": 0.0,
+            "sales": 0.0,
+            "transfers": 0.0,
+            "cash_balance": 0.0
+        },
+        "CTO Dollar": {
+            "currency": "USD",
+            "deposits": 0.0,
+            "withdrawals": 0.0,
+            "dividends": 0.0,
+            "interest": 0.0,
+            "taxes": 0.0,
+            "purchases": 0.0,
+            "sales": 0.0,
+            "transfers": 0.0,
+            "cash_balance": 0.0
+        }
+    }
+
+    for op in cash_ops_list:
+        acc_key = op.get("account", "CTO Euro")
+        if "PEA" in acc_key:
+            target_acc = "PEA"
+        elif "USD" in acc_key or "Dollar" in acc_key:
+            target_acc = "CTO Dollar"
+        else:
+            target_acc = "CTO Euro"
+
+        t = op.get("type", "").lower()
+        amt = float(op.get("amount", 0.0))
+
+        if "deposit" in t or "pea deposit" in t:
+            if amt > 0:
+                accounts[target_acc]["deposits"] += amt
+            else:
+                accounts[target_acc]["transfers"] += amt
+        elif "withdrawal" in t:
+            accounts[target_acc]["withdrawals"] += abs(amt)
+        elif "dividend" in t:
+            accounts[target_acc]["dividends"] += amt
+        elif "interest" in t:
+            accounts[target_acc]["interest"] += amt
+        elif "tax" in t or "fee" in t:
+            accounts[target_acc]["taxes"] += abs(amt)
+        elif "purchase" in t or "achat" in t:
+            accounts[target_acc]["purchases"] += abs(amt)
+        elif "sell" in t or "vente" in t:
+            accounts[target_acc]["sales"] += amt
+        elif "transfer" in t:
+            accounts[target_acc]["transfers"] += amt
+
+        # Calcul cumulatif du solde de cash
+        if t != "total":
+            accounts[target_acc]["cash_balance"] += amt
+
+    # Convertir en EUR global
+    total_deposits_eur = accounts["PEA"]["deposits"] + accounts["CTO Euro"]["deposits"] + (accounts["CTO Dollar"]["deposits"] * usd_to_eur)
+    total_withdrawals_eur = accounts["PEA"]["withdrawals"] + accounts["CTO Euro"]["withdrawals"] + (accounts["CTO Dollar"]["withdrawals"] * usd_to_eur)
+    total_dividends_eur = accounts["PEA"]["dividends"] + accounts["CTO Euro"]["dividends"] + (accounts["CTO Dollar"]["dividends"] * usd_to_eur)
+    total_interest_eur = accounts["PEA"]["interest"] + accounts["CTO Euro"]["interest"] + (accounts["CTO Dollar"]["interest"] * usd_to_eur)
+    
+    total_cash_eur = accounts["PEA"]["cash_balance"] + accounts["CTO Euro"]["cash_balance"] + (accounts["CTO Dollar"]["cash_balance"] * usd_to_eur)
+    net_inflows_eur = total_deposits_eur - total_withdrawals_eur
+
+    return {
+        "accounts": accounts,
+        "total_cash_eur": round(total_cash_eur, 2),
+        "total_deposits_eur": round(total_deposits_eur, 2),
+        "total_withdrawals_eur": round(total_withdrawals_eur, 2),
+        "net_inflows_eur": round(net_inflows_eur, 2),
+        "total_dividends_eur": round(total_dividends_eur, 2),
+        "total_interest_eur": round(total_interest_eur, 2),
+        "usd_to_eur_rate": round(usd_to_eur, 4)
+    }
+
+def calculate_portfolio_diversification(live_positions, cash_summary=None):
+    """
+    Calcule la diversification sectorielle par catégorie (Tech & IA, Santé, Luxe, etc.)
+    et par enveloppe fiscale (PEA, CTO Euro, CTO Dollar) ainsi que le ratio Actions vs Cash.
+    """
+    from src.market_data import categorize_ticker, get_ticker_info
+    usd_to_eur = get_usd_to_eur_rate()
+
+    # 1. Analyse par Catégorie
+    categories_map = {}
+    total_equity_value_eur = 0.0
+    total_equity_invested_eur = 0.0
+    total_pnl_latent_eur = 0.0
+
+    for pos in live_positions:
+        sym = pos.get("symbol", "").upper().strip()
+        curr_val = float(pos.get("current_value", 0.0))
+        invested = float(pos.get("invested_amount", 0.0))
+        pnl = float(pos.get("pnl_amount", 0.0))
+        currency = pos.get("currency", "EUR")
+
+        # Conversion EUR si position en USD
+        rate = usd_to_eur if currency == "USD" else 1.0
+        val_eur = curr_val * rate
+        inv_eur = invested * rate
+        pnl_eur = pnl * rate
+
+        total_equity_value_eur += val_eur
+        total_equity_invested_eur += inv_eur
+        total_pnl_latent_eur += pnl_eur
+
+        info = get_ticker_info(sym)
+        cat_meta = categorize_ticker(sym, info)
+        cat_name = cat_meta["category"]
+        cat_icon = cat_meta["category_icon"]
+
+        if cat_name not in categories_map:
+            categories_map[cat_name] = {
+                "category": cat_name,
+                "category_icon": cat_icon,
+                "positions_count": 0,
+                "invested_eur": 0.0,
+                "value_eur": 0.0,
+                "pnl_eur": 0.0,
+                "tickers": []
+            }
+
+        categories_map[cat_name]["positions_count"] += 1
+        categories_map[cat_name]["invested_eur"] += inv_eur
+        categories_map[cat_name]["value_eur"] += val_eur
+        categories_map[cat_name]["pnl_eur"] += pnl_eur
+        categories_map[cat_name]["tickers"].append({
+            "symbol": sym,
+            "name": pos.get("name", sym),
+            "account": pos.get("account", "CTO"),
+            "value_eur": round(val_eur, 2),
+            "pnl_eur": round(pnl_eur, 2),
+            "pnl_pct": pos.get("pnl_pct", 0.0)
+        })
+
+    # Calcul des pourcentages par catégorie
+    categories_list = []
+    for cat in categories_map.values():
+        weight = (cat["value_eur"] / total_equity_value_eur * 100) if total_equity_value_eur > 0 else 0.0
+        pnl_pct = (cat["pnl_eur"] / cat["invested_eur"] * 100) if cat["invested_eur"] > 0 else 0.0
+        
+        # Statut de concentration
+        if weight > 35:
+            status = "SUR-PONDÉRÉ ⚠️"
+            status_class = "badge-danger"
+        elif weight > 25:
+            status = "ÉLEVÉ 🟡"
+            status_class = "badge-warning"
+        else:
+            status = "OPTIMAL 🟢"
+            status_class = "badge-success"
+
+        categories_list.append({
+            "category": cat["category"],
+            "category_icon": cat["category_icon"],
+            "positions_count": cat["positions_count"],
+            "invested_eur": round(cat["invested_eur"], 2),
+            "value_eur": round(cat["value_eur"], 2),
+            "pnl_eur": round(cat["pnl_eur"], 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "weight_pct": round(weight, 1),
+            "status": status,
+            "status_class": status_class,
+            "tickers": sorted(cat["tickers"], key=lambda x: x["value_eur"], reverse=True)
+        })
+
+    categories_list.sort(key=lambda x: x["value_eur"], reverse=True)
+
+    # 2. Analyse par Compte
+    accounts_map = {
+        "PEA": {"name": "PEA (Europe)", "icon": "🇫🇷", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0},
+        "CTO Euro": {"name": "CTO Euro", "icon": "💶", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0},
+        "CTO Dollar": {"name": "CTO Dollar", "icon": "🇺🇸", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0}
+    }
+
+    for pos in live_positions:
+        acc_raw = pos.get("account", "CTO Euro")
+        if "PEA" in acc_raw:
+            target_acc = "PEA"
+        elif "USD" in acc_raw or "Dollar" in acc_raw:
+            target_acc = "CTO Dollar"
+        else:
+            target_acc = "CTO Euro"
+
+        rate = usd_to_eur if pos.get("currency") == "USD" else 1.0
+        val_eur = float(pos.get("current_value", 0.0)) * rate
+        inv_eur = float(pos.get("invested_amount", 0.0)) * rate
+        pnl_eur = float(pos.get("pnl_amount", 0.0)) * rate
+
+        accounts_map[target_acc]["count"] += 1
+        accounts_map[target_acc]["invested_eur"] += inv_eur
+        accounts_map[target_acc]["value_eur"] += val_eur
+        accounts_map[target_acc]["pnl_eur"] += pnl_eur
+
+    accounts_list = []
+    for acc_id, acc_data in accounts_map.items():
+        weight = (acc_data["value_eur"] / total_equity_value_eur * 100) if total_equity_value_eur > 0 else 0.0
+        pnl_pct = (acc_data["pnl_eur"] / acc_data["invested_eur"] * 100) if acc_data["invested_eur"] > 0 else 0.0
+        accounts_list.append({
+            "account_id": acc_id,
+            "account_name": acc_data["name"],
+            "icon": acc_data["icon"],
+            "positions_count": acc_data["count"],
+            "invested_eur": round(acc_data["invested_eur"], 2),
+            "value_eur": round(acc_data["value_eur"], 2),
+            "pnl_eur": round(acc_data["pnl_eur"], 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "weight_pct": round(weight, 1)
+        })
+
+    # 3. Allocation d'Actifs (Actions vs Cash)
+    cash_eur = (cash_summary.get("total_cash_eur", 0.0) if cash_summary else 0.0) or 0.0
+    total_nav_eur = total_equity_value_eur + cash_eur
+    equity_weight = (total_equity_value_eur / total_nav_eur * 100) if total_nav_eur > 0 else 100.0
+    cash_weight = (cash_eur / total_nav_eur * 100) if total_nav_eur > 0 else 0.0
+
+    return {
+        "total_nav_eur": round(total_nav_eur, 2),
+        "total_equity_value_eur": round(total_equity_value_eur, 2),
+        "total_equity_invested_eur": round(total_equity_invested_eur, 2),
+        "total_pnl_latent_eur": round(total_pnl_latent_eur, 2),
+        "total_pnl_latent_pct": round((total_pnl_latent_eur / total_equity_invested_eur * 100), 2) if total_equity_invested_eur > 0 else 0.0,
+        "cash_eur": round(cash_eur, 2),
+        "equity_weight_pct": round(equity_weight, 1),
+        "cash_weight_pct": round(cash_weight, 1),
+        "categories": categories_list,
+        "accounts": accounts_list,
+        "cash_summary": cash_summary
     }

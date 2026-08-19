@@ -735,6 +735,9 @@
             <button class="nav-btn" data-tab="portfolio" onclick="switchTab('portfolio')">
                 <span>💼</span> Positions en Cours (Live) <span id="nav-alerts-badge" class="badge badge-warning" style="display:none; font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">0</span>
             </button>
+            <button class="nav-btn" data-tab="diversification" onclick="switchTab('diversification')">
+                <span>🥧</span> Diversification & Trésorerie
+            </button>
             <button class="nav-btn" data-tab="journal" onclick="switchTab('journal')">
                 <span>📖</span> Journal de Trading <span id="nav-journal-count" class="badge badge-primary" style="font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">397</span>
             </button>
@@ -1064,6 +1067,128 @@
                                     Chargement des positions en direct...
                                 </td>
                             </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- TAB : DIVERSIFICATION & GESTION DE TRÉSORERIE -->
+        <!-- ================================================================= -->
+        <div id="diversification-tab" class="tab-content">
+            
+            <!-- Diversification Top Summary KPIs -->
+            <div class="metrics-grid" style="margin-bottom: 1.5rem;">
+                <div class="metric-card" style="border-left: 4px solid #10b981;">
+                    <div class="metric-title">💰 Valeur Totale Portefeuille (NAV)</div>
+                    <div class="metric-value" id="div-total-nav">0.00 €</div>
+                    <div class="metric-subtitle" id="div-nav-breakdown">Actions + Liquidités</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+                    <div class="metric-title">📊 Capital Investi en Actions</div>
+                    <div class="metric-value" id="div-equity-val">0.00 €</div>
+                    <div class="metric-subtitle" id="div-equity-pct">0% du capital total</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+                    <div class="metric-title">💶 Liquidités Disponibles (Cash)</div>
+                    <div class="metric-value" id="div-cash-val">0.00 €</div>
+                    <div class="metric-subtitle" id="div-cash-breakdown">PEA / CTO Euro / CTO Dollar</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #8b5cf6;">
+                    <div class="metric-title">🎁 Dividendes & Intérêts Cumulés</div>
+                    <div class="metric-value" id="div-dividends-val">+0.00 €</div>
+                    <div class="metric-subtitle" id="div-net-inflows">Apports nets: 0.00 €</div>
+                </div>
+            </div>
+
+            <!-- Asset Allocation Bar (Actions vs Cash) -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <h3 style="font-size: 1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">🛡️ Allocation Globale : Exposition Actions vs Réserve de Cash</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Gestion du risque et capacité de déploiement tactique (Dry Powder)</p>
+                    </div>
+                    <button class="btn btn-secondary" style="font-size: 0.8rem;" onclick="loadDiversificationData()">🔄 Actualiser l'Allocation</button>
+                </div>
+                <div style="height: 16px; border-radius: 8px; background: rgba(255,255,255,0.06); overflow: hidden; display: flex;">
+                    <div id="div-bar-equity" style="height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); width: 90%; transition: width 0.4s ease;" title="Actions"></div>
+                    <div id="div-bar-cash" style="height: 100%; background: linear-gradient(90deg, #f59e0b, #fbbf24); width: 10%; transition: width 0.4s ease;" title="Cash"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.8rem;">
+                    <span style="color: #60a5fa;" id="div-legend-equity">🔵 Actions : 0.00 € (0%)</span>
+                    <span style="color: #f59e0b;" id="div-legend-cash">🟡 Liquidités : 0.00 € (0%)</span>
+                </div>
+            </div>
+
+            <!-- Grid: Category Breakdown (Left) & Accounts Breakdown (Right) -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;" class="div-responsive-grid">
+                
+                <!-- Category Breakdown Table -->
+                <div class="glass-card">
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">🥧 Répartition Sectorielle par Catégorie</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Pondération, P&L latent et détection de sur-concentration</p>
+                        </div>
+                        <span class="badge badge-primary" id="div-cat-count">0 Catégories</span>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" id="div-categories-table">
+                            <thead>
+                                <tr>
+                                    <th>Catégorie / Secteur</th>
+                                    <th>Positions</th>
+                                    <th>Valeur (€)</th>
+                                    <th>Poids (%)</th>
+                                    <th>P&L Latent</th>
+                                    <th>Statut Exposition</th>
+                                </tr>
+                            </thead>
+                            <tbody id="div-categories-tbody">
+                                <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Chargement des données de diversification...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Accounts Breakdown Card -->
+                <div class="glass-card">
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border);">
+                        <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💳 Répartition par Enveloppe Fiscale</h3>
+                        <p style="font-size: 0.75rem; color: var(--text-muted);">Exposition et soldes espèces par compte</p>
+                    </div>
+                    <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;" id="div-accounts-container">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Recent Treasury Cash Flow Operations -->
+            <div class="glass-card">
+                <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📑 Flux Récents de Trésorerie (Dépôts, Retraits, Dividendes, Achats/Ventes)</h3>
+                        <p style="font-size: 0.75rem; color: var(--text-muted);">Historique extrait automatiquement des exports XTB</p>
+                    </div>
+                    <button class="btn btn-secondary" style="font-size: 0.8rem;" onclick="syncAllHistoryFiles()">⚡ Synchroniser Trésorerie</button>
+                </div>
+                <div style="overflow-x: auto; max-height: 400px;">
+                    <table class="data-table" id="div-treasury-table">
+                        <thead>
+                            <tr>
+                                <th>Date / Heure</th>
+                                <th>Type d'Opération</th>
+                                <th>Instrument / Libellé</th>
+                                <th>Compte</th>
+                                <th>Montant</th>
+                                <th>Commentaire / Détail</th>
+                            </tr>
+                        </thead>
+                        <tbody id="div-treasury-tbody">
+                            <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Chargement des opérations de trésorerie...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1475,9 +1600,12 @@
 
                 <div id="modal-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
             </div>
-    <!-- ===================================================================== -->
-    <!-- MODAL : AJOUTER UNE POSITION OUVERTE -->
-    <!-- ===================================================================== -->
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddStockModal()">Annuler</button>
+                <button class="btn btn-primary" id="btn-submit-add-stock" onclick="submitAddStock()">➕ Ajouter à la Watchlist</button>
+            </div>
+        </div>
+    </div>
     <div class="modal-overlay" id="add-position-modal">
         <div class="modal-box">
             <div class="modal-header">
@@ -1677,12 +1805,235 @@
 
             if (tabId === 'portfolio') {
                 loadLivePortfolio();
+            } else if (tabId === 'diversification') {
+                loadDiversificationData();
             } else if (tabId === 'journal') {
                 loadJournalHistory();
             } else if (tabId === 'simulation') {
                 runSimulation();
             }
         }
+
+        // ---------------------------------------------------------------------
+        // DIVERSIFICATION & TREASURY ANALYTICS
+        // ---------------------------------------------------------------------
+        let diversificationData = null;
+        let treasuryData = null;
+
+        async function loadDiversificationData() {
+            try {
+                const [divRes, tresRes] = await Promise.all([
+                    fetch(`${API_URL}/portfolio/diversification`),
+                    fetch(`${API_URL}/portfolio/treasury`)
+                ]);
+                const divPayload = await divRes.json();
+                const tresPayload = await tresRes.json();
+
+                if (divPayload.success && divPayload.data) {
+                    diversificationData = divPayload.data;
+                    renderDiversificationKPIs(diversificationData);
+                    renderDiversificationCategories(diversificationData.categories || []);
+                    renderDiversificationAccounts(diversificationData.accounts || []);
+                }
+
+                if (tresPayload.success) {
+                    treasuryData = tresPayload;
+                    renderTreasuryOperations(tresPayload.recent_operations || []);
+                }
+            } catch (e) {
+                console.error("Erreur chargement diversification & trésorerie:", e);
+            }
+        }
+
+        function renderDiversificationKPIs(data) {
+            const navElem = document.getElementById('div-total-nav');
+            if (navElem) navElem.textContent = `${(Number(data.total_nav_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const eqValElem = document.getElementById('div-equity-val');
+            if (eqValElem) eqValElem.textContent = `${(Number(data.total_equity_value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const eqPctElem = document.getElementById('div-equity-pct');
+            if (eqPctElem) eqPctElem.textContent = `${Number(data.equity_weight_pct) || 0}% du capital total`;
+
+            const cashValElem = document.getElementById('div-cash-val');
+            if (cashValElem) cashValElem.textContent = `${(Number(data.cash_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const cashBreakdownElem = document.getElementById('div-cash-breakdown');
+            if (cashBreakdownElem && data.cash_summary && data.cash_summary.accounts) {
+                const peaCash = data.cash_summary.accounts.PEA ? data.cash_summary.accounts.PEA.cash_balance : 0;
+                const eurCash = data.cash_summary.accounts["CTO Euro"] ? data.cash_summary.accounts["CTO Euro"].cash_balance : 0;
+                const usdCash = data.cash_summary.accounts["CTO Dollar"] ? data.cash_summary.accounts["CTO Dollar"].cash_balance : 0;
+                cashBreakdownElem.textContent = `PEA: ${peaCash.toFixed(2)}€ | CTO: ${eurCash.toFixed(2)}€ | USD: ${usdCash.toFixed(2)}$`;
+            }
+
+            const divElem = document.getElementById('div-dividends-val');
+            if (divElem) {
+                const totalDiv = Number(data.dividends_eur) || 0;
+                divElem.textContent = `+${totalDiv.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            }
+
+            const inflowsElem = document.getElementById('div-net-inflows');
+            if (inflowsElem && data.cash_summary) {
+                const netInflows = Number(data.cash_summary.net_inflows_eur) || 0;
+                inflowsElem.textContent = `Apports nets : ${netInflows.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            }
+
+            // Allocation Bar
+            const barEq = document.getElementById('div-bar-equity');
+            const barCash = document.getElementById('div-bar-cash');
+            const legEq = document.getElementById('div-legend-equity');
+            const legCash = document.getElementById('div-legend-cash');
+
+            const eqPct = Math.min(100, Math.max(0, Number(data.equity_weight_pct) || 0));
+            const cashPct = Math.min(100, Math.max(0, Number(data.cash_weight_pct) || 0));
+
+            if (barEq) barEq.style.width = `${eqPct}%`;
+            if (barCash) barCash.style.width = `${cashPct}%`;
+
+            if (legEq) legEq.textContent = `🔵 Actions : ${(Number(data.total_equity_value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} € (${eqPct}%)`;
+            if (legCash) legCash.textContent = `🟡 Liquidités : ${(Number(data.cash_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} € (${cashPct}%)`;
+        }
+
+        function renderDiversificationCategories(categories) {
+            const tbody = document.getElementById('div-categories-tbody');
+            const countElem = document.getElementById('div-cat-count');
+            if (countElem) countElem.textContent = `${categories.length} Catégories`;
+            if (!tbody) return;
+
+            if (!categories || categories.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Aucune position active pour le calcul sectoriel.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            categories.forEach(cat => {
+                const statusColor = cat.status.includes('OPTIMAL') ? 'var(--success)' : cat.status.includes('SUR-PONDÉRÉ') ? 'var(--danger)' : 'var(--warning)';
+                const statusBadgeClass = cat.status.includes('OPTIMAL') ? 'badge-success' : cat.status.includes('SUR-PONDÉRÉ') ? 'badge-warning' : 'badge-primary';
+                const pnlClass = cat.pnl_eur >= 0 ? 'text-success' : 'text-danger';
+                const pnlSign = cat.pnl_eur >= 0 ? '+' : '';
+
+                const tickersList = (cat.symbols || []).join(', ');
+
+                html += `
+                    <tr>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <span style="font-size:1.2rem;">${cat.category_icon || '📦'}</span>
+                                <div>
+                                    <strong>${cat.category}</strong>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);">${tickersList}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge badge-primary">${cat.count} pos</span></td>
+                        <td><strong>${(Number(cat.value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong></td>
+                        <td style="min-width: 140px;">
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <div style="flex:1; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden;">
+                                    <div style="width:${Math.min(100, cat.weight_pct)}%; height:100%; background:${statusColor};"></div>
+                                </div>
+                                <span style="font-weight:700; font-size:0.85rem; width:45px; text-align:right;">${cat.weight_pct}%</span>
+                            </div>
+                        </td>
+                        <td class="${pnlClass}" style="font-weight:600;">
+                            ${pnlSign}${(Number(cat.pnl_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €
+                            <span style="font-size:0.75rem;">(${pnlSign}${cat.pnl_pct}%)</span>
+                        </td>
+                        <td>
+                            <span class="badge ${statusBadgeClass}">${cat.status}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function renderDiversificationAccounts(accounts) {
+            const container = document.getElementById('div-accounts-container');
+            if (!container) return;
+
+            if (!accounts || accounts.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:1rem;">Aucun compte configuré.</div>`;
+                return;
+            }
+
+            let html = '';
+            accounts.forEach(acc => {
+                const borderLeft = acc.account_name.includes('PEA') ? 'border-left: 4px solid #3b82f6;' : acc.account_name.includes('Dollar') ? 'border-left: 4px solid #8b5cf6;' : 'border-left: 4px solid #10b981;';
+                const badgeClass = acc.account_name.includes('PEA') ? 'badge-pea' : acc.account_name.includes('Dollar') ? 'badge-cto' : 'badge-success';
+
+                html += `
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); ${borderLeft} border-radius: 8px; padding: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong>${acc.icon || '💳'} ${acc.account_name}</strong>
+                            <span class="badge ${badgeClass}">${acc.weight_pct}%</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 0.35rem;">
+                            <span style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">${(Number(acc.value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${acc.count} position(s)</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.4rem; margin-top: 0.4rem;">
+                            <span>Espèces (Cash) :</span>
+                            <strong style="color: #fbbf24;">${(Number(acc.cash_balance) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${acc.currency}</strong>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderTreasuryOperations(operations) {
+            const tbody = document.getElementById('div-treasury-tbody');
+            if (!tbody) return;
+
+            if (!operations || operations.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Aucune opération de trésorerie disponible. Cliquez sur '⚡ Synchroniser Trésorerie'.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            // Display operations sorted by time descending
+            const opsCopy = [...operations].reverse();
+            opsCopy.forEach(op => {
+                const amt = Number(op.amount) || 0;
+                const isPositive = amt >= 0;
+                const amtColor = isPositive ? 'var(--success)' : 'var(--danger)';
+                const sign = isPositive ? '+' : '';
+                const currSymbol = op.currency === 'USD' ? '$' : '€';
+
+                let typeBadge = '<span class="badge badge-secondary">Autre</span>';
+                const t = (op.type || '').toLowerCase();
+                if (t.includes('deposit') || t.includes('dépôt')) {
+                    typeBadge = '<span class="badge badge-success">📥 Dépôt</span>';
+                } else if (t.includes('withdrawal') || t.includes('retrait')) {
+                    typeBadge = '<span class="badge badge-danger">📤 Retrait</span>';
+                } else if (t.includes('dividend')) {
+                    typeBadge = '<span class="badge badge-pea">🎁 Dividende</span>';
+                } else if (t.includes('interest') || t.includes('intérêt')) {
+                    typeBadge = '<span class="badge badge-warning">📈 Intérêt</span>';
+                } else if (t.includes('buy') || t.includes('achat')) {
+                    typeBadge = '<span class="badge badge-primary">🛒 Achat Action</span>';
+                } else if (t.includes('sell') || t.includes('vente')) {
+                    typeBadge = '<span class="badge badge-cto">💰 Vente Action</span>';
+                }
+
+                html += `
+                    <tr>
+                        <td style="font-size:0.8rem; color:var(--text-muted);">${op.time || '--'}</td>
+                        <td>${typeBadge}</td>
+                        <td><strong>${op.instrument || op.symbol || '--'}</strong></td>
+                        <td><span class="badge badge-secondary">${op.account || '--'}</span></td>
+                        <td style="font-weight:700; color:${amtColor}; text-align:right;">
+                            ${sign}${amt.toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${currSymbol}
+                        </td>
+                        <td style="font-size:0.8rem; color:var(--text-muted); max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${op.comment || '--'}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        window.importAllHistory = syncAllHistoryFiles;
 
         // ---------------------------------------------------------------------
         // TRADING JOURNAL & PERFORMANCE ANALYTICS

@@ -248,18 +248,22 @@ def add_watchlist_ticker():
     })
 
 from src.portfolio_tracker import (
-    get_live_portfolio_summary,
     parse_broker_csv,
     parse_xtb_excel_file,
     aggregate_open_positions,
-    calculate_trading_performance_stats
+    get_live_portfolio_summary,
+    calculate_trading_performance_stats,
+    calculate_cash_and_treasury_summary,
+    calculate_portfolio_diversification
 )
 from src.sheets_connector import (
     add_position_to_sheets,
     close_position_in_sheets,
     batch_import_journal_to_sheets,
     read_journal_from_sheets,
-    batch_import_positions_to_sheets
+    batch_import_positions_to_sheets,
+    read_treasury_from_sheets,
+    batch_import_treasury_to_sheets
 )
 
 @app.route("/api/portfolio/live")
@@ -269,6 +273,36 @@ def get_live_portfolio():
     """
     summary = get_live_portfolio_summary()
     return jsonify({"success": True, "data": summary})
+
+@app.route("/api/portfolio/treasury")
+def get_portfolio_treasury():
+    """
+    Retourne le détail des soldes d'espèces, dépôts, retraits, dividendes et opérations de trésorerie.
+    """
+    cash_ops = read_treasury_from_sheets()
+    summary = calculate_cash_and_treasury_summary(cash_ops)
+    return jsonify({
+        "success": True,
+        "summary": summary,
+        "operations_count": len(cash_ops),
+        "recent_operations": cash_ops[-50:] if cash_ops else []
+    })
+
+@app.route("/api/portfolio/diversification")
+def get_portfolio_diversification():
+    """
+    Retourne la décomposition complète du portefeuille (catégorie/secteur, compte PEA/CTO, Actions vs Cash).
+    """
+    live_summary = get_live_portfolio_summary()
+    live_positions = live_summary.get("positions", [])
+    cash_ops = read_treasury_from_sheets()
+    cash_summary = calculate_cash_and_treasury_summary(cash_ops)
+    
+    div = calculate_portfolio_diversification(live_positions, cash_summary=cash_summary)
+    return jsonify({
+        "success": True,
+        "data": div
+    })
 
 @app.route("/api/journal/history")
 def get_journal_history():
@@ -328,7 +362,7 @@ def add_portfolio_position():
 def upload_portfolio_report():
     """
     Importe un fichier Excel (.xlsx) ou CSV de rapport XTB / courtier.
-    Auto-détecte les positions fermées (vers le Journal de Trading) et les positions ouvertes (vers le Suivi Live).
+    Auto-détecte les positions fermées, les positions ouvertes et les opérations de trésorerie.
     """
     file = request.files.get("file")
     if not file:
@@ -339,15 +373,16 @@ def upload_portfolio_report():
     
     closed_imported = 0
     open_imported = 0
+    cash_imported = 0
     msg = ""
 
     if filename.lower().endswith(".xlsx") or filename.lower().endswith(".xls"):
         parsed = parse_xtb_excel_file(content, default_account=request.form.get("account"))
         closed_trades = parsed.get("closed_positions", [])
         open_positions = parsed.get("open_positions", [])
+        cash_ops = parsed.get("cash_operations", [])
 
         if closed_trades:
-            # Append / batch import into journal
             existing_journal = read_journal_from_sheets()
             existing_ids = {t.get("id") for t in existing_journal if t.get("id")}
             new_closed = [t for t in closed_trades if t.get("id") not in existing_ids]
@@ -357,13 +392,20 @@ def upload_portfolio_report():
             closed_imported = len(new_closed)
 
         if open_positions:
-            # Option to aggregate or keep lot by lot
             agg_open = aggregate_open_positions(open_positions)
             for pos in agg_open:
                 add_position_to_sheets(pos)
             open_imported = len(agg_open)
 
-        msg = f"Rapport Excel traité : {closed_imported} trade(s) archivé(s) dans le Journal, {open_imported} position(s) active(s) synchronisée(s) !"
+        if cash_ops:
+            existing_cash = read_treasury_from_sheets()
+            existing_cash_ids = {c.get("id") for c in existing_cash if c.get("id")}
+            new_cash = [c for c in cash_ops if c.get("id") not in existing_cash_ids]
+            combined_cash = existing_cash + new_cash
+            batch_import_treasury_to_sheets(combined_cash)
+            cash_imported = len(new_cash)
+
+        msg = f"Rapport Excel traité : {closed_imported} trade(s) archivé(s), {open_imported} position(s) active(s), {cash_imported} opération(s) de trésorerie synchronisée(s) !"
     else:
         positions = parse_broker_csv(content)
         if not positions:
@@ -379,13 +421,15 @@ def upload_portfolio_report():
         "success": True,
         "message": msg,
         "closed_imported": closed_imported,
-        "open_imported": open_imported
+        "open_imported": open_imported,
+        "cash_imported": cash_imported
     })
 
 @app.route("/api/portfolio/import_all_history", methods=["POST"])
 def import_all_history_files():
     """
-    Importe automatiquement tous les fichiers d'historique XTB présents dans le dossier /historique.
+    Importe automatiquement tous les fichiers d'historique XTB (positions fermées, ouvertes et trésorerie)
+    présents dans le dossier /historique.
     """
     import os
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -399,11 +443,13 @@ def import_all_history_files():
 
     all_closed = []
     all_open = []
+    all_cash = []
     seen_closed_ids = set()
     seen_open_ids = set()
+    seen_cash_ids = set()
 
-    # Prioriser les fichiers "position fermees" complets
-    files_to_scan.sort(key=lambda x: ("position fermee" not in x.lower(), x))
+    # Prioriser les fichiers complets
+    files_to_scan.sort(key=lambda x: ("tresorerie" not in x.lower() and "position fermee" not in x.lower(), x))
 
     for fpath in files_to_scan:
         acc = "PEA" if "PEA" in fpath else "CTO Dollar" if "USD" in fpath else "CTO Euro"
@@ -419,6 +465,11 @@ def import_all_history_files():
                 seen_open_ids.add(o["id"])
                 all_open.append(o)
 
+        for c in parsed.get("cash_operations", []):
+            if c["id"] not in seen_cash_ids:
+                seen_cash_ids.add(c["id"])
+                all_cash.append(c)
+
     # 1. Enregistrer dans le Journal
     batch_import_journal_to_sheets(all_closed)
 
@@ -426,14 +477,20 @@ def import_all_history_files():
     agg_open = aggregate_open_positions(all_open)
     batch_import_positions_to_sheets(agg_open)
 
+    # 3. Enregistrer les opérations de trésorerie
+    batch_import_treasury_to_sheets(all_cash)
+
     stats = calculate_trading_performance_stats(all_closed)
+    cash_summary = calculate_cash_and_treasury_summary(all_cash)
 
     return jsonify({
         "success": True,
-        "message": f"Synchronisation historique réussie ! {len(all_closed)} trades dans le Journal, {len(agg_open)} positions actives.",
+        "message": f"Synchronisation historique réussie ! {len(all_closed)} trades dans le Journal, {len(agg_open)} positions actives, {len(all_cash)} opérations de trésorerie.",
         "closed_count": len(all_closed),
         "open_count": len(agg_open),
-        "stats": stats
+        "cash_count": len(all_cash),
+        "stats": stats,
+        "treasury_summary": cash_summary
     })
 
 @app.route("/api/portfolio/close", methods=["POST"])
