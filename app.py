@@ -454,137 +454,145 @@ def close_portfolio_position():
 
 @app.route("/api/scan/watchlist")
 def scan_watchlist():
-    watchlist = read_watchlist_from_sheets()
-    results = []
-    signals_to_write = []
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Exécution parallèle modérée (4 workers) avec cache TTL
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        analyses = list(executor.map(get_detailed_analysis, watchlist))
+    try:
+        watchlist = read_watchlist_from_sheets()
+        results = []
+        signals_to_write = []
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-    for analysis in analyses:
-        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-            continue
+        # Exécution parallèle modérée (4 workers) avec cache TTL
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            analyses = list(executor.map(get_detailed_analysis, watchlist))
             
-        symbol = analysis.get("symbol")
-        tech = analysis.get("technical") or {}
-        drop = analysis.get("drop") or {}
-        sharia = analysis.get("sharia") or {}
-        trade_plan = analysis.get("trade_plan") or {}
-        risk_plan = analysis.get("step_7_risk_sizing") or {}
-        macro_plan = analysis.get("step_2_macro") or {}
+        for analysis in analyses:
+            if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                continue
+                
+            symbol = analysis.get("symbol")
+            tech = analysis.get("technical") or {}
+            drop = analysis.get("drop") or {}
+            sharia = analysis.get("sharia") or {}
+            trade_plan = analysis.get("trade_plan") or {}
+            risk_plan = analysis.get("step_7_risk_sizing") or {}
+            macro_plan = analysis.get("step_2_macro") or {}
 
-        results.append({
-            "symbol": symbol,
-            "name": analysis.get("company_name", symbol),
-            "category": analysis.get("category", "Autres"),
-            "category_icon": analysis.get("category_icon", "📦"),
-            "is_pea": analysis.get("is_pea", False),
-            "account_type": analysis.get("account_type", "CTO (US)"),
-            "sharia": sharia.get("status", "À VÉRIFIER"),
-            "price": tech.get("current_price", 0.0),
-            "drop": drop.get("drop_pct", 0.0),
-            "rsi": tech.get("rsi", 50.0),
-            "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
-            "confluence_score": analysis.get("confluence_score", 0),
-            "verdict": analysis.get("verdict", "ATTENDRE"),
-            "currency": tech.get("currency", "USD")
-        })
-        
-        if "ACHETER" in analysis.get("verdict", ""):
-            signals_to_write.append({
-                "date": now_str,
+            results.append({
                 "symbol": symbol,
-                "sharia_status": sharia.get("status"),
+                "name": analysis.get("company_name", symbol),
                 "category": analysis.get("category", "Autres"),
+                "category_icon": analysis.get("category_icon", "📦"),
+                "is_pea": analysis.get("is_pea", False),
                 "account_type": analysis.get("account_type", "CTO (US)"),
-                "macro_regime": macro_plan.get("regime", "N/A"),
-                "current_price": tech.get("current_price", 0.0),
-                "drop_pct": drop.get("drop_pct", 0.0),
-                "support": tech.get("support", 0.0),
-                "tp1_target": trade_plan.get("target_min", 0.0),
-                "tp2_target": trade_plan.get("target_max", 0.0),
-                "stop_loss": trade_plan.get("invalidation", 0.0),
-                "r_max_amount": risk_plan.get("r_max_amount", 50.0),
-                "suggested_nominal": risk_plan.get("suggested_nominal", 0.0),
+                "sharia": sharia.get("status", "À VÉRIFIER"),
+                "price": tech.get("current_price", 0.0),
+                "drop": drop.get("drop_pct", 0.0),
+                "rsi": tech.get("rsi", 50.0),
+                "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
                 "confluence_score": analysis.get("confluence_score", 0),
-                "verdict": analysis.get("verdict", "ACHETER")
+                "verdict": analysis.get("verdict", "ATTENDRE"),
+                "currency": tech.get("currency", "USD")
             })
             
-    if signals_to_write:
-        try:
-            write_signals_to_sheets(signals_to_write)
-        except Exception as e:
-            print(f"Erreur écriture signaux: {e}")
-        
-    return jsonify({"results": results, "signals_sent": len(signals_to_write)})
+            if "ACHETER" in analysis.get("verdict", ""):
+                signals_to_write.append({
+                    "date": now_str,
+                    "symbol": symbol,
+                    "sharia_status": sharia.get("status"),
+                    "category": analysis.get("category", "Autres"),
+                    "account_type": analysis.get("account_type", "CTO (US)"),
+                    "macro_regime": macro_plan.get("regime", "N/A"),
+                    "current_price": tech.get("current_price", 0.0),
+                    "drop_pct": drop.get("drop_pct", 0.0),
+                    "support": tech.get("support", 0.0),
+                    "tp1_target": trade_plan.get("target_min", 0.0),
+                    "tp2_target": trade_plan.get("target_max", 0.0),
+                    "stop_loss": trade_plan.get("invalidation", 0.0),
+                    "r_max_amount": risk_plan.get("r_max_amount", 50.0),
+                    "suggested_nominal": risk_plan.get("suggested_nominal", 0.0),
+                    "confluence_score": analysis.get("confluence_score", 0),
+                    "verdict": analysis.get("verdict", "ACHETER")
+                })
+                
+        if signals_to_write:
+            try:
+                write_signals_to_sheets(signals_to_write)
+            except Exception as e:
+                print(f"Erreur écriture signaux: {e}")
+            
+        return jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
+    except Exception as e:
+        print(f"Erreur globale scan_watchlist: {e}")
+        return jsonify({"success": False, "error": str(e), "results": []}), 500
 
 @app.route("/api/scan/market")
 def scan_market():
-    results = []
-    signals_to_write = []
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        analyses = list(executor.map(get_detailed_analysis, DEFAULT_MARKET_POOL))
-    
-    for analysis in analyses:
-        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-            continue
-            
-        symbol = analysis.get("symbol")
-        tech = analysis.get("technical") or {}
-        drop = analysis.get("drop") or {}
-        sharia = analysis.get("sharia") or {}
-        trade_plan = analysis.get("trade_plan") or {}
-        risk_plan = analysis.get("step_7_risk_sizing") or {}
-        macro_plan = analysis.get("step_2_macro") or {}
-
-        results.append({
-            "symbol": symbol,
-            "name": analysis.get("company_name", symbol),
-            "category": analysis.get("category", "Autres"),
-            "category_icon": analysis.get("category_icon", "📦"),
-            "is_pea": analysis.get("is_pea", False),
-            "account_type": analysis.get("account_type", "CTO (US)"),
-            "sharia": analysis["sharia"].get("status"),
-            "price": analysis["technical"]["current_price"],
-            "drop": analysis["drop"]["drop_pct"],
-            "rsi": analysis["technical"]["rsi"],
-            "rsi_divergence": analysis["technical"]["rsi_divergence"]["type"],
-            "confluence_score": analysis["confluence_score"],
-            "verdict": analysis["verdict"],
-            "currency": analysis["technical"].get("currency", "USD")
-        })
+    try:
+        results = []
+        signals_to_write = []
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        if "ACHETER" in analysis["verdict"]:
-            signals_to_write.append({
-                "date": now_str,
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            analyses = list(executor.map(get_detailed_analysis, DEFAULT_MARKET_POOL))
+        
+        for analysis in analyses:
+            if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                continue
+                
+            symbol = analysis.get("symbol")
+            tech = analysis.get("technical") or {}
+            drop = analysis.get("drop") or {}
+            sharia = analysis.get("sharia") or {}
+            trade_plan = analysis.get("trade_plan") or {}
+            risk_plan = analysis.get("step_7_risk_sizing") or {}
+            macro_plan = analysis.get("step_2_macro") or {}
+
+            results.append({
                 "symbol": symbol,
-                "sharia_status": analysis["sharia"].get("status"),
+                "name": analysis.get("company_name", symbol),
                 "category": analysis.get("category", "Autres"),
+                "category_icon": analysis.get("category_icon", "📦"),
+                "is_pea": analysis.get("is_pea", False),
                 "account_type": analysis.get("account_type", "CTO (US)"),
-                "macro_regime": analysis["step_2_macro"]["regime"],
-                "current_price": analysis["technical"]["current_price"],
-                "drop_pct": analysis["drop"]["drop_pct"],
-                "support": analysis["technical"]["support"],
-                "tp1_target": analysis["trade_plan"]["target_min"],
-                "tp2_target": analysis["trade_plan"]["target_max"],
-                "stop_loss": analysis["trade_plan"]["invalidation"],
-                "r_max_amount": analysis["step_7_risk_sizing"]["r_max_amount"],
-                "suggested_nominal": analysis["step_7_risk_sizing"]["suggested_nominal"],
-                "confluence_score": analysis["confluence_score"],
-                "verdict": analysis["verdict"]
+                "sharia": sharia.get("status", "À VÉRIFIER"),
+                "price": tech.get("current_price", 0.0),
+                "drop": drop.get("drop_pct", 0.0),
+                "rsi": tech.get("rsi", 50.0),
+                "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
+                "confluence_score": analysis.get("confluence_score", 0),
+                "verdict": analysis.get("verdict", "ATTENDRE"),
+                "currency": tech.get("currency", "USD")
             })
             
-    if signals_to_write:
-        try:
-            write_signals_to_sheets(signals_to_write)
-        except Exception as e:
-            print(f"Erreur écriture signaux: {e}")
-        
-    return jsonify({"results": results})
+            if "ACHETER" in analysis.get("verdict", ""):
+                signals_to_write.append({
+                    "date": now_str,
+                    "symbol": symbol,
+                    "sharia_status": sharia.get("status"),
+                    "category": analysis.get("category", "Autres"),
+                    "account_type": analysis.get("account_type", "CTO (US)"),
+                    "macro_regime": macro_plan.get("regime", "N/A"),
+                    "current_price": tech.get("current_price", 0.0),
+                    "drop_pct": drop.get("drop_pct", 0.0),
+                    "support": tech.get("support", 0.0),
+                    "tp1_target": trade_plan.get("target_min", 0.0),
+                    "tp2_target": trade_plan.get("target_max", 0.0),
+                    "stop_loss": trade_plan.get("invalidation", 0.0),
+                    "r_max_amount": risk_plan.get("r_max_amount", 50.0),
+                    "suggested_nominal": risk_plan.get("suggested_nominal", 0.0),
+                    "confluence_score": analysis.get("confluence_score", 0),
+                    "verdict": analysis.get("verdict", "ACHETER")
+                })
+                
+        if signals_to_write:
+            try:
+                write_signals_to_sheets(signals_to_write)
+            except Exception as e:
+                print(f"Erreur écriture signaux: {e}")
+            
+        return jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
+    except Exception as e:
+        print(f"Erreur globale scan_market: {e}")
+        return jsonify({"success": False, "error": str(e), "results": []}), 500
 
 @app.route("/api/analyze/<ticker>")
 def analyze_ticker_endpoint(ticker):

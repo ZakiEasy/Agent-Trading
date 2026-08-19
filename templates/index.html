@@ -2434,7 +2434,7 @@
         // SCANNING & FILTERS LOGIC
         // ---------------------------------------------------------------------
         async function runWatchlistScan() {
-            setScanStatus('Scan en cours (41 actions)...', 'badge-warning');
+            setScanStatus('Scan en cours...', 'badge-warning');
             const tbody = document.querySelector('#scan-results-table tbody');
             tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2.5rem; font-size: 0.95rem;">
                 <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
@@ -2444,13 +2444,19 @@
 
             try {
                 const res = await fetch(`${API_URL}/scan/watchlist`);
+                if (!res.ok) {
+                    const text = await res.text();
+                    let errMsg = `Code HTTP ${res.status}`;
+                    try { const errObj = JSON.parse(text); if (errObj.error) errMsg = errObj.error; } catch(e){}
+                    throw new Error(errMsg);
+                }
                 const data = await res.json();
                 document.getElementById('results-table-title').textContent = '📊 Résultats du Scan Watchlist (v2.0)';
                 currentScanResults = data.results || [];
                 applyFilters();
                 setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
             } catch (e) {
-                console.error(e);
+                console.error("Erreur scan watchlist:", e);
                 tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">❌ Erreur lors du scan : ${e.message || 'Délai d\'attente dépassé'}. Veuillez réessayer.</td></tr>`;
                 setScanStatus('Erreur', 'badge-danger');
             }
@@ -2467,14 +2473,20 @@
 
             try {
                 const res = await fetch(`${API_URL}/scan/market`);
+                if (!res.ok) {
+                    const text = await res.text();
+                    let errMsg = `Code HTTP ${res.status}`;
+                    try { const errObj = JSON.parse(text); if (errObj.error) errMsg = errObj.error; } catch(e){}
+                    throw new Error(errMsg);
+                }
                 const data = await res.json();
                 document.getElementById('results-table-title').textContent = '🌐 Résultats du Scan Marché Élargi (v2.0)';
                 currentScanResults = data.results || [];
                 applyFilters();
                 setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
             } catch (e) {
-                console.error(e);
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">❌ Erreur lors du scan du marché. Veuillez réessayer.</td></tr>`;
+                console.error("Erreur scan marché:", e);
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">❌ Erreur lors du scan du marché : ${e.message}. Veuillez réessayer.</td></tr>`;
                 setScanStatus('Erreur', 'badge-danger');
             }
         }

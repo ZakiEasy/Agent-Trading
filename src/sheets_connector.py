@@ -80,12 +80,20 @@ def parse_checkbox_to_sharia(cell_val):
         return "NON CONFORME"
     return "À VÉRIFIER"
 
-def read_watchlist_from_sheets():
+_WATCHLIST_SHEETS_CACHE = {"data": [], "ts": 0}
+_SHARIA_STATUSES_SHEETS_CACHE = {"data": {}, "ts": 0}
+SHEETS_CACHE_TTL = 180  # 3 minutes
+
+def read_watchlist_from_sheets(force_refresh=False):
     """
-    Lit la watchlist depuis la feuille Google Sheets configurée.
-    Si non configurée ou en cas d'erreur, utilise la watchlist en mémoire.
+    Lit la liste des symboles boursiers dans la feuille 'Watchlist' avec cache TTL de 3 minutes.
     """
-    global _local_watchlist_cache
+    global _local_watchlist_cache, _WATCHLIST_SHEETS_CACHE
+    import time
+    now = time.time()
+    if not force_refresh and _WATCHLIST_SHEETS_CACHE["data"] and (now - _WATCHLIST_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+        return _WATCHLIST_SHEETS_CACHE["data"]
+
     client, error = get_sheets_client()
     if error:
         return _local_watchlist_cache
@@ -99,6 +107,7 @@ def read_watchlist_from_sheets():
             worksheet.append_row(["Ticker", "Nom", "Conformité Shariah", "Source Vérification", "Catégorie", "Type de Compte", "Prix"])
             for ticker in _local_watchlist_cache:
                 worksheet.append_row([ticker, "", "TRUE", "AAOIFI", "Tech & IA", "PEA" if ".PA" in ticker else "Compte Dollar (CTO)", ""])
+            _WATCHLIST_SHEETS_CACHE = {"data": _local_watchlist_cache, "ts": now}
             return _local_watchlist_cache
 
         all_rows = worksheet.get_all_values()
@@ -130,26 +139,35 @@ def read_watchlist_from_sheets():
             
         if tickers:
             _local_watchlist_cache = list(dict.fromkeys(tickers)) # Déduplication
+            _WATCHLIST_SHEETS_CACHE = {"data": _local_watchlist_cache, "ts": now}
             return _local_watchlist_cache
+            
+        _WATCHLIST_SHEETS_CACHE = {"data": _local_watchlist_cache, "ts": now}
         return _local_watchlist_cache
     except Exception as e:
-        return _local_watchlist_cache
+        print(f"Warning: read_watchlist_from_sheets failed: {e}")
+        return _WATCHLIST_SHEETS_CACHE["data"] if _WATCHLIST_SHEETS_CACHE["data"] else _local_watchlist_cache
 
-def read_sharia_statuses_from_sheets():
+def read_sharia_statuses_from_sheets(force_refresh=False):
     """
-    Lit les statuts de conformité Sharia pré-renseignés sous forme de cases à cocher dans Google Sheets.
-    Retourne un dictionnaire {TICKER: STATUT}.
+    Lit les statuts de conformité Sharia avec cache TTL de 3 minutes pour éviter les erreurs de quota Google Sheets.
     """
+    global _SHARIA_STATUSES_SHEETS_CACHE
+    import time
+    now = time.time()
+    if not force_refresh and _SHARIA_STATUSES_SHEETS_CACHE["data"] and (now - _SHARIA_STATUSES_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+        return _SHARIA_STATUSES_SHEETS_CACHE["data"]
+
     client, error = get_sheets_client()
     if error:
-        return {}
+        return _SHARIA_STATUSES_SHEETS_CACHE["data"]
 
     try:
         sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
         worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
         all_rows = worksheet.get_all_values()
         if not all_rows:
-            return {}
+            return _SHARIA_STATUSES_SHEETS_CACHE["data"]
 
         header_row_idx = -1
         ticker_col_idx = -1
@@ -167,7 +185,7 @@ def read_sharia_statuses_from_sheets():
                 break
 
         if header_row_idx == -1 or ticker_col_idx == -1 or sharia_col_idx == -1:
-            return {}
+            return _SHARIA_STATUSES_SHEETS_CACHE["data"]
 
         statuses = {}
         for row in all_rows[header_row_idx + 1:]:
@@ -176,9 +194,12 @@ def read_sharia_statuses_from_sheets():
                 s_cell = str(row[sharia_col_idx]).strip()
                 if t:
                     statuses[t] = parse_checkbox_to_sharia(s_cell)
+                    
+        _SHARIA_STATUSES_SHEETS_CACHE = {"data": statuses, "ts": now}
         return statuses
     except Exception as e:
-        return {}
+        print(f"Warning: read_sharia_statuses_from_sheets failed: {e}")
+        return _SHARIA_STATUSES_SHEETS_CACHE["data"]
 
 def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, sharia_status="", source_verif="AAOIFI (Agent Trading)", current_price_str=""):
     """
