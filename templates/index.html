@@ -1727,7 +1727,21 @@
                 }
                 if (byAcc['CTO Dollar']) {
                     document.getElementById('journal-usd-rate').textContent = `${byAcc['CTO Dollar'].win_rate}% Win Rate`;
-                    document.getElementById('journal-usd-pnl').textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${byAcc['CTO Dollar'].pnl.toFixed        function applyJournalFilters() {
+                    document.getElementById('journal-usd-pnl').textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${byAcc['CTO Dollar'].pnl.toFixed(2)} $`;
+                    document.getElementById('journal-usd-count').textContent = `${byAcc['CTO Dollar'].trades} trades clôturés (${byAcc['CTO Dollar'].wins} gagnants / ${byAcc['CTO Dollar'].trades - byAcc['CTO Dollar'].wins} perdants)`;
+                }
+
+                // Nav Badge
+                const navJournal = document.getElementById('nav-journal-count');
+                if (navJournal) navJournal.textContent = allJournalTrades.length;
+
+                applyJournalFilters();
+            } catch (e) {
+                console.error("Erreur chargement Journal:", e);
+            }
+        }
+
+        function applyJournalFilters() {
             const query = (document.getElementById('journal-search-input')?.value || '').trim().toLowerCase();
             const accFilter = document.getElementById('journal-account-filter')?.value || 'all';
             const resFilter = document.getElementById('journal-result-filter')?.value || 'all';
