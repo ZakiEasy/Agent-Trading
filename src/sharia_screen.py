@@ -165,14 +165,9 @@ def screen_ticker(ticker_symbol):
     except Exception as e:
         pass
 
+    from src.market_data import get_ticker_info
+    info = get_ticker_info(ticker_symbol)
     ticker_obj = yf.Ticker(ticker_symbol)
-    info = {}
-    try:
-        raw_info = ticker_obj.info
-        if isinstance(raw_info, dict):
-            info = raw_info
-    except Exception as e:
-        info = {}
 
     # 1. Business Screen
     is_business_compliant, business_reason = check_business_compliance(info)

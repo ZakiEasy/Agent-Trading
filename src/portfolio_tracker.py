@@ -12,6 +12,9 @@ from src.sheets_connector import (
 )
 from src.market_data import get_usd_conversion_rate
 
+_LIVE_QUOTE_CACHE = {}  # symbol -> {"price": float, "day_change": float, "ts": float}
+LIVE_QUOTE_TTL = 60  # 60 secondes
+
 def fetch_live_quote_for_position(pos):
     """
     Récupère le cours en direct, la variation du jour et les métadonnées pour une position active.
@@ -36,21 +39,33 @@ def fetch_live_quote_for_position(pos):
     day_change_pct = 0.0
     currency = pos.get("currency", "EUR" if ".PA" in symbol else "USD")
 
-    try:
-        t = yf.Ticker(symbol)
-        hist = t.history(period="5d")
-        if hist is not None and not hist.empty:
-            closes = hist["Close"].values
-            current_price = float(closes[-1])
-            if len(closes) > 1:
-                prev_close = float(closes[-2])
-                day_change_pct = ((current_price - prev_close) / prev_close) * 100
-        else:
-            info = getattr(t, "info", {})
-            if isinstance(info, dict):
-                current_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or pru)
-    except Exception as e:
-        current_price = pru
+    import time
+    now = time.time()
+    if symbol in _LIVE_QUOTE_CACHE and (now - _LIVE_QUOTE_CACHE[symbol]["ts"]) < LIVE_QUOTE_TTL:
+        current_price = _LIVE_QUOTE_CACHE[symbol]["price"]
+        day_change_pct = _LIVE_QUOTE_CACHE[symbol]["day_change"]
+    else:
+        try:
+            t = yf.Ticker(symbol)
+            hist = t.history(period="5d")
+            if hist is not None and not hist.empty:
+                closes = hist["Close"].values
+                current_price = float(closes[-1])
+                if len(closes) > 1:
+                    prev_close = float(closes[-2])
+                    day_change_pct = ((current_price - prev_close) / prev_close) * 100
+                _LIVE_QUOTE_CACHE[symbol] = {"price": current_price, "day_change": day_change_pct, "ts": now}
+            else:
+                info = getattr(t, "info", {})
+                if isinstance(info, dict):
+                    current_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or pru)
+                    _LIVE_QUOTE_CACHE[symbol] = {"price": current_price, "day_change": 0.0, "ts": now}
+        except Exception as e:
+            if symbol in _LIVE_QUOTE_CACHE:
+                current_price = _LIVE_QUOTE_CACHE[symbol]["price"]
+                day_change_pct = _LIVE_QUOTE_CACHE[symbol]["day_change"]
+            else:
+                current_price = pru
 
     # Calcul P&L
     pnl_unit = current_price - pru

@@ -171,9 +171,50 @@ def detect_rsi_divergence(close_prices, rsi_values, window=25):
         "details": {}
     }
 
+# ---------------------------------------------------------------------
+# IN-MEMORY TTL CACHES & RATE LIMIT RESILIENCE
+# ---------------------------------------------------------------------
+import time
+
+_HIST_CACHE = {}      # symbol -> {"hist": df, "ticker": obj, "ts": timestamp}
+_INFO_CACHE = {}      # symbol -> {"info": dict, "ts": timestamp}
+_FX_CACHE = {}        # currency -> {"rate": float, "ts": timestamp}
+
+HIST_CACHE_TTL = 300  # 5 minutes
+INFO_CACHE_TTL = 900  # 15 minutes
+FX_CACHE_TTL = 1800   # 30 minutes
+
+def get_ticker_info(ticker_symbol):
+    """
+    Récupère les informations fondamentales et sectorielles avec cache TTL de 15 minutes.
+    """
+    symbol = str(ticker_symbol or "").upper().strip()
+    if not symbol:
+        return {}
+        
+    now = time.time()
+    if symbol in _INFO_CACHE and (now - _INFO_CACHE[symbol]["ts"]) < INFO_CACHE_TTL:
+        return _INFO_CACHE[symbol]["info"]
+        
+    info = {}
+    try:
+        t = yf.Ticker(symbol)
+        raw_info = getattr(t, 'info', None)
+        if isinstance(raw_info, dict) and raw_info:
+            info = raw_info
+    except Exception as e:
+        # En cas d'erreur de rate-limit, retourner le cache périmé s'il existe
+        if symbol in _INFO_CACHE:
+            return _INFO_CACHE[symbol]["info"]
+        print(f"Warning: get_ticker_info({symbol}) failed: {e}")
+        
+    if info:
+        _INFO_CACHE[symbol] = {"info": info, "ts": now}
+    return info
+
 def get_usd_conversion_rate(currency_code):
     """
-    Récupère le taux de conversion depuis une autre devise vers le USD.
+    Récupère le taux de conversion vers le USD avec cache TTL de 30 minutes.
     """
     if not currency_code:
         return 1.0
@@ -181,35 +222,69 @@ def get_usd_conversion_rate(currency_code):
     if currency_code == "USD":
         return 1.0
         
+    now = time.time()
+    if currency_code in _FX_CACHE and (now - _FX_CACHE[currency_code]["ts"]) < FX_CACHE_TTL:
+        return _FX_CACHE[currency_code]["rate"]
+        
     factor = 1.0
-    if currency_code in ["GBX", "GBP"]:
-        currency_code = "GBP"
+    lookup_code = currency_code
+    if lookup_code in ["GBX", "GBP"]:
+        lookup_code = "GBP"
         if currency_code == "GBX":
             factor = 0.01
 
-    ticker_name = f"{currency_code}USD=X"
+    rate = 1.0
     try:
-        t = yf.Ticker(ticker_name)
+        t = yf.Ticker(f"{lookup_code}USD=X")
         hist = t.history(period="1d")
         if not hist.empty:
-            return float(hist['Close'].values[-1]) * factor
+            rate = float(hist['Close'].values[-1]) * factor
         else:
-            t_inv = yf.Ticker(f"USD{currency_code}=X")
+            t_inv = yf.Ticker(f"USD{lookup_code}=X")
             hist_inv = t_inv.history(period="1d")
             if not hist_inv.empty:
-                return (1.0 / float(hist_inv['Close'].values[-1])) * factor
+                rate = (1.0 / float(hist_inv['Close'].values[-1])) * factor
     except Exception as e:
+        if currency_code in _FX_CACHE:
+            return _FX_CACHE[currency_code]["rate"]
         print(f"Error fetching exchange rate for {currency_code}: {e}")
-    return 1.0
+        
+    _FX_CACHE[currency_code] = {"rate": rate, "ts": now}
+    return rate
 
 def fetch_market_data(ticker_symbol):
     """
-    Récupère les données de marché historiques et actuelles.
-    Garde nativement le USD et EUR. Récupère 300 jours d'historique pour la SMA 200.
+    Récupère les données historiques de cours avec cache TTL de 5 minutes et gestion de reprise en cas de rate-limit.
     """
-    ticker_obj = yf.Ticker(ticker_symbol)
-    hist = ticker_obj.history(period="300d")
+    symbol = str(ticker_symbol or "").upper().strip()
+    if not symbol:
+        return None, "Symbole invalide."
+        
+    now = time.time()
+    if symbol in _HIST_CACHE and (now - _HIST_CACHE[symbol]["ts"]) < HIST_CACHE_TTL:
+        cached = _HIST_CACHE[symbol]
+        return cached["ticker"], cached["hist"].copy()
+
+    ticker_obj = yf.Ticker(symbol)
+    hist = None
+    
+    # 2 essais avec backoff
+    for attempt in range(2):
+        try:
+            hist = ticker_obj.history(period="300d")
+            if hist is not None and not hist.empty:
+                break
+        except Exception as e:
+            if attempt == 0:
+                time.sleep(0.4)
+            else:
+                print(f"Warning: fetch_market_data({symbol}) attempt {attempt+1} failed: {e}")
+                
     if hist is None or hist.empty:
+        # Si échec mais cache disponible (même périmé), l'utiliser en secours
+        if symbol in _HIST_CACHE:
+            cached = _HIST_CACHE[symbol]
+            return cached["ticker"], cached["hist"].copy()
         return None, "Aucun historique de cours disponible."
         
     hist = hist.dropna(subset=['Close'])
@@ -240,6 +315,7 @@ def fetch_market_data(ticker_symbol):
         currency = target_currency
         
     hist.attrs['currency'] = currency
+    _HIST_CACHE[symbol] = {"ticker": ticker_obj, "hist": hist, "ts": now}
     return ticker_obj, hist
 
 def calculate_qqe(close_prices, rsi_period=14, sf=5, wilder_period=27):
@@ -284,14 +360,10 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None):
     - Capitalisation boursière Large/Mid Cap (> 2 Mrd $/€)
     - Free Cash Flow récurrent et marges opérationnelles solides
     """
-    if info is None or not isinstance(info, dict):
-        try:
-            raw_info = getattr(ticker_obj, 'info', None)
-            info = raw_info if isinstance(raw_info, dict) else {}
-        except:
-            info = {}
+    sym = symbol or (info.get("symbol", "") if isinstance(info, dict) else "")
+    if info is None or not isinstance(info, dict) or not info:
+        info = get_ticker_info(sym) if sym else {}
             
-    sym = symbol or info.get("symbol", "")
     cat_meta = categorize_ticker(sym, info)
     
     market_cap = info.get("marketCap", 0) or 0

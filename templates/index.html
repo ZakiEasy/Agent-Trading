@@ -987,7 +987,9 @@
                         </div>
                     </div>
 
-        </div>
+                </div> <!-- closes right-col -->
+            </div> <!-- closes dashboard-grid -->
+        </div> <!-- closes dashboard-tab -->
 
         <!-- ================================================================= -->
         <!-- TAB : POSITIONS EN COURS (LIVE TRACKING) -->
@@ -1208,6 +1210,11 @@
             </div>
 
         </div>
+
+        <!-- ================================================================= -->
+        <!-- TAB : ASSISTANT CHAT -->
+        <!-- ================================================================= -->
+        <div id="chat-tab" class="tab-content">
             <div class="glass-card" style="margin-bottom: 1rem; padding: 1rem;">
                 <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">💡 Suggestions de requêtes rapides :</h3>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -1720,38 +1727,26 @@
                 }
                 if (byAcc['CTO Dollar']) {
                     document.getElementById('journal-usd-rate').textContent = `${byAcc['CTO Dollar'].win_rate}% Win Rate`;
-                    document.getElementById('journal-usd-pnl').textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${byAcc['CTO Dollar'].pnl.toFixed(2)} $`;
-                    document.getElementById('journal-usd-count').textContent = `${byAcc['CTO Dollar'].trades} trades clôturés (${byAcc['CTO Dollar'].wins} gagnants / ${byAcc['CTO Dollar'].trades - byAcc['CTO Dollar'].wins} perdants)`;
-                }
-
-                // Nav Badge
-                const navJournal = document.getElementById('nav-journal-count');
-                if (navJournal) navJournal.textContent = allJournalTrades.length;
-
-                applyJournalFilters();
-            } catch (e) {
-                console.error("Erreur chargement Journal:", e);
-            }
-        }
-
-        function applyJournalFilters() {
+                    document.getElementById('journal-usd-pnl').textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${byAcc['CTO Dollar'].pnl.toFixed        function applyJournalFilters() {
             const query = (document.getElementById('journal-search-input')?.value || '').trim().toLowerCase();
             const accFilter = document.getElementById('journal-account-filter')?.value || 'all';
             const resFilter = document.getElementById('journal-result-filter')?.value || 'all';
 
-            filteredJournalTrades = allJournalTrades.filter(t => {
+            filteredJournalTrades = (allJournalTrades || []).filter(t => {
                 const sym = (t.symbol || '').toLowerCase();
                 const name = (t.name || '').toLowerCase();
                 if (query && !sym.includes(query) && !name.includes(query)) return false;
 
+                const acc = (t.account || '');
                 if (accFilter !== 'all') {
-                    if (accFilter === 'PEA' && !t.account.includes('PEA')) return false;
-                    if (accFilter === 'CTO Euro' && !t.account.includes('Euro')) return false;
-                    if (accFilter === 'CTO Dollar' && !t.account.includes('Dollar')) return false;
+                    if (accFilter === 'PEA' && !acc.includes('PEA')) return false;
+                    if (accFilter === 'CTO Euro' && !acc.includes('Euro')) return false;
+                    if (accFilter === 'CTO Dollar' && !acc.includes('Dollar')) return false;
                 }
 
-                if (resFilter === 'win' && t.pnl_amount < 0) return false;
-                if (resFilter === 'loss' && t.pnl_amount >= 0) return false;
+                const pnl = Number(t.pnl_amount) || 0;
+                if (resFilter === 'win' && pnl < 0) return false;
+                if (resFilter === 'loss' && pnl >= 0) return false;
 
                 return true;
             });
@@ -1765,22 +1760,29 @@
 
         function renderJournalTable() {
             const tbody = document.getElementById('journal-table-body');
+            if (!tbody) return;
             tbody.innerHTML = '';
 
             const total = filteredJournalTrades.length;
-            document.getElementById('journal-filtered-count').textContent = total;
+            const countElem = document.getElementById('journal-filtered-count');
+            if (countElem) countElem.textContent = total;
 
             const totalPages = Math.max(1, Math.ceil(total / JOURNAL_PAGE_SIZE));
-            document.getElementById('journal-total-pages').textContent = totalPages;
-            document.getElementById('journal-current-page').textContent = journalCurrentPage;
+            const totPagesElem = document.getElementById('journal-total-pages');
+            if (totPagesElem) totPagesElem.textContent = totalPages;
+            const curPageElem = document.getElementById('journal-current-page');
+            if (curPageElem) curPageElem.textContent = journalCurrentPage;
 
             const startIdx = (journalCurrentPage - 1) * JOURNAL_PAGE_SIZE;
             const endIdx = Math.min(total, startIdx + JOURNAL_PAGE_SIZE);
 
-            document.getElementById('journal-page-summary').textContent = total > 0 ? `Affichage ${startIdx + 1} à ${endIdx} sur ${total} trades` : `0 trade trouvé`;
+            const summaryElem = document.getElementById('journal-page-summary');
+            if (summaryElem) summaryElem.textContent = total > 0 ? `Affichage ${startIdx + 1} à ${endIdx} sur ${total} trades` : `0 trade trouvé`;
 
-            document.getElementById('btn-journal-prev').disabled = journalCurrentPage <= 1;
-            document.getElementById('btn-journal-next').disabled = journalCurrentPage >= totalPages;
+            const prevBtn = document.getElementById('btn-journal-prev');
+            if (prevBtn) prevBtn.disabled = journalCurrentPage <= 1;
+            const nextBtn = document.getElementById('btn-journal-next');
+            if (nextBtn) nextBtn.disabled = journalCurrentPage >= totalPages;
 
             if (total === 0) {
                 tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:3rem;">Aucun trade trouvé pour ces critères de recherche.</td></tr>`;
@@ -1791,14 +1793,21 @@
             pageSlice.forEach(t => {
                 const tr = document.createElement('tr');
                 const symChar = t.currency === 'EUR' ? '€' : '$';
-                const isWin = t.pnl_amount >= 0;
+                const pnlAmt = Number(t.pnl_amount) || 0;
+                const pnlPct = Number(t.pnl_pct) || 0;
+                const pruVal = Number(t.pru) || 0;
+                const exitVal = Number(t.exit_price) || 0;
+                const qtyVal = Number(t.quantity) || 0;
+                const invVal = Number(t.invested_amount) || (pruVal * qtyVal);
+
+                const isWin = pnlAmt >= 0;
                 const pnlColor = isWin ? 'var(--success)' : 'var(--danger)';
 
                 const isPea = t.account && t.account.includes('PEA');
                 const isUsd = t.account && t.account.includes('Dollar');
                 const accBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' : '<span class="badge badge-success">💶 CTO EUR</span>';
 
-                const closeDateStr = t.close_time ? t.close_time.substring(0, 10) : (t.open_time ? t.open_time.substring(0, 10) : '--');
+                const closeDateStr = t.close_time ? String(t.close_time).substring(0, 10) : (t.open_time ? String(t.open_time).substring(0, 10) : '--');
 
                 tr.innerHTML = `
                     <td style="font-size:0.85rem; white-space:nowrap;">${closeDateStr}</td>
@@ -1807,15 +1816,15 @@
                         <span style="font-size:0.75rem; color:var(--text-muted);">${t.name || ''}</span>
                     </td>
                     <td>${accBadge}</td>
-                    <td>${t.pru.toFixed(2)} ${symChar}</td>
-                    <td>${t.exit_price.toFixed(2)} ${symChar}</td>
-                    <td>${t.quantity}</td>
-                    <td>${t.invested_amount ? t.invested_amount.toFixed(2) : (t.pru * t.quantity).toFixed(2)} ${symChar}</td>
+                    <td>${pruVal.toFixed(2)} ${symChar}</td>
+                    <td>${exitVal.toFixed(2)} ${symChar}</td>
+                    <td>${qtyVal}</td>
+                    <td>${invVal.toFixed(2)} ${symChar}</td>
                     <td>
-                        <strong style="color:${pnlColor}; font-size: 0.95rem;">${isWin ? '+' : ''}${t.pnl_amount.toFixed(2)} ${symChar}</strong>
+                        <strong style="color:${pnlColor}; font-size: 0.95rem;">${isWin ? '+' : ''}${pnlAmt.toFixed(2)} ${symChar}</strong>
                     </td>
                     <td>
-                        <span style="color:${pnlColor}; font-weight:600; font-size:0.85rem;">${isWin ? '+' : ''}${t.pnl_pct.toFixed(2)}%</span>
+                        <span style="color:${pnlColor}; font-weight:600; font-size:0.85rem;">${isWin ? '+' : ''}${pnlPct.toFixed(2)}%</span>
                     </td>
                     <td style="font-size:0.8rem; color:var(--text-muted);">
                         ${t.days_held ? `${t.days_held} j` : '--'}
@@ -1841,7 +1850,7 @@
             if (!confirm("Voulez-vous synchroniser l'ensemble des fichiers Excel XTB historiques (positions fermées et ouvertes) ?")) return;
 
             const tbody = document.getElementById('journal-table-body');
-            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#60a5fa; padding:3rem;">⏳ Resynchronisation des 6 fichiers d'historique en cours...</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#60a5fa; padding:3rem;">⏳ Resynchronisation des 6 fichiers d'historique en cours...</td></tr>`;
 
             try {
                 const res = await fetch(`${API_URL}/portfolio/import_all_history`, { method: 'POST' });
@@ -1866,53 +1875,71 @@
 
         async function loadLivePortfolio() {
             const tbody = document.getElementById('portfolio-table-body');
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#60a5fa; padding:2rem;">⏳ Actualisation des cours en direct...</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#60a5fa; padding:2rem;">⏳ Actualisation des cours en direct...</td></tr>`;
 
             try {
                 const res = await fetch(`${API_URL}/portfolio/live`);
                 const payload = await res.json();
                 if (!payload.success || !payload.data) {
-                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur lors du chargement des positions.</td></tr>`;
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur lors du chargement des positions.</td></tr>`;
                     return;
                 }
 
                 const d = payload.data;
                 livePortfolioData = d;
 
-                // Update KPIs
-                document.getElementById('port-total-invested').textContent = `${d.total_invested.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-                document.getElementById('port-total-value').textContent = `${d.total_current_value.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                // Update KPIs safely
+                const invElem = document.getElementById('port-total-invested');
+                if (invElem) invElem.textContent = `${(Number(d.total_invested) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+                const valElem = document.getElementById('port-total-value');
+                if (valElem) valElem.textContent = `${(Number(d.total_current_value) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
                 
+                const pnlAmount = Number(d.total_pnl_amount) || 0;
+                const pnlPct = Number(d.total_pnl_pct) || 0;
+
                 const pnlElem = document.getElementById('port-total-pnl');
-                pnlElem.textContent = `${d.total_pnl_amount >= 0 ? '+' : ''}${d.total_pnl_amount.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-                pnlElem.style.color = d.total_pnl_amount >= 0 ? 'var(--success)' : 'var(--danger)';
+                if (pnlElem) {
+                    pnlElem.textContent = `${pnlAmount >= 0 ? '+' : ''}${pnlAmount.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                    pnlElem.style.color = pnlAmount >= 0 ? 'var(--success)' : 'var(--danger)';
+                }
 
                 const pnlPctElem = document.getElementById('port-total-pnl-pct');
-                pnlPctElem.textContent = `${d.total_pnl_pct >= 0 ? '+' : ''}${d.total_pnl_pct.toFixed(2)} %`;
-                pnlPctElem.style.color = d.total_pnl_pct >= 0 ? 'var(--success)' : 'var(--danger)';
+                if (pnlPctElem) {
+                    pnlPctElem.textContent = `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)} %`;
+                    pnlPctElem.style.color = pnlPct >= 0 ? 'var(--success)' : 'var(--danger)';
+                }
 
-                document.getElementById('port-open-count').textContent = `${d.open_positions_count} position(s) active(s)`;
-                document.getElementById('port-alerts-count').textContent = `${d.alerts_count}`;
-                document.getElementById('port-alerts-count').style.color = d.alerts_count > 0 ? '#fbbf24' : '#60a5fa';
+                const openCountElem = document.getElementById('port-open-count');
+                if (openCountElem) openCountElem.textContent = `${d.open_positions_count || 0} position(s) active(s)`;
+
+                const alertsCountElem = document.getElementById('port-alerts-count');
+                if (alertsCountElem) {
+                    alertsCountElem.textContent = `${d.alerts_count || 0}`;
+                    alertsCountElem.style.color = (d.alerts_count || 0) > 0 ? '#fbbf24' : '#60a5fa';
+                }
 
                 // Nav Alerts Badge
                 const navBadge = document.getElementById('nav-alerts-badge');
-                if (d.alerts_count > 0) {
-                    navBadge.textContent = d.alerts_count;
-                    navBadge.style.display = 'inline-block';
-                } else {
-                    navBadge.style.display = 'none';
+                if (navBadge) {
+                    if ((d.alerts_count || 0) > 0) {
+                        navBadge.textContent = d.alerts_count;
+                        navBadge.style.display = 'inline-block';
+                    } else {
+                        navBadge.style.display = 'none';
+                    }
                 }
 
-                renderPortfolioTable(d.positions);
+                renderPortfolioTable(d.positions || []);
             } catch (e) {
-                console.error(e);
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur réseau: ${e.message}</td></tr>`;
+                console.error("Erreur live portfolio:", e);
+                if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur réseau: ${e.message}</td></tr>`;
             }
         }
 
         function renderPortfolioTable(positions) {
             const tbody = document.getElementById('portfolio-table-body');
+            if (!tbody) return;
             tbody.innerHTML = '';
 
             if (!positions || positions.length === 0) {
@@ -1921,10 +1948,10 @@
                         <td colspan="9" style="text-align:center; color:var(--text-muted); padding:3.5rem 1rem;">
                             <div style="font-size: 2rem; margin-bottom: 0.5rem;">💼</div>
                             <strong>Aucune position ouverte actuellement dans votre portefeuille.</strong><br>
-                            <span style="font-size: 0.85rem;">Ajoutez une position manuellement ou importez votre relevé CSV (XTB / Courtier).</span><br>
+                            <span style="font-size: 0.85rem;">Ajoutez une position manuellement ou importez votre relevé CSV / Excel (XTB / Courtier).</span><br>
                             <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem; justify-content: center;">
                                 <button class="btn btn-primary" onclick="openAddPositionModal()">➕ Ajouter une Position</button>
-                                <button class="btn btn-secondary" onclick="openUploadCsvModal()">📂 Importer CSV</button>
+                                <button class="btn btn-secondary" onclick="openUploadCsvModal()">📂 Importer Fichier</button>
                             </div>
                         </td>
                     </tr>
@@ -1935,7 +1962,18 @@
             positions.forEach(p => {
                 const tr = document.createElement('tr');
                 const symChar = p.currency === "EUR" ? "€" : "$";
-                const isProfit = p.pnl_amount >= 0;
+                const pru = Number(p.pru) || 0;
+                const cur = Number(p.current_price) || pru;
+                const qty = Number(p.quantity) || 1;
+                const sl = Number(p.stop_loss) || (pru * 0.97);
+                const tp1 = Number(p.tp1) || (pru * 1.0125);
+                const tp2 = Number(p.tp2) || (pru * 1.0225);
+                const pnlAmt = Number(p.pnl_amount) || 0;
+                const pnlPct = Number(p.pnl_pct) || 0;
+                const dayChange = Number(p.day_change_pct) || 0;
+                const invAmt = Number(p.invested_amount) || (pru * qty);
+
+                const isProfit = pnlAmt >= 0;
                 const pnlColor = isProfit ? 'var(--success)' : 'var(--danger)';
 
                 // Badges
@@ -1947,20 +1985,15 @@
                 else if (p.status_badge === 'in_profit') statusBadgeClass = 'badge-success';
 
                 const isPea = p.account && p.account.includes("PEA");
-                const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : '<span class="badge badge-cto">🇺🇸 CTO</span>';
+                const isUsd = p.account && p.account.includes("Dollar");
+                const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' : '<span class="badge badge-success">💶 CTO EUR</span>';
 
                 // Target Progress Track Calculation
-                const sl = p.stop_loss;
-                const pru = p.pru;
-                const tp1 = p.tp1;
-                const tp2 = p.tp2;
-                const cur = p.current_price;
-                
                 let progressPercent = 50;
                 if (cur <= sl) progressPercent = 5;
                 else if (cur >= tp2) progressPercent = 95;
-                else if (cur < pru) progressPercent = 20 + ((cur - sl) / (pru - sl) * 30);
-                else progressPercent = 50 + ((cur - pru) / (tp2 - pru) * 45);
+                else if (cur < pru && (pru - sl) > 0) progressPercent = 20 + ((cur - sl) / (pru - sl) * 30);
+                else if ((tp2 - pru) > 0) progressPercent = 50 + ((cur - pru) / (tp2 - pru) * 45);
 
                 const trackColor = cur >= tp1 ? '#22c55e' : cur >= pru ? '#3b82f6' : '#ef4444';
 
@@ -1971,20 +2004,20 @@
                     </td>
                     <td>${accountBadge}</td>
                     <td>
-                        <span style="font-size:0.85rem;">${p.entry_date}</span><br>
-                        <span style="font-size:0.75rem; color:${p.days_held >= 15 ? 'var(--warning)' : 'var(--text-muted)'};">⏱️ ${p.days_held} jour(s)</span>
+                        <span style="font-size:0.85rem;">${p.entry_date || '--'}</span><br>
+                        <span style="font-size:0.75rem; color:${(p.days_held || 0) >= 15 ? 'var(--warning)' : 'var(--text-muted)'};">⏱️ ${p.days_held || 0} jour(s)</span>
                     </td>
                     <td>
-                        <strong>${p.pru.toFixed(2)} ${symChar}</strong><br>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">${p.quantity} actions (${p.invested_amount.toFixed(2)} ${symChar})</span>
+                        <strong>${pru.toFixed(2)} ${symChar}</strong><br>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">${qty} actions (${invAmt.toFixed(2)} ${symChar})</span>
                     </td>
                     <td>
-                        <strong style="font-size: 0.95rem;">${p.current_price.toFixed(2)} ${symChar}</strong><br>
-                        <span style="font-size:0.75rem; color:${p.day_change_pct >= 0 ? 'var(--success)' : 'var(--danger)'};">${p.day_change_pct >= 0 ? '+' : ''}${p.day_change_pct.toFixed(2)}% auj.</span>
+                        <strong style="font-size: 0.95rem;">${cur.toFixed(2)} ${symChar}</strong><br>
+                        <span style="font-size:0.75rem; color:${dayChange >= 0 ? 'var(--success)' : 'var(--danger)'};">${dayChange >= 0 ? '+' : ''}${dayChange.toFixed(2)}% auj.</span>
                     </td>
                     <td>
-                        <strong style="color:${pnlColor}; font-size: 0.95rem;">${isProfit ? '+' : ''}${p.pnl_amount.toFixed(2)} ${symChar}</strong><br>
-                        <span style="color:${pnlColor}; font-size:0.75rem; font-weight:600;">${isProfit ? '+' : ''}${p.pnl_pct.toFixed(2)}%</span>
+                        <strong style="color:${pnlColor}; font-size: 0.95rem;">${isProfit ? '+' : ''}${pnlAmt.toFixed(2)} ${symChar}</strong><br>
+                        <span style="color:${pnlColor}; font-size:0.75rem; font-weight:600;">${isProfit ? '+' : ''}${pnlPct.toFixed(2)}%</span>
                     </td>
                     <td>
                         <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
@@ -1994,19 +2027,19 @@
                             <span title="TP2 (+2.25%)" style="color:#22c55e;">TP2 ${tp2.toFixed(2)}</span>
                         </div>
                         <div class="ratio-bar-outer" style="height: 8px; margin-top: 0.35rem; position: relative;">
-                            <div class="ratio-bar-inner" style="width: ${progressPercent}%; background: ${trackColor};"></div>
+                            <div class="ratio-bar-inner" style="width: ${Math.max(5, Math.min(progressPercent, 95))}%; background: ${trackColor};"></div>
                         </div>
                     </td>
                     <td>
-                        <span class="badge ${statusBadgeClass}">${p.status_label}</span><br>
-                        <span style="font-size:0.75rem; color:var(--text-muted); line-height:1.2; display:block; margin-top:0.25rem;">${p.status_action}</span>
+                        <span class="badge ${statusBadgeClass}">${p.status_label || 'EN COURS'}</span><br>
+                        <span style="font-size:0.75rem; color:var(--text-muted); line-height:1.2; display:block; margin-top:0.25rem;">${p.status_action || ''}</span>
                     </td>
                     <td style="text-align: right;">
                         <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
                             <button class="btn btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="showTickerDetail('${p.symbol}')" title="Voir le rapport en 8 étapes">
                                 🔍
                             </button>
-                            <button class="btn btn-success" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="openClosePositionModal('${p.id}', '${p.symbol}', ${p.pru}, ${p.quantity}, ${p.current_price}, '${p.currency}')" title="Clôturer cette position">
+                            <button class="btn btn-success" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="openClosePositionModal('${p.id}', '${p.symbol}', ${pru}, ${qty}, ${cur}, '${p.currency}')" title="Clôturer cette position">
                                 💰 Sortir
                             </button>
                         </div>
