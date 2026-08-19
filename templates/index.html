@@ -735,6 +735,9 @@
             <button class="nav-btn" data-tab="portfolio" onclick="switchTab('portfolio')">
                 <span>💼</span> Positions en Cours (Live) <span id="nav-alerts-badge" class="badge badge-warning" style="display:none; font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">0</span>
             </button>
+            <button class="nav-btn" data-tab="journal" onclick="switchTab('journal')">
+                <span>📖</span> Journal de Trading <span id="nav-journal-count" class="badge badge-primary" style="font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">397</span>
+            </button>
             <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">
                 <span>💬</span> Assistant Chat
             </button>
@@ -1065,8 +1068,146 @@
             </div>
 
         </div>
+
         <!-- ================================================================= -->
-        <div id="chat-tab" class="tab-content">
+        <!-- TAB : JOURNAL DE TRADING & HISTORIQUE (397+ TRADES) -->
+        <!-- ================================================================= -->
+        <div id="journal-tab" class="tab-content">
+            
+            <!-- Performance Summary KPIs Grid -->
+            <div class="metrics-grid" style="margin-bottom: 1.5rem;">
+                <div class="metric-card">
+                    <div class="metric-title">💰 P&L Total Réalisé (EUR / USD)</div>
+                    <div class="metric-value" id="journal-total-pnl" style="color: var(--success);">+4 327.89 €</div>
+                    <div class="metric-subtitle" id="journal-total-pnl-usd">+476.29 $ (CTO US)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">🎯 Taux de Réussite (Win Rate)</div>
+                    <div class="metric-value" id="journal-win-rate" style="color: #60a5fa;">83.1 %</div>
+                    <div class="metric-subtitle" id="journal-win-loss-count">330 Gagnants / 67 Perdants</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">⚖️ Profit Factor (Gains / Pertes)</div>
+                    <div class="metric-value" id="journal-profit-factor" style="color: #a78bfa;">7.97</div>
+                    <div class="metric-subtitle">Excellente espérance mathématique</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">📈 Gain Moyen vs Perte Moyenne</div>
+                    <div class="metric-value" id="journal-avg-gain" style="font-size: 1.35rem;">+16.65 €</div>
+                    <div class="metric-subtitle" id="journal-avg-loss" style="color: var(--danger);">-10.28 € (Ratio 1.62)</div>
+                </div>
+            </div>
+
+            <!-- Breakdown by Account Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div class="glass-card" style="padding: 1.25rem; border-left: 4px solid #3b82f6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong>🇫🇷 Compte PEA (Europe)</strong>
+                        <span class="badge badge-pea" id="journal-pea-rate">92.6% Win Rate</span>
+                    </div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--success);" id="journal-pea-pnl">+266.54 €</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="journal-pea-count">27 trades clôturés (25 gagnants / 2 perdants)</div>
+                </div>
+                <div class="glass-card" style="padding: 1.25rem; border-left: 4px solid #10b981;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong>💶 Compte Euro (CTO)</strong>
+                        <span class="badge badge-success" id="journal-eur-rate">81.2% Win Rate</span>
+                    </div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--success);" id="journal-eur-pnl">+4 061.35 €</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="journal-eur-count">314 trades clôturés (255 gagnants / 59 perdants)</div>
+                </div>
+                <div class="glass-card" style="padding: 1.25rem; border-left: 4px solid #8b5cf6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong>🇺🇸 Compte Dollar (CTO US)</strong>
+                        <span class="badge badge-cto" id="journal-usd-rate">89.3% Win Rate</span>
+                    </div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--success);" id="journal-usd-pnl">+476.29 $</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="journal-usd-count">56 trades clôturés (50 gagnants / 6 perdants)</div>
+                </div>
+            </div>
+
+            <!-- Filters & Actions Toolbar -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                        <input type="text" id="journal-search-input" class="text-input" placeholder="🔍 Filtrer par Ticker ou Société..." style="width: 220px; font-size: 0.85rem;" oninput="applyJournalFilters()">
+                        
+                        <select id="journal-account-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyJournalFilters()">
+                            <option value="all">Tous les comptes</option>
+                            <option value="PEA">🇫🇷 PEA uniquement</option>
+                            <option value="CTO Euro">💶 CTO Euro</option>
+                            <option value="CTO Dollar">🇺🇸 CTO Dollar (US)</option>
+                        </select>
+
+                        <select id="journal-result-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyJournalFilters()">
+                            <option value="all">Tous les résultats</option>
+                            <option value="win">Gagnants uniquement 🟢</option>
+                            <option value="loss">Pertes uniquement 🔴</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="openUploadCsvModal()">
+                            📂 Importer Fichier (XLSX / CSV)
+                        </button>
+                        <button class="btn btn-primary" onclick="syncAllHistoryFiles()">
+                            ⚡ Resynchroniser Historique
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Closed Trades Table -->
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                        Historique Détaillé (<span id="journal-filtered-count">0</span> trades affichés)
+                    </h3>
+                    <div id="journal-pagination-info" style="font-size: 0.8rem; color: var(--text-muted);">
+                        Page <span id="journal-current-page">1</span> / <span id="journal-total-pages">1</span>
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="journal-table">
+                        <thead>
+                            <tr>
+                                <th>Date Sortie</th>
+                                <th>Ticker & Société</th>
+                                <th>Compte</th>
+                                <th>PRU Achat</th>
+                                <th>Prix Sortie</th>
+                                <th>Quantité</th>
+                                <th>Capital Investi</th>
+                                <th>P&L Net Réalisé</th>
+                                <th>P&L (%)</th>
+                                <th>Durée</th>
+                                <th style="text-align: right;">Résultat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="journal-table-body">
+                            <tr>
+                                <td colspan="11" style="text-align:center; color:var(--text-muted); padding:3rem;">
+                                    Chargement du Journal de Trading...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Table Pagination Controls -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--card-border);">
+                    <button class="btn btn-secondary" id="btn-journal-prev" onclick="changeJournalPage(-1)" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                        ⬅️ Page précédente
+                    </button>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);" id="journal-page-summary">Affichage 1-50</span>
+                    <button class="btn btn-secondary" id="btn-journal-next" onclick="changeJournalPage(1)" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                        Page suivante ➡️
+                    </button>
+                </div>
+            </div>
+
+        </div>
             <div class="glass-card" style="margin-bottom: 1rem; padding: 1rem;">
                 <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">💡 Suggestions de requêtes rapides :</h3>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -1454,24 +1595,34 @@
     </div>
 
     <!-- ===================================================================== -->
-    <!-- MODAL : IMPORTER CSV (XTB / COURTIER) -->
+    <!-- MODAL : IMPORTER RAPPORT (EXCEL .XLSX / CSV XTB) -->
     <!-- ===================================================================== -->
     <div class="modal-overlay" id="upload-csv-modal">
         <div class="modal-box">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📂 Importer un Relevé de Positions (CSV)</h3>
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📂 Importer un Rapport XTB / Courtier (Excel ou CSV)</h3>
                 <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeUploadCsvModal()">✕</button>
             </div>
             <div class="modal-body">
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    Sélectionnez le fichier CSV exporté depuis <strong>XTB</strong> (Onglet 'Positions Ouvertes' &gt; Exporter) ou votre courtier (DeGiro, Bourse Direct, Interactive Brokers).
+                    Sélectionnez un fichier exporté depuis <strong>XTB</strong> (format <code>.xlsx</code> ou <code>.csv</code>) ou votre courtier. Les positions fermées seront ajoutées au <strong>Journal de Trading</strong> et les positions ouvertes au <strong>Suivi Live</strong>.
                 </p>
 
-                <div style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 2rem; text-align: center; margin-bottom: 1rem; background: rgba(0,0,0,0.2);">
-                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
-                    <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display: none;" onchange="onCsvFileSelected()">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Compte Associé</label>
+                    <select id="csv-account-select">
+                        <option value="auto">Auto-détection (via nom de fichier ou contenu)</option>
+                        <option value="PEA">🇫🇷 Compte PEA (Europe)</option>
+                        <option value="CTO Euro">💶 Compte Euro (CTO)</option>
+                        <option value="CTO Dollar">🇺🇸 Compte Dollar (CTO US)</option>
+                    </select>
+                </div>
+
+                <div style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 1.75rem; text-align: center; margin-bottom: 1rem; background: rgba(0,0,0,0.2);">
+                    <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📊</div>
+                    <input type="file" id="csv-file-input" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display: none;" onchange="onCsvFileSelected()">
                     <button class="btn btn-primary" onclick="document.getElementById('csv-file-input').click()">
-                        Choisir un fichier CSV
+                        Choisir un fichier (.xlsx ou .csv)
                     </button>
                     <div id="csv-file-name" style="margin-top: 0.75rem; font-size: 0.85rem; color: #60a5fa;">Aucun fichier sélectionné</div>
                 </div>
@@ -1481,7 +1632,7 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeUploadCsvModal()">Annuler</button>
                 <button class="btn btn-success" id="btn-submit-upload-csv" onclick="submitUploadCsv()" disabled>
-                    📥 Importer dans le Suivi Live
+                    📥 Lancer l'Importation
                 </button>
             </div>
         </div>
@@ -1501,6 +1652,7 @@
             recalculateRMaxTool();
             runSimulation();
             loadLivePortfolio();
+            loadJournalHistory();
         });
 
         // ---------------------------------------------------------------------
@@ -1518,8 +1670,191 @@
 
             if (tabId === 'portfolio') {
                 loadLivePortfolio();
+            } else if (tabId === 'journal') {
+                loadJournalHistory();
             } else if (tabId === 'simulation') {
                 runSimulation();
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // TRADING JOURNAL & PERFORMANCE ANALYTICS
+        // ---------------------------------------------------------------------
+        let allJournalTrades = [];
+        let filteredJournalTrades = [];
+        let journalCurrentPage = 1;
+        const JOURNAL_PAGE_SIZE = 50;
+
+        async function loadJournalHistory() {
+            try {
+                const res = await fetch(`${API_URL}/journal/history`);
+                const payload = await res.json();
+                if (!payload.success || !payload.trades) return;
+
+                allJournalTrades = payload.trades;
+                const stats = payload.stats || {};
+
+                // Update Performance KPIs
+                const pnlEurElem = document.getElementById('journal-total-pnl');
+                pnlEurElem.textContent = `${stats.total_pnl_eur >= 0 ? '+' : ''}${stats.total_pnl_eur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                pnlEurElem.style.color = stats.total_pnl_eur >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                document.getElementById('journal-total-pnl-usd').textContent = `${stats.total_pnl_usd >= 0 ? '+' : ''}${stats.total_pnl_usd.toFixed(2)} $ (CTO US)`;
+                document.getElementById('journal-win-rate').textContent = `${stats.win_rate || 0} %`;
+                document.getElementById('journal-win-loss-count').textContent = `${stats.winning_trades || 0} Gagnants / ${stats.losing_trades || 0} Perdants`;
+                document.getElementById('journal-profit-factor').textContent = `${stats.profit_factor || 0}`;
+                document.getElementById('journal-avg-gain').textContent = `+${stats.avg_gain || 0} €`;
+                document.getElementById('journal-avg-loss').textContent = `-${stats.avg_loss || 0} € (Ratio ${stats.gain_loss_ratio || 0})`;
+
+                // Update Account Breakdown
+                const byAcc = stats.by_account || {};
+                if (byAcc['PEA']) {
+                    document.getElementById('journal-pea-rate').textContent = `${byAcc['PEA'].win_rate}% Win Rate`;
+                    document.getElementById('journal-pea-pnl').textContent = `${byAcc['PEA'].pnl >= 0 ? '+' : ''}${byAcc['PEA'].pnl.toFixed(2)} €`;
+                    document.getElementById('journal-pea-count').textContent = `${byAcc['PEA'].trades} trades clôturés (${byAcc['PEA'].wins} gagnants / ${byAcc['PEA'].trades - byAcc['PEA'].wins} perdants)`;
+                }
+                if (byAcc['CTO Euro']) {
+                    document.getElementById('journal-eur-rate').textContent = `${byAcc['CTO Euro'].win_rate}% Win Rate`;
+                    document.getElementById('journal-eur-pnl').textContent = `${byAcc['CTO Euro'].pnl >= 0 ? '+' : ''}${byAcc['CTO Euro'].pnl.toFixed(2)} €`;
+                    document.getElementById('journal-eur-count').textContent = `${byAcc['CTO Euro'].trades} trades clôturés (${byAcc['CTO Euro'].wins} gagnants / ${byAcc['CTO Euro'].trades - byAcc['CTO Euro'].wins} perdants)`;
+                }
+                if (byAcc['CTO Dollar']) {
+                    document.getElementById('journal-usd-rate').textContent = `${byAcc['CTO Dollar'].win_rate}% Win Rate`;
+                    document.getElementById('journal-usd-pnl').textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${byAcc['CTO Dollar'].pnl.toFixed(2)} $`;
+                    document.getElementById('journal-usd-count').textContent = `${byAcc['CTO Dollar'].trades} trades clôturés (${byAcc['CTO Dollar'].wins} gagnants / ${byAcc['CTO Dollar'].trades - byAcc['CTO Dollar'].wins} perdants)`;
+                }
+
+                // Nav Badge
+                const navJournal = document.getElementById('nav-journal-count');
+                if (navJournal) navJournal.textContent = allJournalTrades.length;
+
+                applyJournalFilters();
+            } catch (e) {
+                console.error("Erreur chargement Journal:", e);
+            }
+        }
+
+        function applyJournalFilters() {
+            const query = (document.getElementById('journal-search-input')?.value || '').trim().toLowerCase();
+            const accFilter = document.getElementById('journal-account-filter')?.value || 'all';
+            const resFilter = document.getElementById('journal-result-filter')?.value || 'all';
+
+            filteredJournalTrades = allJournalTrades.filter(t => {
+                const sym = (t.symbol || '').toLowerCase();
+                const name = (t.name || '').toLowerCase();
+                if (query && !sym.includes(query) && !name.includes(query)) return false;
+
+                if (accFilter !== 'all') {
+                    if (accFilter === 'PEA' && !t.account.includes('PEA')) return false;
+                    if (accFilter === 'CTO Euro' && !t.account.includes('Euro')) return false;
+                    if (accFilter === 'CTO Dollar' && !t.account.includes('Dollar')) return false;
+                }
+
+                if (resFilter === 'win' && t.pnl_amount < 0) return false;
+                if (resFilter === 'loss' && t.pnl_amount >= 0) return false;
+
+                return true;
+            });
+
+            // Sort by close date desc
+            filteredJournalTrades.sort((a, b) => (b.close_time || '').localeCompare(a.close_time || ''));
+
+            journalCurrentPage = 1;
+            renderJournalTable();
+        }
+
+        function renderJournalTable() {
+            const tbody = document.getElementById('journal-table-body');
+            tbody.innerHTML = '';
+
+            const total = filteredJournalTrades.length;
+            document.getElementById('journal-filtered-count').textContent = total;
+
+            const totalPages = Math.max(1, Math.ceil(total / JOURNAL_PAGE_SIZE));
+            document.getElementById('journal-total-pages').textContent = totalPages;
+            document.getElementById('journal-current-page').textContent = journalCurrentPage;
+
+            const startIdx = (journalCurrentPage - 1) * JOURNAL_PAGE_SIZE;
+            const endIdx = Math.min(total, startIdx + JOURNAL_PAGE_SIZE);
+
+            document.getElementById('journal-page-summary').textContent = total > 0 ? `Affichage ${startIdx + 1} à ${endIdx} sur ${total} trades` : `0 trade trouvé`;
+
+            document.getElementById('btn-journal-prev').disabled = journalCurrentPage <= 1;
+            document.getElementById('btn-journal-next').disabled = journalCurrentPage >= totalPages;
+
+            if (total === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:3rem;">Aucun trade trouvé pour ces critères de recherche.</td></tr>`;
+                return;
+            }
+
+            const pageSlice = filteredJournalTrades.slice(startIdx, endIdx);
+            pageSlice.forEach(t => {
+                const tr = document.createElement('tr');
+                const symChar = t.currency === 'EUR' ? '€' : '$';
+                const isWin = t.pnl_amount >= 0;
+                const pnlColor = isWin ? 'var(--success)' : 'var(--danger)';
+
+                const isPea = t.account && t.account.includes('PEA');
+                const isUsd = t.account && t.account.includes('Dollar');
+                const accBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' : '<span class="badge badge-success">💶 CTO EUR</span>';
+
+                const closeDateStr = t.close_time ? t.close_time.substring(0, 10) : (t.open_time ? t.open_time.substring(0, 10) : '--');
+
+                tr.innerHTML = `
+                    <td style="font-size:0.85rem; white-space:nowrap;">${closeDateStr}</td>
+                    <td>
+                        <strong style="font-size: 0.95rem; cursor:pointer; color:#60a5fa;" onclick="showTickerDetail('${t.symbol}')">${t.symbol}</strong><br>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">${t.name || ''}</span>
+                    </td>
+                    <td>${accBadge}</td>
+                    <td>${t.pru.toFixed(2)} ${symChar}</td>
+                    <td>${t.exit_price.toFixed(2)} ${symChar}</td>
+                    <td>${t.quantity}</td>
+                    <td>${t.invested_amount ? t.invested_amount.toFixed(2) : (t.pru * t.quantity).toFixed(2)} ${symChar}</td>
+                    <td>
+                        <strong style="color:${pnlColor}; font-size: 0.95rem;">${isWin ? '+' : ''}${t.pnl_amount.toFixed(2)} ${symChar}</strong>
+                    </td>
+                    <td>
+                        <span style="color:${pnlColor}; font-weight:600; font-size:0.85rem;">${isWin ? '+' : ''}${t.pnl_pct.toFixed(2)}%</span>
+                    </td>
+                    <td style="font-size:0.8rem; color:var(--text-muted);">
+                        ${t.days_held ? `${t.days_held} j` : '--'}
+                    </td>
+                    <td style="text-align: right;">
+                        <span class="badge ${isWin ? 'badge-success' : 'badge-danger'}">${t.result || (isWin ? 'GAIN 🟢' : 'PERTE 🔴')}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function changeJournalPage(delta) {
+            const totalPages = Math.max(1, Math.ceil(filteredJournalTrades.length / JOURNAL_PAGE_SIZE));
+            const newPage = journalCurrentPage + delta;
+            if (newPage >= 1 && newPage <= totalPages) {
+                journalCurrentPage = newPage;
+                renderJournalTable();
+            }
+        }
+
+        async function syncAllHistoryFiles() {
+            if (!confirm("Voulez-vous synchroniser l'ensemble des fichiers Excel XTB historiques (positions fermées et ouvertes) ?")) return;
+
+            const tbody = document.getElementById('journal-table-body');
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#60a5fa; padding:3rem;">⏳ Resynchronisation des 6 fichiers d'historique en cours...</td></tr>`;
+
+            try {
+                const res = await fetch(`${API_URL}/portfolio/import_all_history`, { method: 'POST' });
+                const payload = await res.json();
+                if (payload.success) {
+                    alert(`✅ ${payload.message}`);
+                    loadJournalHistory();
+                    loadLivePortfolio();
+                } else {
+                    alert(`❌ Erreur: ${payload.error || 'Erreur lors de la synchronisation.'}`);
+                }
+            } catch (e) {
+                alert(`❌ Erreur réseau: ${e.message}`);
             }
         }
 
@@ -1922,11 +2257,17 @@
             btn.disabled = true;
             btn.textContent = "⏳ Importation en cours...";
 
+            const accountSelect = document.getElementById('csv-account-select');
+            const accountVal = accountSelect ? accountSelect.value : 'auto';
+
             const formData = new FormData();
             formData.append('file', input.files[0]);
+            if (accountVal !== 'auto') {
+                formData.append('account', accountVal);
+            }
 
             try {
-                const res = await fetch(`${API_URL}/portfolio/upload_csv`, {
+                const res = await fetch(`${API_URL}/portfolio/upload_report`, {
                     method: 'POST',
                     body: formData
                 });
@@ -1936,6 +2277,7 @@
                     setTimeout(() => {
                         closeUploadCsvModal();
                         loadLivePortfolio();
+                        loadJournalHistory();
                     }, 1200);
                 } else {
                     showCsvFeedback(`❌ ${payload.error || 'Erreur lors de l\'import.'}`, "var(--danger)");
@@ -1945,7 +2287,7 @@
                 showCsvFeedback("Erreur de connexion lors de l'envoi du fichier.", "var(--danger)");
             } finally {
                 btn.disabled = false;
-                btn.textContent = "📥 Importer dans le Suivi Live";
+                btn.textContent = "📥 Lancer l'Importation";
             }
         }
 

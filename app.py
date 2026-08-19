@@ -249,11 +249,17 @@ def add_watchlist_ticker():
 
 from src.portfolio_tracker import (
     get_live_portfolio_summary,
-    parse_broker_csv
+    parse_broker_csv,
+    parse_xtb_excel_file,
+    aggregate_open_positions,
+    calculate_trading_performance_stats
 )
 from src.sheets_connector import (
     add_position_to_sheets,
-    close_position_in_sheets
+    close_position_in_sheets,
+    batch_import_journal_to_sheets,
+    read_journal_from_sheets,
+    batch_import_positions_to_sheets
 )
 
 @app.route("/api/portfolio/live")
@@ -263,6 +269,20 @@ def get_live_portfolio():
     """
     summary = get_live_portfolio_summary()
     return jsonify({"success": True, "data": summary})
+
+@app.route("/api/journal/history")
+def get_journal_history():
+    """
+    Retourne l'historique complet des trades clôturés avec statistiques de performance (Win Rate, P&L, etc.).
+    """
+    trades = read_journal_from_sheets()
+    stats = calculate_trading_performance_stats(trades)
+    return jsonify({
+        "success": True,
+        "total": len(trades),
+        "stats": stats,
+        "trades": trades
+    })
 
 @app.route("/api/portfolio/add", methods=["POST"])
 def add_portfolio_position():
@@ -303,30 +323,117 @@ def add_portfolio_position():
     success, msg = add_position_to_sheets(pos_data)
     return jsonify({"success": success, "message": msg})
 
+@app.route("/api/portfolio/upload_report", methods=["POST"])
 @app.route("/api/portfolio/upload_csv", methods=["POST"])
-def upload_portfolio_csv():
+def upload_portfolio_report():
     """
-    Importe un fichier CSV de positions exporté depuis XTB ou un autre courtier.
+    Importe un fichier Excel (.xlsx) ou CSV de rapport XTB / courtier.
+    Auto-détecte les positions fermées (vers le Journal de Trading) et les positions ouvertes (vers le Suivi Live).
     """
     file = request.files.get("file")
     if not file:
-        return jsonify({"success": False, "error": "Aucun fichier CSV fourni."}), 400
+        return jsonify({"success": False, "error": "Aucun fichier fourni."}), 400
         
+    filename = file.filename or ""
     content = file.read()
-    positions = parse_broker_csv(content)
-    if not positions:
-        return jsonify({"success": False, "error": "Aucune position valide trouvée dans le fichier CSV."}), 400
-        
-    imported_count = 0
-    for pos in positions:
-        success, _ = add_position_to_sheets(pos)
-        if success:
-            imported_count += 1
+    
+    closed_imported = 0
+    open_imported = 0
+    msg = ""
+
+    if filename.lower().endswith(".xlsx") or filename.lower().endswith(".xls"):
+        parsed = parse_xtb_excel_file(content, default_account=request.form.get("account"))
+        closed_trades = parsed.get("closed_positions", [])
+        open_positions = parsed.get("open_positions", [])
+
+        if closed_trades:
+            # Append / batch import into journal
+            existing_journal = read_journal_from_sheets()
+            existing_ids = {t.get("id") for t in existing_journal if t.get("id")}
+            new_closed = [t for t in closed_trades if t.get("id") not in existing_ids]
             
+            combined_journal = existing_journal + new_closed
+            batch_import_journal_to_sheets(combined_journal)
+            closed_imported = len(new_closed)
+
+        if open_positions:
+            # Option to aggregate or keep lot by lot
+            agg_open = aggregate_open_positions(open_positions)
+            for pos in agg_open:
+                add_position_to_sheets(pos)
+            open_imported = len(agg_open)
+
+        msg = f"Rapport Excel traité : {closed_imported} trade(s) archivé(s) dans le Journal, {open_imported} position(s) active(s) synchronisée(s) !"
+    else:
+        positions = parse_broker_csv(content)
+        if not positions:
+            return jsonify({"success": False, "error": "Aucune position valide trouvée dans le fichier CSV."}), 400
+            
+        for pos in positions:
+            success, _ = add_position_to_sheets(pos)
+            if success:
+                open_imported += 1
+        msg = f"{open_imported} position(s) active(s) importée(s) depuis le CSV !"
+
     return jsonify({
         "success": True,
-        "message": f"{imported_count} position(s) importée(s) avec succès !",
-        "count": imported_count
+        "message": msg,
+        "closed_imported": closed_imported,
+        "open_imported": open_imported
+    })
+
+@app.route("/api/portfolio/import_all_history", methods=["POST"])
+def import_all_history_files():
+    """
+    Importe automatiquement tous les fichiers d'historique XTB présents dans le dossier /historique.
+    """
+    import os
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    hist_dir = os.path.join(base_dir, "historique")
+    
+    files_to_scan = []
+    for root, _, files in os.walk(hist_dir):
+        for f in files:
+            if f.lower().endswith(".xlsx") and not f.startswith("~$"):
+                files_to_scan.append(os.path.join(root, f))
+
+    all_closed = []
+    all_open = []
+    seen_closed_ids = set()
+    seen_open_ids = set()
+
+    # Prioriser les fichiers "position fermees" complets
+    files_to_scan.sort(key=lambda x: ("position fermee" not in x.lower(), x))
+
+    for fpath in files_to_scan:
+        acc = "PEA" if "PEA" in fpath else "CTO Dollar" if "USD" in fpath else "CTO Euro"
+        parsed = parse_xtb_excel_file(fpath, default_account=acc)
+        
+        for t in parsed.get("closed_positions", []):
+            if t["id"] not in seen_closed_ids:
+                seen_closed_ids.add(t["id"])
+                all_closed.append(t)
+
+        for o in parsed.get("open_positions", []):
+            if o["id"] not in seen_open_ids:
+                seen_open_ids.add(o["id"])
+                all_open.append(o)
+
+    # 1. Enregistrer dans le Journal
+    batch_import_journal_to_sheets(all_closed)
+
+    # 2. Enregistrer les positions ouvertes agrégées
+    agg_open = aggregate_open_positions(all_open)
+    batch_import_positions_to_sheets(agg_open)
+
+    stats = calculate_trading_performance_stats(all_closed)
+
+    return jsonify({
+        "success": True,
+        "message": f"Synchronisation historique réussie ! {len(all_closed)} trades dans le Journal, {len(agg_open)} positions actives.",
+        "closed_count": len(all_closed),
+        "open_count": len(agg_open),
+        "stats": stats
     })
 
 @app.route("/api/portfolio/close", methods=["POST"])

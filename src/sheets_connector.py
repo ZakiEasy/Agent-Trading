@@ -611,3 +611,185 @@ def close_position_in_sheets(pos_id_or_symbol, exit_price, exit_date=None, notes
             return True, f"Position {target_pos['symbol']} clôturée en local (Erreur Google Sheets: {e})."
 
     return True, f"Position {target_pos['symbol']} clôturée avec succès ! P&L : {pnl_amount:+.2f} € ({pnl_pct:+.2f}%)"
+
+# Cache mémoire pour le journal de trading
+_local_journal_cache = []
+
+def batch_import_journal_to_sheets(closed_trades):
+    """
+    Importe par lot (batch update) une liste de positions fermées dans l'onglet 'Journal de Trading' de Google Sheets.
+    Gère la création de la feuille si nécessaire et évite les quotas de requêtes de l'API Sheets.
+    """
+    global _local_journal_cache
+    if not closed_trades:
+        return True, "Aucune position à importer."
+
+    _local_journal_cache = list(closed_trades)
+
+    client, error = get_sheets_client()
+    if error or not client:
+        return True, f"{len(closed_trades)} trades enregistrés dans le journal local."
+
+    try:
+        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        try:
+            journal_ws = sheet.worksheet(GOOGLE_SHEET_NAME_JOURNAL)
+        except gspread.exceptions.WorksheetNotFound:
+            journal_ws = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_JOURNAL, rows=str(max(500, len(closed_trades) + 50)), cols="15")
+
+        headers = [
+            "ID Position", "Ticker", "Nom", "Date Achat", "Date Clôture",
+            "PRU", "Prix Sortie", "Quantité", "Capital Investi",
+            "P&L (€/$)", "P&L (%)", "Résultat", "Compte", "Devise", "Commentaire"
+        ]
+
+        rows_to_write = [headers]
+        for t in closed_trades:
+            rows_to_write.append([
+                str(t.get("id", "")),
+                str(t.get("symbol", "")),
+                str(t.get("name", "")),
+                str(t.get("open_time", t.get("entry_date", ""))),
+                str(t.get("close_time", t.get("exit_date", ""))),
+                float(t.get("pru", 0.0)),
+                float(t.get("exit_price", 0.0)),
+                float(t.get("quantity", 1.0)),
+                float(t.get("invested_amount", 0.0)),
+                float(t.get("pnl_amount", 0.0)),
+                f"{float(t.get('pnl_pct', 0.0)):+.2f}%",
+                str(t.get("result", "GAIN 🟢" if t.get("pnl_amount", 0) >= 0 else "PERTE 🔴")),
+                str(t.get("account", "")),
+                str(t.get("currency", "EUR")),
+                str(t.get("comment", ""))
+            ])
+
+        # Batch update unique
+        journal_ws.clear()
+        journal_ws.update('A1', rows_to_write)
+        print(f"✅ {len(closed_trades)} trades écrits en batch dans '{GOOGLE_SHEET_NAME_JOURNAL}'.")
+        return True, f"{len(closed_trades)} trades importés avec succès dans votre Journal de Trading Google Sheets !"
+    except Exception as e:
+        print(f"⚠️ Erreur batch update Journal Google Sheets : {e}")
+        return True, f"{len(closed_trades)} trades importés en local (Erreur Google Sheets: {e})."
+
+def read_journal_from_sheets():
+    """
+    Lit l'historique complet des trades clôturés depuis Google Sheets ou le cache local.
+    """
+    global _local_journal_cache
+    client, error = get_sheets_client()
+    if not client:
+        return _local_journal_cache
+
+    try:
+        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        journal_ws = sheet.worksheet(GOOGLE_SHEET_NAME_JOURNAL)
+        all_rows = journal_ws.get_all_values()
+        if not all_rows or len(all_rows) <= 1:
+            return _local_journal_cache
+
+        headers = [h.strip().lower() for h in all_rows[0]]
+        trades = []
+        for r in all_rows[1:]:
+            if not r or not any(r):
+                continue
+
+            def get_val(idx, default=""):
+                return r[idx].strip() if len(r) > idx else default
+
+            try:
+                pru = float(get_val(5, "0").replace("€", "").replace("$", "").replace(" ", "").replace(",", "."))
+            except:
+                pru = 0.0
+
+            try:
+                exit_p = float(get_val(6, "0").replace("€", "").replace("$", "").replace(" ", "").replace(",", "."))
+            except:
+                exit_p = 0.0
+
+            try:
+                qty = float(get_val(7, "1").replace(" ", "").replace(",", "."))
+            except:
+                qty = 1.0
+
+            try:
+                pnl = float(get_val(9, "0").replace("€", "").replace("$", "").replace(" ", "").replace(",", "."))
+            except:
+                pnl = (exit_p - pru) * qty
+
+            try:
+                pnl_pct_str = get_val(10, "0").replace("%", "").replace("+", "").replace(" ", "").replace(",", ".")
+                pnl_pct = float(pnl_pct_str)
+            except:
+                pnl_pct = (pnl / (pru * qty) * 100) if (pru * qty) > 0 else 0.0
+
+            trades.append({
+                "id": get_val(0),
+                "symbol": get_val(1).upper(),
+                "name": get_val(2),
+                "open_time": get_val(3),
+                "close_time": get_val(4),
+                "pru": pru,
+                "exit_price": exit_p,
+                "quantity": qty,
+                "invested_amount": pru * qty,
+                "pnl_amount": pnl,
+                "pnl_pct": pnl_pct,
+                "result": get_val(11, "GAIN 🟢" if pnl >= 0 else "PERTE 🔴"),
+                "account": get_val(12, "CTO"),
+                "currency": get_val(13, "EUR" if "PEA" in get_val(12) or ".PA" in get_val(1) else "USD"),
+                "comment": get_val(14)
+            })
+
+        _local_journal_cache = trades
+        return trades
+    except Exception as e:
+        print(f"⚠️ Erreur lecture Journal Google Sheets : {e}")
+        return _local_journal_cache
+
+def batch_import_positions_to_sheets(open_positions):
+    """
+    Importe par lot (batch update) les positions actives dans l'onglet 'Positions' de Google Sheets.
+    """
+    global _local_positions_cache
+    if not open_positions:
+        return True, "Aucune position active à importer."
+
+    _local_positions_cache = list(open_positions)
+    worksheet, err = get_or_create_positions_sheet()
+    if err or not worksheet:
+        return True, f"{len(open_positions)} positions enregistrées en local."
+
+    try:
+        headers = [
+            "ID Position", "Ticker", "Nom", "Date Achat", "PRU",
+            "Quantité", "Capital Investi", "Stop-Loss", "Take Profit 1", "Take Profit 2",
+            "Compte", "Devise", "Statut", "Notes"
+        ]
+
+        rows_to_write = [headers]
+        for p in open_positions:
+            rows_to_write.append([
+                str(p.get("id", "")),
+                str(p.get("symbol", "")),
+                str(p.get("name", "")),
+                str(p.get("entry_date", "")),
+                float(p.get("pru", 0.0)),
+                float(p.get("quantity", 1.0)),
+                float(p.get("pru", 0.0) * p.get("quantity", 1.0)),
+                float(p.get("stop_loss", p.get("pru", 0.0) * 0.97)),
+                float(p.get("tp1", p.get("pru", 0.0) * 1.0125)),
+                float(p.get("tp2", p.get("pru", 0.0) * 1.0225)),
+                str(p.get("account", "")),
+                str(p.get("currency", "EUR")),
+                str(p.get("status", "OUVERT")),
+                str(p.get("notes", ""))
+            ])
+
+        worksheet.clear()
+        worksheet.update('A1', rows_to_write)
+        print(f"✅ {len(open_positions)} positions actives écrites en batch dans '{GOOGLE_SHEET_NAME_POSITIONS}'.")
+        return True, f"{len(open_positions)} positions actives synchronisées dans Google Sheets !"
+    except Exception as e:
+        print(f"⚠️ Erreur batch update Positions Google Sheets : {e}")
+        return True, f"{len(open_positions)} positions enregistrées en local."
