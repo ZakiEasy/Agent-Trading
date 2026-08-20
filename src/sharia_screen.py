@@ -169,13 +169,21 @@ def check_financial_compliance(ticker_obj, info):
             "details": {}
         }
 
+_SHARIA_CACHE = {}
+_SHARIA_CACHE_TTL = 600  # 10 minutes
+
 def screen_ticker(ticker_symbol):
     """
     Exécute le screening Sharia complet pour un ticker selon les normes AAOIFI / MSCI Islamic.
     Statut : [CONFORME] | [NON CONFORME] | [DONNÉES INSUFFISANTES]
     """
+    import time
     ticker_symbol = ticker_symbol.upper().strip()
+    now = time.time()
     
+    if ticker_symbol in _SHARIA_CACHE and (now - _SHARIA_CACHE[ticker_symbol]["ts"]) < _SHARIA_CACHE_TTL:
+        return _SHARIA_CACHE[ticker_symbol]["data"]
+        
     # 0. Tenter de lire le statut pré-défini dans Google Sheets
     try:
         from src.sheets_connector import read_sharia_statuses_from_sheets
@@ -190,12 +198,14 @@ def screen_ticker(ticker_symbol):
                 else:
                     normalized_status = "DONNÉES INSUFFISANTES"
                     
-                return {
+                res = {
                     "symbol": ticker_symbol,
                     "status": normalized_status,
                     "reason": f"Statut lu depuis votre Google Sheet",
                     "details": {}
                 }
+                _SHARIA_CACHE[ticker_symbol] = {"data": res, "ts": now}
+                return res
     except Exception as e:
         pass
 
@@ -206,12 +216,14 @@ def screen_ticker(ticker_symbol):
     # 1. Business Screen (Activités & Revenus illicites < 5%)
     is_business_compliant, business_reason = check_business_compliance(info)
     if not is_business_compliant:
-        return {
+        res = {
             "symbol": ticker_symbol,
             "status": "NON CONFORME",
             "reason": business_reason,
             "details": {"industry": info.get("industry", ""), "sector": info.get("sector", "")}
         }
+        _SHARIA_CACHE[ticker_symbol] = {"data": res, "ts": now}
+        return res
 
     # 2. Financial Screen (Ratios < 33% sur Cap. Moyenne 24 mois)
     is_financial_compliant, financial_res = check_financial_compliance(ticker_obj, info)
@@ -222,4 +234,5 @@ def screen_ticker(ticker_symbol):
     financial_res["symbol"] = ticker_symbol
     financial_res["industry"] = info.get("industry", "")
     financial_res["sector"] = info.get("sector", "")
+    _SHARIA_CACHE[ticker_symbol] = {"data": financial_res, "ts": now}
     return financial_res

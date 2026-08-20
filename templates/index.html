@@ -1592,22 +1592,30 @@
                     </div>
                 </div>
 
-                <!-- Right: 36-Month Capital Growth Projection -->
+                <!-- Right: 5-Year / 60-Month Capital Growth Projection (Objectif 180 000 €) -->
                 <div class="glass-card">
-                    <div class="card-header">
-                        <h2 class="card-title">📈 Projection & Trajectoire Patrimoniale (36 Mois)</h2>
+                    <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                        <div>
+                            <h2 class="card-title">📈 Trajectoire Patrimoniale & Objectif 180 000 € (5 Ans / 60 Mois)</h2>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                Intérêts composés du Swing Trading (Mean Reversion) couplés à l'apport mensuel pour franchir 180 000 €.
+                            </p>
+                        </div>
+                        <span class="badge" style="background: linear-gradient(135deg, #f59e0b, #eab308); color: #000; font-weight: 800; font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+                            🎯 Cible : 180 000 €
+                        </span>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
                             <label>Capital Initial (€)</label>
-                            <input type="range" id="input-cap-initial" min="1000" max="20000" step="500" value="5000" oninput="updateSimulationValues()">
-                            <div style="text-align: right; font-size: 0.8rem; color: #60a5fa;" id="val-cap-initial">5,000 €</div>
+                            <input type="range" id="input-cap-initial" min="1000" max="50000" step="500" value="18183" oninput="updateSimulationValues()">
+                            <div style="text-align: right; font-size: 0.8rem; color: #60a5fa;" id="val-cap-initial">18,183 €</div>
                         </div>
                         <div class="form-group">
-                            <label>Épargne Mensuelle Ajoutée (€)</label>
-                            <input type="range" id="input-apport-mensuel" min="0" max="2000" step="50" value="300" oninput="updateSimulationValues()">
-                            <div style="text-align: right; font-size: 0.8rem; color: #60a5fa;" id="val-apport-mensuel">300 € / mois</div>
+                            <label>Épargne Mensuelle Ajoutée (€ / mois)</label>
+                            <input type="range" id="input-apport-mensuel" min="0" max="3000" step="50" value="500" oninput="updateSimulationValues()">
+                            <div style="text-align: right; font-size: 0.8rem; color: #60a5fa;" id="val-apport-mensuel">500 € / mois</div>
                         </div>
                     </div>
 
@@ -1622,28 +1630,44 @@
                         </div>
                     </div>
 
+                    <!-- KPI Cards Row -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin: 1rem 0;">
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.6rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Capital à 5 Ans (60m)</div>
+                            <div style="font-size: 1.1rem; font-weight: 800; color: #10b981;" id="sim-final-capital">-- €</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.6rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Total Plus-Values</div>
+                            <div style="font-size: 1.1rem; font-weight: 800; color: #60a5fa;" id="sim-total-gains">-- €</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.6rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Atteinte des 180k€</div>
+                            <div style="font-size: 1rem; font-weight: 800; color: #f59e0b;" id="sim-target-time">Mois --</div>
+                        </div>
+                    </div>
+
                     <!-- SVG Chart Container -->
-                    <div id="sim-chart-container" style="height: 220px; width: 100%; margin: 1rem 0; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.5rem; position: relative;">
+                    <div id="sim-chart-container" style="height: 240px; width: 100%; margin: 1rem 0; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.5rem; position: relative;">
                         <!-- SVG Chart Rendered dynamically via JS -->
                     </div>
 
                     <!-- Milestones Gauges -->
                     <div class="gauge-container">
-                        <div class="gauge-title">🎯 Palier 1 : 10 000 €</div>
+                        <div class="gauge-title">🎯 Palier 1 : 50 000 € (Cap de Solidité)</div>
                         <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="gauge-1-inner"></div></div>
-                        <div class="gauge-label"><span>Actuel / Projeté</span><strong id="gauge-1-current">-- €</strong></div>
+                        <div class="gauge-label"><span>Progression Projetée</span><strong id="gauge-1-current">-- €</strong></div>
                     </div>
 
                     <div class="gauge-container">
-                        <div class="gauge-title">🚀 Palier 2 : 25 000 €</div>
+                        <div class="gauge-title">🚀 Palier 2 : 100 000 € (Cap des 6 Chiffres)</div>
                         <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="gauge-2-inner"></div></div>
-                        <div class="gauge-label"><span>Actuel / Projeté</span><strong id="gauge-2-current">-- €</strong></div>
+                        <div class="gauge-label"><span>Progression Projetée</span><strong id="gauge-2-current">-- €</strong></div>
                     </div>
 
                     <div class="gauge-container">
-                        <div class="gauge-title">👑 Palier 3 : 50 000 €</div>
-                        <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="gauge-3-inner"></div></div>
-                        <div class="gauge-label"><span>Actuel / Projeté</span><strong id="gauge-3-current">-- €</strong></div>
+                        <div class="gauge-title">👑 Palier 3 : 180 000 € (Objectif Patrimonial 5 Ans 🎯)</div>
+                        <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="gauge-3-inner" style="background: linear-gradient(90deg, #f59e0b, #eab308);"></div></div>
+                        <div class="gauge-label"><span>Progression Projetée</span><strong id="gauge-3-current">-- €</strong></div>
                     </div>
                 </div>
 
@@ -4289,14 +4313,14 @@
         function updateSimulationValues() {
             const cap = document.getElementById('input-cap-initial').value;
             const apport = document.getElementById('input-apport-mensuel').value;
-            document.getElementById('val-cap-initial').textContent = `${parseInt(cap).toLocaleString()} €`;
-            document.getElementById('val-apport-mensuel').textContent = `${parseInt(apport).toLocaleString()} €`;
+            document.getElementById('val-cap-initial').textContent = `${parseInt(cap).toLocaleString('fr-FR')} €`;
+            document.getElementById('val-apport-mensuel').textContent = `${parseInt(apport).toLocaleString('fr-FR')} € / mois`;
             runSimulation();
         }
 
         function runSimulation() {
-            const capInitial = parseFloat(document.getElementById('input-cap-initial').value) || 5000;
-            const apport = parseFloat(document.getElementById('input-apport-mensuel').value) || 300;
+            const capInitial = parseFloat(document.getElementById('input-cap-initial').value) || 18183.05;
+            const apport = parseFloat(document.getElementById('input-apport-mensuel').value) || 500;
             const winRate = (parseFloat(document.getElementById('input-win-rate').value) || 75) / 100;
             const rotations = parseFloat(document.getElementById('input-rotations').value) || 3;
 
@@ -4305,9 +4329,8 @@
             const posSizePct = 0.25;
 
             const expectedReturnPerTrade = (winRate * tpPct) - ((1 - winRate) * slPct);
-            const expectedReturnTradeEur = (capInitial * posSizePct) * expectedReturnPerTrade;
 
-            let months = 36;
+            const months = 60; // 5 Ans
             let dataRealiste = [capInitial];
             let dataOptimiste = [capInitial];
             let dataPrudente = [capInitial];
@@ -4316,10 +4339,16 @@
             let currOpt = capInitial;
             let currPess = capInitial;
 
+            let targetReachedMonth = null;
+
             for (let m = 1; m <= months; m++) {
                 const gainMonthlyReal = (currReal * posSizePct) * expectedReturnPerTrade * rotations;
                 currReal += gainMonthlyReal + apport;
                 dataRealiste.push(currReal);
+
+                if (!targetReachedMonth && currReal >= 180000) {
+                    targetReachedMonth = m;
+                }
 
                 const optWinRate = 0.85;
                 const gainOpt = (currOpt * posSizePct) * ((optWinRate * tpPct) - ((1 - optWinRate) * slPct)) * rotations;
@@ -4332,9 +4361,32 @@
                 dataPrudente.push(currPess);
             }
 
-            updateGauge('gauge-1', currReal, 10000);
-            updateGauge('gauge-2', currReal, 25000);
-            updateGauge('gauge-3', currReal, 50000);
+            // Update KPI summary
+            const totalApports = capInitial + (apport * months);
+            const totalGains = Math.max(0, currReal - totalApports);
+
+            const finalCapElem = document.getElementById('sim-final-capital');
+            if (finalCapElem) finalCapElem.textContent = `${Math.round(currReal).toLocaleString('fr-FR')} €`;
+
+            const totalGainsElem = document.getElementById('sim-total-gains');
+            if (totalGainsElem) totalGainsElem.textContent = `+${Math.round(totalGains).toLocaleString('fr-FR')} €`;
+
+            const targetTimeElem = document.getElementById('sim-target-time');
+            if (targetTimeElem) {
+                if (targetReachedMonth) {
+                    const ans = Math.floor(targetReachedMonth / 12);
+                    const mois = targetReachedMonth % 12;
+                    targetTimeElem.textContent = `Mois ${targetReachedMonth} (${ans}a ${mois}m) 🎯`;
+                    targetTimeElem.style.color = '#10b981';
+                } else {
+                    targetTimeElem.textContent = `> 60 Mois (${Math.round(currReal/180000*100)}%)`;
+                    targetTimeElem.style.color = '#f59e0b';
+                }
+            }
+
+            updateGauge('gauge-1', currReal, 50000);
+            updateGauge('gauge-2', currReal, 100000);
+            updateGauge('gauge-3', currReal, 180000);
 
             renderSvgProjectionChart(dataRealiste, dataOptimiste, dataPrudente);
         }
@@ -4342,42 +4394,59 @@
         function updateGauge(idPrefix, currentVal, targetVal) {
             const inner = document.getElementById(`${idPrefix}-inner`);
             const label = document.getElementById(`${idPrefix}-current`);
+            if (!inner || !label) return;
             const pct = Math.min(100, Math.max(0, (currentVal / targetVal) * 100));
             inner.style.width = `${pct}%`;
-            label.textContent = `${Math.round(currentVal).toLocaleString()} € (${pct.toFixed(0)}%)`;
+            label.textContent = `${Math.round(Math.min(currentVal, targetVal)).toLocaleString('fr-FR')} € / ${targetVal.toLocaleString('fr-FR')} € (${pct.toFixed(0)}%)`;
         }
 
         function renderSvgProjectionChart(real, opt, pess) {
             const container = document.getElementById('sim-chart-container');
+            if (!container) return;
             const w = container.clientWidth || 500;
-            const h = container.clientHeight || 220;
+            const h = container.clientHeight || 240;
             const pad = 35;
 
-            const maxVal = Math.max(...opt) * 1.05;
+            const maxVal = Math.max(200000, ...opt) * 1.05;
             const minVal = Math.min(...pess) * 0.95;
 
-            const getX = (m) => pad + (m / 36) * (w - 2 * pad);
+            const getX = (m) => pad + (m / 60) * (w - 2 * pad);
             const getY = (v) => h - pad - ((v - minVal) / (maxVal - minVal)) * (h - 2 * pad);
 
             const makePath = (data) => data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getY(v).toFixed(1)}`).join(' ');
 
+            const y180k = getY(180000);
+            const y100k = getY(100000);
+            const y50k = getY(50000);
+
             container.innerHTML = `
                 <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" style="overflow: visible;">
-                    <line x1="${pad}" y1="${getY(10000)}" x2="${w-pad}" y2="${getY(10000)}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4" />
-                    <text x="${w-pad+5}" y="${getY(10000)+3}" fill="rgba(255,255,255,0.3)" font-size="10">10k€</text>
-                    
-                    <line x1="${pad}" y1="${getY(25000)}" x2="${w-pad}" y2="${getY(25000)}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4" />
-                    <text x="${w-pad+5}" y="${getY(25000)+3}" fill="rgba(255,255,255,0.3)" font-size="10">25k€</text>
+                    <!-- Ligne Cible 180 000 € -->
+                    <line x1="${pad}" y1="${y180k}" x2="${w-pad}" y2="${y180k}" stroke="#f59e0b" stroke-dasharray="4" stroke-width="1.5" />
+                    <rect x="${w-pad-65}" y="${y180k-9}" width="70" height="18" rx="4" fill="#f59e0b" />
+                    <text x="${w-pad-30}" y="${y180k+3}" fill="#000" font-weight="bold" font-size="9" text-anchor="middle">🎯 180k€</text>
 
+                    <!-- Ligne 100 000 € -->
+                    <line x1="${pad}" y1="${y100k}" x2="${w-pad}" y2="${y100k}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3" />
+                    <text x="${w-pad+5}" y="${y100k+3}" fill="rgba(255,255,255,0.3)" font-size="9">100k€</text>
+
+                    <!-- Ligne 50 000 € -->
+                    <line x1="${pad}" y1="${y50k}" x2="${w-pad}" y2="${y50k}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3" />
+                    <text x="${w-pad+5}" y="${y50k+3}" fill="rgba(255,255,255,0.3)" font-size="9">50k€</text>
+
+                    <!-- Courbes de projection 60 mois -->
                     <path d="${makePath(opt)}" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.8" />
                     <path d="${makePath(pess)}" fill="none" stroke="#ef4444" stroke-width="2" opacity="0.8" />
-                    <path d="${makePath(real)}" fill="none" stroke="#10b981" stroke-width="3" />
+                    <path d="${makePath(real)}" fill="none" stroke="#10b981" stroke-width="3.5" />
 
+                    <!-- Axe horizontal & Graduation 5 Ans -->
                     <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="rgba(255,255,255,0.15)" />
-                    <text x="${pad}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">M0</text>
-                    <text x="${getX(12)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">An 1</text>
-                    <text x="${getX(24)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">An 2</text>
-                    <text x="${getX(36)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">An 3</text>
+                    <text x="${pad}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9">M0</text>
+                    <text x="${getX(12)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 1</text>
+                    <text x="${getX(24)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 2</text>
+                    <text x="${getX(36)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 3</text>
+                    <text x="${getX(48)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 4</text>
+                    <text x="${getX(60)}" y="${h-10}" fill="#f59e0b" font-weight="bold" font-size="9" text-anchor="middle">An 5 (60m)</text>
                 </svg>
             `;
         }

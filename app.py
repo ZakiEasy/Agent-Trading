@@ -1,6 +1,7 @@
 import os
 import re
 import math
+import time
 import threading
 import concurrent.futures
 from flask import Flask, jsonify, request, render_template
@@ -64,7 +65,7 @@ def safe_jsonify(data, status_code=200):
 # Cache global des analyses pour fluidité et réduction des appels externes
 analysis_cache = {}
 
-def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT):
+def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT, force_refresh=False):
     """
     Exécute le protocole complet en 8 étapes pour un ticker spécifique selon les règles institutionnelles :
       1. Conformité Sharia (Normes AAOIFI — Ratios < 33% sur Cap Moyenne 24 mois)
@@ -77,6 +78,11 @@ def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT):
       8. Verdict Final & Synthèse Décisionnelle
     """
     ticker_symbol = ticker_symbol.upper().strip()
+    now_ts = time.time()
+    cache_key = f"{ticker_symbol}_{capital}"
+    
+    if not force_refresh and cache_key in analysis_cache and (now_ts - analysis_cache[cache_key]["ts"]) < 300:
+        return analysis_cache[cache_key]["data"]
     
     # 1. Étape 1 : Conformité Sharia (AAOIFI)
     sharia_res = screen_ticker(ticker_symbol)
@@ -221,7 +227,7 @@ def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT):
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
-        analysis_cache[ticker_symbol] = analysis
+        analysis_cache[cache_key] = {"data": analysis, "ts": now_ts}
         return analysis
     except Exception as e:
         return {"error": str(e), "symbol": ticker_symbol}
@@ -642,14 +648,29 @@ def close_portfolio_position():
 @app.route("/api/scan/watchlist")
 def scan_watchlist():
     try:
-        watchlist = read_watchlist_from_sheets()
+        force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+        watchlist = read_watchlist_from_sheets(force_refresh=force)
+        if not watchlist:
+            watchlist = DEFAULT_WATCHLIST
+            
         results = []
         signals_to_write = []
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Exécution parallèle accélérée (8 workers) avec cache TTL
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            analyses = list(executor.map(get_detailed_analysis, watchlist))
+        # Exécution parallèle accélérée avec timeout de sécurité de 25s pour garantir zéro erreur 502
+        analyses = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in watchlist}
+            try:
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
+                    try:
+                        data = future.result()
+                        if data and isinstance(data, dict) and not data.get("error"):
+                            analyses.append(data)
+                    except Exception as fe:
+                        pass
+            except concurrent.futures.TimeoutError:
+                print("Notice: Watchlist scan reached 25s timeout safeguard on Render. Returning all completed analyses.")
             
         for analysis in analyses:
             if not analysis or not isinstance(analysis, dict) or "error" in analysis:
