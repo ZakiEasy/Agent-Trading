@@ -360,13 +360,62 @@ def calculate_qqe(close_prices, rsi_period=14, sf=5, wilder_period=27):
         "buy_signal": bool(buy_signal)
     }
 
-def check_fundamental_quality(ticker_obj, info=None, symbol=None):
+def calculate_sector_relative_strength(ticker_symbol, category, hist):
     """
-    Évalue les critères d'excellence fondamentale de la Section 4.A :
-    - Catégorisation PEA et Secteur
+    Calcule la tendance et la force relative du titre par rapport à son ETF sectoriel de référence (Étape 2).
+    """
+    from src.config import SECTOR_ETFS
+    sector_etf = SECTOR_ETFS.get(category, "SPY")
+    
+    ticker_5d_perf = 0.0
+    if hist is not None and not hist.empty and len(hist) >= 6:
+        close_p = hist['Close'].values
+        ticker_5d_perf = ((close_p[-1] - close_p[-6]) / close_p[-6]) * 100
+        
+    # Récupérer l'historique de l'ETF sectoriel
+    etf_5d_perf = 0.0
+    etf_trend = "NEUTRE"
+    try:
+        _, etf_hist = fetch_market_data(sector_etf)
+        if etf_hist is not None and not etf_hist.empty and len(etf_hist) >= 6:
+            etf_closes = etf_hist['Close'].values
+            etf_5d_perf = ((etf_closes[-1] - etf_closes[-6]) / etf_closes[-6]) * 100
+            etf_sma50 = float(etf_hist['Close'].rolling(window=min(50, len(etf_hist))).mean().values[-1])
+            etf_trend = "HAUSSIÈRE" if etf_closes[-1] >= etf_sma50 else "BAISSIÈRE"
+    except Exception as e:
+        print(f"Notice: calculate_sector_relative_strength ({sector_etf}): {e}")
+        
+    diff_perf = ticker_5d_perf - etf_5d_perf
+    if diff_perf >= 1.0:
+        rel_status = "SURPERFORMANCE"
+        badge = "success"
+    elif diff_perf <= -1.5:
+        rel_status = "SOUS-PERFORMANCE"
+        badge = "danger"
+    else:
+        rel_status = "EN LIGNE"
+        badge = "neutral"
+        
+    return {
+        "sector_etf": sector_etf,
+        "etf_trend": etf_trend,
+        "etf_5d_perf": float(etf_5d_perf),
+        "ticker_5d_perf": float(ticker_5d_perf),
+        "diff_perf": float(diff_perf),
+        "relative_strength": rel_status,
+        "badge": badge,
+        "summary": f"{category} ({sector_etf} {etf_trend}) : Titre {ticker_5d_perf:+.1f}% vs ETF {etf_5d_perf:+.1f}% ({rel_status})"
+    }
+
+def check_fundamental_quality(ticker_obj, info=None, symbol=None, hist=None):
+    """
+    Évalue les critères d'excellence fondamentale et de liquidité (Section 2 & 4) :
     - Capitalisation boursière Large/Mid Cap (> 2 Mrd $/€)
+    - Volume moyen quotidien négocié > 1 M€/$ (élimination du slippage)
     - Free Cash Flow récurrent et marges opérationnelles solides
     """
+    from src.config import MIN_AVG_DAILY_VOLUME_USD
+    
     sym = symbol or (info.get("symbol", "") if isinstance(info, dict) else "")
     if info is None or not isinstance(info, dict) or not info:
         info = get_ticker_info(sym) if sym else {}
@@ -379,15 +428,39 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None):
     revenue_growth = info.get("revenueGrowth", 0) or 0
     profit_margin = info.get("profitMargins", 0) or 0
     
+    # Calcul du volume quotidien moyen négocié en monnaie (turnover journalier)
+    avg_daily_volume = 0.0
+    if hist is not None and not hist.empty and len(hist) >= 5:
+        try:
+            turnover_series = hist['Volume'] * hist['Close']
+            avg_daily_volume = float(turnover_series.tail(20).mean())
+        except:
+            pass
+            
+    if avg_daily_volume == 0.0:
+        vol = info.get("averageVolume", 0) or info.get("volume24Hr", 0) or info.get("regularMarketVolume", 0) or 0
+        price = info.get("currentPrice") or info.get("previousClose") or 100.0
+        avg_daily_volume = float(vol * price)
+        
     is_large_cap = bool(market_cap >= MIN_MARKET_CAP_USD)
+    has_min_liquidity = bool(avg_daily_volume >= MIN_AVG_DAILY_VOLUME_USD)
     is_fcf_positive = bool(fcf > 0 or fcf is None)
     is_profitable = bool(op_margin > 0 or profit_margin > 0)
     
-    health_status = "SOLIDE" if (is_large_cap and is_profitable) else "MOYENNE" if is_large_cap else "SPÉCULATIVE"
-    
+    if is_large_cap and has_min_liquidity and is_profitable:
+        health_status = "SOLIDE"
+    elif is_large_cap and has_min_liquidity:
+        health_status = "MOYENNE"
+    elif not has_min_liquidity:
+        health_status = "ILLIQUIDE (< 1 M€/$)"
+    else:
+        health_status = "SPÉCULATIVE (< 2 Mrd)"
+        
     return {
         "market_cap": market_cap,
         "is_large_cap": is_large_cap,
+        "avg_daily_volume": avg_daily_volume,
+        "has_min_liquidity": has_min_liquidity,
         "free_cash_flow": fcf,
         "is_fcf_positive": is_fcf_positive,
         "operating_margin": op_margin,
@@ -400,12 +473,12 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None):
         "is_pea": cat_meta["is_pea"],
         "account_type": cat_meta["account_type"],
         "health_status": health_status,
-        "summary": f"Cap: {market_cap/1e9:.1f}B | {cat_meta['category']} ({cat_meta['account_type']}) | Marge Op: {op_margin*100:.1f}%"
+        "summary": f"Cap: {market_cap/1e9:.1f}B | Vol/j: {avg_daily_volume/1e6:.1f}M | Marge Op: {op_margin*100:.1f}%"
     }
 
 def analyze_technical_setup(hist):
     """
-    Analyse technique complète : SMA 20/50/200, MRC Channel, Divergence RSI, QQE, Volume.
+    Analyse technique complète : SMA 20/50/200, MRC Channel, Divergence RSI, QQE, Volume et Mèches de rejet.
     """
     close_prices = hist['Close'].values
     high_prices = hist['High'].values
@@ -419,7 +492,7 @@ def analyze_technical_setup(hist):
     current_rsi = float(rsi_values[-1])
     rsi_divergence = detect_rsi_divergence(close_prices, rsi_values)
     
-    # 2. Moyennes mobiles
+    # 2. Moyennes mobiles & Tendances Daily / Hebdo
     sma_20 = float(hist['Close'].rolling(window=20).mean().values[-1])
     sma_50 = float(hist['Close'].rolling(window=50).mean().values[-1])
     
@@ -429,6 +502,7 @@ def analyze_technical_setup(hist):
         sma_200 = float(hist['Close'].mean())
         
     trend_daily = "HAUSSIÈRE" if current_price >= sma_200 else "BAISSIÈRE"
+    trend_weekly = "HAUSSIÈRE" if current_price >= sma_50 else "CONSOLIDATION"
     
     # 3. Canal de Retour à la Moyenne (MRC)
     mrc_mean = sma_20
@@ -479,6 +553,7 @@ def analyze_technical_setup(hist):
         "rsi": current_rsi,
         "rsi_divergence": rsi_divergence,
         "trend_daily": trend_daily,
+        "trend_weekly": trend_weekly,
         "is_above_sma200": bool(current_price >= sma_200),
         "sma_20": sma_20,
         "sma_50": sma_50,
@@ -494,6 +569,7 @@ def analyze_technical_setup(hist):
         "volume_sma_20": volume_sma_20,
         "volume_confirmed": volume_confirmed,
         "support": support,
+        "lower_wick_pct": float(lower_wick_pct),
         "support_rejection": support_rejection,
         "resistance": resistance,
         "recent_high": float(np.max(high_prices[-10:])),
@@ -503,8 +579,11 @@ def analyze_technical_setup(hist):
 
 def qualify_price_drop(hist):
     """
-    Détermine si le titre a subi une baisse récente de -3% à -8% sur 1 à 3 sessions (Section 4.B).
-    Qualifie la baisse comme CONJONCTURELLE (Opportunité) vs STRUCTURELLE (À Éviter).
+    Détermine si le titre a subi une baisse récente de -3% à -8% sur 1 à 3 sessions (Section 2 & 4).
+    Qualifie la baisse comme :
+      - [CONJONCTURELLE (Mispricing)] : Baisse de -3% à -8% s'approchant d'un support
+      - [STRUCTURELLE (Rejet)] : Baisse excessive > -8% ou effondrement continu
+      - [HORS CRITÈRES] : Variation hors de la fenêtre optimale
     """
     if hist is None or hist.empty:
         return False, {
@@ -538,11 +617,21 @@ def qualify_price_drop(hist):
             "drop_pct": float(detected_drop),
             "lookback_days": int(detected_lookback),
             "reference_price": float(reference_price),
-            "nature": "CONJONCTURELLE (Opportunité)",
+            "nature": "CONJONCTURELLE (Mispricing)",
             "cause_summary": f"Surréaction vendeuse court terme ({detected_drop:.2f}% sur {detected_lookback}j) vers support technique."
         }
         
     actual_1d_drop = ((current_price - close_prices[-2]) / close_prices[-2]) * 100 if len(close_prices) > 1 else 0.0
+    
+    if actual_1d_drop < -MAX_DROP_PCT:
+        return False, {
+            "drop_pct": float(actual_1d_drop),
+            "lookback_days": 1,
+            "reference_price": float(close_prices[-2]) if len(close_prices) > 1 else current_price,
+            "nature": "STRUCTURELLE (Rejet)",
+            "cause_summary": f"Baisse excessive ({actual_1d_drop:.2f}% > -8%). Risque de chute libre structurelle sans stabilisation."
+        }
+
     return False, {
         "drop_pct": float(actual_1d_drop),
         "lookback_days": 1,

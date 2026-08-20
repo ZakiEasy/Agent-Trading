@@ -79,6 +79,9 @@ def calculate_trade_sizing(
     rr_tp1 = potential_gain_tp1_pct / potential_loss_pct if potential_loss_pct > 0 else 0.0
     rr_tp2 = potential_gain_tp2_pct / potential_loss_pct if potential_loss_pct > 0 else 0.0
 
+    # 7. Réserve de liquidités minimale (25% à 30%)
+    cash_reserve_required = capital_total * MIN_CASH_RESERVE_PCT
+
     return {
         "capital_reference": capital_total,
         "entry_price": entry_price,
@@ -91,6 +94,7 @@ def calculate_trade_sizing(
         "actual_nominal": actual_nominal,
         "shares_count": shares_count,
         "actual_monetary_risk": actual_monetary_risk,
+        "cash_reserve_required": cash_reserve_required,
         "tp1_price": tp1_price,
         "tp1_pct": potential_gain_tp1_pct,
         "tp1_gain_amount": potential_gain_tp1_amount,
@@ -100,7 +104,8 @@ def calculate_trade_sizing(
         "risk_reward_tp1": rr_tp1,
         "risk_reward_tp2": rr_tp2,
         "holding_period_days": HOLDING_PERIOD_DAYS,
-        "holding_range": f"{HOLDING_PERIOD_MIN_DAYS} à {HOLDING_PERIOD_MAX_DAYS} jours (cible ~{HOLDING_PERIOD_DAYS}j)"
+        "time_stop": f"Invalidation temporelle : Clôture obligatoire à J+{HOLDING_PERIOD_DAYS} ouvrés si TP non atteint",
+        "holding_range": f"{HOLDING_PERIOD_MIN_DAYS} à {HOLDING_PERIOD_MAX_DAYS} jours (cible médiane {HOLDING_PERIOD_DAYS}j ouvrés)"
     }
 
 def calculate_confluence_score(
@@ -110,56 +115,72 @@ def calculate_confluence_score(
     has_qualified_drop,
     tech_setup,
     has_blackout,
-    trade_plan
+    trade_plan,
+    fund_quality=None,
+    sector_strength=None
 ):
     """
-    Calcule le Score de Confluence Globale (0 à 10 points) et attribue le verdict final (Section 7.8).
+    Calcule le Score de Confluence Globale (0 à 10 points) et attribue le verdict final (Section 4.8).
     
     Barème de Confluence (10 Points) :
     1. Conformité Sharia (2 pts) : Statut CONFORME
-    2. Contexte Macro (2 pts) : Risk-On (+2) ou Neutre (+1) ou Exception Contrarienne (+2)
+    2. Contexte Macro & Secteur (2 pts) : Risk-On (+1.5) ou Neutre (+0.5), Force relative sectorielle (+0.5)
     3. Qualification du Dip (2 pts) : Baisse de -3% à -8% conjoncturelle (+2), modérée (+1)
-    4. Analyse Technique & Divergence (2 pts) : SMA 200 haussière / Support (+1), Divergence RSI haussière (+1)
-    5. Dynamique Flux & R:R (2 pts) : Volume / QQE (+1), Ratio R:R >= 1:1.3 (+1)
+    4. Analyse Technique & Divergence (2 pts) : SMA 200 haussière / Support (+1), Divergence RSI haussière / Rejet (+1)
+    5. Dynamique Flux & R:R (2 pts) : Volume / QQE (+1), Ratio R:R >= 1:1.0 (+1)
     """
     score = 0
     breakdown = []
+    fund_quality = fund_quality or {}
+    sector_strength = sector_strength or {}
 
-    # 1. Conformité Sharia
-    sharia_status = sharia_res.get("status", "À VÉRIFIER")
+    # 1. Conformité Sharia (Normes AAOIFI)
+    sharia_status = sharia_res.get("status", "DONNÉES INSUFFISANTES")
     if sharia_status == "CONFORME":
         score += 2
-        breakdown.append({"criterion": "Conformité Sharia (AAOIFI)", "points": 2, "max": 2, "status": "Validé 🕌"})
-    elif sharia_status == "À VÉRIFIER":
-        score += 1
-        breakdown.append({"criterion": "Conformité Sharia (AAOIFI)", "points": 1, "max": 2, "status": "À approfondir ⚠️"})
+        breakdown.append({"criterion": "1. Conformité Sharia (AAOIFI)", "points": 2, "max": 2, "status": "Validé 🕌 (Ratios < 33% Cap 24m)"})
+    elif sharia_status == "DONNÉES INSUFFISANTES":
+        score += 0
+        breakdown.append({"criterion": "1. Conformité Sharia (AAOIFI)", "points": 0, "max": 2, "status": "Données insuffisantes ⚠️"})
     else:
-        breakdown.append({"criterion": "Conformité Sharia (AAOIFI)", "points": 0, "max": 2, "status": "Non Conforme ❌"})
+        breakdown.append({"criterion": "1. Conformité Sharia (AAOIFI)", "points": 0, "max": 2, "status": "Non Conforme ❌"})
 
-    # 2. Contexte Macroéconomique
+    # 2. Contexte Macroéconomique & Tendance Sectorielle
     regime = macro_barometer.get("regime", "")
+    rel_status = sector_strength.get("relative_strength", "EN LIGNE")
+    macro_pts = 0
     if "RISK-ON" in regime.upper():
-        score += 2
-        breakdown.append({"criterion": "Régime Macro Global", "points": 2, "max": 2, "status": "Risk-On Favorable 🟢"})
+        macro_pts += 1.5
     elif "CONTRARIENNE" in regime.upper():
-        score += 2
-        breakdown.append({"criterion": "Régime Macro Global", "points": 2, "max": 2, "status": "Panique Contrarienne ⚡"})
+        macro_pts += 1.5
     elif "NEUTRE" in regime.upper() or "VIGILANCE" in regime.upper():
-        score += 1
-        breakdown.append({"criterion": "Régime Macro Global", "points": 1, "max": 2, "status": "Neutre / Vigilance 🟡"})
-    else:
-        breakdown.append({"criterion": "Régime Macro Global", "points": 0, "max": 2, "status": "Risk-Off Blocage 🔴"})
+        macro_pts += 0.5
+
+    if rel_status == "SURPERFORMANCE":
+        macro_pts += 0.5
+    elif rel_status == "EN LIGNE":
+        macro_pts += 0.25
+
+    macro_pts_rounded = min(2, math.ceil(macro_pts))
+    score += macro_pts_rounded
+    breakdown.append({
+        "criterion": "2. Macro & Force Sectorielle",
+        "points": macro_pts_rounded,
+        "max": 2,
+        "status": f"{regime} | Secteur : {rel_status}"
+    })
 
     # 3. Qualification du Dip (-3% à -8%)
     drop_pct = drop_details.get("drop_pct", 0.0)
-    if has_qualified_drop and -8.0 <= drop_pct <= -3.0:
+    drop_nature = drop_details.get("nature", "")
+    if has_qualified_drop and -8.0 <= drop_pct <= -3.0 and "CONJONCTURELLE" in drop_nature.upper():
         score += 2
-        breakdown.append({"criterion": "Dip Conjoncturel (-3% à -8%)", "points": 2, "max": 2, "status": f"Optimal ({drop_pct:.2f}%) 🎯"})
+        breakdown.append({"criterion": "3. Dip Conjoncturel (-3% à -8%)", "points": 2, "max": 2, "status": f"Optimal ({drop_pct:.2f}%) 🎯 Mispricing"})
     elif -3.0 < drop_pct <= -1.5:
         score += 1
-        breakdown.append({"criterion": "Dip Conjoncturel (-3% à -8%)", "points": 1, "max": 2, "status": f"Modéré ({drop_pct:.2f}%) ⚖️"})
+        breakdown.append({"criterion": "3. Dip Conjoncturel (-3% à -8%)", "points": 1, "max": 2, "status": f"Modéré ({drop_pct:.2f}%) ⚖️"})
     else:
-        breakdown.append({"criterion": "Dip Conjoncturel (-3% à -8%)", "points": 0, "max": 2, "status": f"Hors fenêtre ({drop_pct:.2f}%) ⚪"})
+        breakdown.append({"criterion": "3. Dip Conjoncturel (-3% à -8%)", "points": 0, "max": 2, "status": f"Hors fenêtre ({drop_pct:.2f}%) ⚪"})
 
     # 4. Analyse Technique & Divergence RSI
     tech_pts = 0
@@ -167,17 +188,19 @@ def calculate_confluence_score(
         tech_pts += 1
         
     has_div = tech_setup.get("rsi_divergence", {}).get("has_divergence", False)
-    if has_div:
+    has_rejection = tech_setup.get("support_rejection", False)
+    if has_div or has_rejection:
         tech_pts += 1
     elif tech_setup.get("rsi", 50) < 35:
         tech_pts += 0.5
         
-    score += math.ceil(tech_pts)
+    tech_pts_rounded = min(2, math.ceil(tech_pts))
+    score += tech_pts_rounded
     breakdown.append({
-        "criterion": "Technique & Divergence RSI",
-        "points": math.ceil(tech_pts),
+        "criterion": "4. Technique, Divergence RSI & Rejet",
+        "points": tech_pts_rounded,
         "max": 2,
-        "status": f"{'Divergence RSI Haussière 🔥' if has_div else 'Support / SMA 200' if tech_pts > 0 else 'Neutre'}"
+        "status": f"{'Divergence RSI 🔥' if has_div else 'Mèche de Rejet 🟢' if has_rejection else 'Support / SMA 200'}"
     })
 
     # 5. Dynamique Flux & Ratio Risque / Rendement
@@ -189,41 +212,56 @@ def calculate_confluence_score(
         
     score += flux_pts
     breakdown.append({
-        "criterion": "Flux Volume / QQE & R:R",
+        "criterion": "5. Flux Volume / QQE & R:R",
         "points": flux_pts,
         "max": 2,
-        "status": f"R:R 1:{trade_plan.get('risk_reward_tp1', 0):.2f} ({'Volume Fort' if tech_setup.get('volume_confirmed') else 'Standard'})"
+        "status": f"R:R 1:{trade_plan.get('risk_reward_tp1', 0):.2f} ({'Volume Confirmé' if tech_setup.get('volume_confirmed') else 'Standard'})"
     })
 
-    # Verdict Décisionnel Final
+    # Filtres éliminatoires (Hard Filters) & Verdict Décisionnel
+    is_large_cap = fund_quality.get("is_large_cap", True)
+    has_min_liquidity = fund_quality.get("has_min_liquidity", True)
+
     if sharia_status == "NON CONFORME":
         verdict = "ÉVITER - HORS CRITÈRES (Non conforme Sharia)"
         decision_badge = "danger"
-        synthesis = "Le titre ne satisfait pas aux critères éthiques Sharia (AAOIFI). Exclusion immédiate du processus."
-    elif has_blackout:
-        verdict = "ÉVITER - HORS CRITÈRES (Blackout Résultats)"
+        synthesis = "Exclusion immédiate : le titre ne satisfait pas aux critères éthiques Sharia (AAOIFI)."
+    elif sharia_status == "DONNÉES INSUFFISANTES":
+        verdict = "ÉVITER - HORS CRITÈRES (Données Sharia insuffisantes)"
         decision_badge = "danger"
-        synthesis = "Publication de résultats sous 10 jours ouvrés. Risque de gap hors marché non maîtrisable."
+        synthesis = "Arrêt de l'analyse : Données financières ou bilan insuffisants pour certifier la conformité AAOIFI."
+    elif not is_large_cap:
+        verdict = "ÉVITER - HORS CRITÈRES (Cap < 2 Mrd)"
+        decision_badge = "danger"
+        synthesis = "Capitalisation boursière inférieure au filtre institutionnel de 2 Mrd €/$."
+    elif not has_min_liquidity:
+        verdict = "ÉVITER - HORS CRITÈRES (Liquidité < 1 M€/$)"
+        decision_badge = "danger"
+        synthesis = "Volume quotidien moyen inférieur à 1 M€/$. Risque de slippage trop élevé."
+    elif has_blackout:
+        verdict = "ÉVITER - HORS CRITÈRES (Blackout Résultats < 10j)"
+        decision_badge = "danger"
+        synthesis = "Publication de résultats ou événement majeur sous 10 jours ouvrés. Risque de gap non maîtrisable."
     elif "RISK-OFF" in regime.upper():
         verdict = "GEL TOTAL DES ACHATS (Macro Risk-Off)"
         decision_badge = "danger"
-        synthesis = "Le baromètre macroéconomique global impose un gel complet des ouvertures. Préservation du capital."
-    elif not tech_setup.get("is_above_sma200", True) and not "CONTRARIENNE" in regime.upper():
+        synthesis = "Le baromètre macroéconomique global impose la conservation des liquidités (Cash is a position)."
+    elif not tech_setup.get("is_above_sma200", True) and not "CONTRARIENNE" in regime.upper() and not has_div:
         verdict = "ATTENDRE REPLI SUR SUPPORT (Sous SMA 200)"
         decision_badge = "neutral"
-        synthesis = "Titre sous sa SMA 200 de long terme. Attendre une structure de retournement confirmée."
-    elif score >= 7 and (has_qualified_drop or has_div):
+        synthesis = "Titre sous sa SMA 200 sans divergence haussière confirmée. Attendre une structure de retournement."
+    elif score >= 7 and (has_qualified_drop or has_div or has_rejection):
         verdict = "ACHETER LE REBOND"
         decision_badge = "success"
-        synthesis = f"Excellente confluence ({score}/10). Excès vendeur temporaire sur support majeur avec catalyseur technique."
+        synthesis = f"Excellente confluence ({score}/10). Excès vendeur conjoncturel sur support clé avec catalyseur technique."
     elif score >= 4:
         verdict = "ATTENDRE REPLI SUR SUPPORT"
         decision_badge = "neutral"
-        synthesis = f"Configuration intéressante (Score {score}/10) mais timing d'entrée incomplet. Surveiller le test du support."
+        synthesis = f"Configuration en observation (Score {score}/10). Attendre un test propre du support ou une mèche de rejet."
     else:
         verdict = "ÉVITER - HORS CRITÈRES"
         decision_badge = "danger"
-        synthesis = f"Score de confluence insuffisant ({score}/10). Pas d'avantage statistique immédiat pour un swing trade."
+        synthesis = f"Score de confluence insuffisant ({score}/10). Pas d'avantage statistique pour un swing trade 10 jours."
 
     return {
         "confluence_score": score,

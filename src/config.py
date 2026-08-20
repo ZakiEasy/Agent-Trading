@@ -27,6 +27,22 @@ DEFAULT_MARKET_POOL = [
 # Capitalisation boursière minimale pour univers de qualité (Large/Mid Caps > 2 Mrd)
 MIN_MARKET_CAP_USD = 2_000_000_000
 
+# Liquidité minimale quotidienne pour éliminer le risque de slippage (Volume quotidien > 1 M€/$)
+MIN_AVG_DAILY_VOLUME_USD = 1_000_000
+
+# ETF Sectoriels de référence pour analyse de force relative Top-Down
+SECTOR_ETFS = {
+    "Tech & IA": "XLK",
+    "Santé & Pharma": "XLV",
+    "Luxe & Consommation": "XLY",
+    "Industrie & Aéro": "XLI",
+    "Énergie & Pétrole": "XLE",
+    "Matériaux & Chimie": "XLB",
+    "Agro & Défensif": "XLP",
+    "Finance & Immo": "XLF",
+    "Autres": "SPY"
+}
+
 # Seuils de variation pour la détection de baisse (Dip Mean Reversion)
 MIN_DROP_PCT = 3.0   # Baisse minimale de -3%
 MAX_DROP_PCT = 8.0   # Baisse maximale de -8%
@@ -45,11 +61,11 @@ TARGET_TP2_DEFAULT = 2.25 # Médiane TP2
 TARGET_REBOUND_MIN = TARGET_TP1_MIN
 TARGET_REBOUND_MAX = TARGET_TP2_MAX
 
-# Horizon temporel de détention (3 à 15 jours, cible médiane ~10 jours)
+# Horizon temporel de détention (Invalidation temporelle Time Stop : J+10 ouvrés)
 HOLDING_PERIOD_MIN_DAYS = 3
 HOLDING_PERIOD_MAX_DAYS = 15
 HOLDING_PERIOD_DAYS = 10
-EARNINGS_BLACKOUT_DAYS = 10  # 7 à 10 jours ouvrés
+EARNINGS_BLACKOUT_DAYS = 10  # 10 jours ouvrés sans résultats ni événement majeur
 
 # ==============================================================================
 # --- 2. Gestion du Risque & Paramètres de Capital (R-Max) ---

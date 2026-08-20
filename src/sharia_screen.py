@@ -45,27 +45,53 @@ def get_financial_metric(balance_sheet, keys):
                 return float(val)
     return 0.0
 
+def calculate_24m_avg_market_cap(ticker_obj, info, current_market_cap):
+    """
+    Calcule la capitalisation boursière moyenne sur 24 mois selon les normes AAOIFI / MSCI Islamic.
+    """
+    try:
+        hist_2y = ticker_obj.history(period="2y")
+        if hist_2y is not None and not hist_2y.empty and len(hist_2y) > 50:
+            avg_close = float(hist_2y['Close'].dropna().mean())
+            current_close = float(hist_2y['Close'].dropna().values[-1])
+            shares = info.get("sharesOutstanding")
+            if shares and shares > 0:
+                return float(shares * avg_close)
+            elif current_close > 0 and current_market_cap > 0:
+                # Ratio de cours moyen sur cours actuel appliqué à la market cap
+                return float(current_market_cap * (avg_close / current_close))
+    except Exception as e:
+        print(f"Notice: calculate_24m_avg_market_cap fallback: {e}")
+        
+    return current_market_cap
+
 def check_financial_compliance(ticker_obj, info):
     """
-    Vérifie la conformité des ratios financiers (Financial Screen).
-    Ratios calculés par rapport à la capitalisation boursière (Market Cap).
+    Vérifie la conformité des ratios financiers (Financial Screen) selon les normes AAOIFI / MSCI Islamic.
+    Ratios calculés par rapport à la capitalisation boursière moyenne sur 24 mois :
+      - Dette totale portant intérêt / Cap. Moyenne 24m < 33%
+      - Trésorerie & Placements rémunérés / Cap. Moyenne 24m < 33%
+      - Créances clients / Cap. Moyenne 24m < 33%
     """
     if not isinstance(info, dict):
         info = {}
         
-    market_cap = info.get("marketCap")
-    if not market_cap:
+    current_market_cap = info.get("marketCap")
+    if not current_market_cap:
         shares = info.get("sharesOutstanding")
         price = info.get("currentPrice") or info.get("previousClose") or info.get("regularMarketPrice")
         if shares and price:
-            market_cap = shares * price
+            current_market_cap = float(shares * price)
             
-    if not market_cap:
+    if not current_market_cap:
         return False, {
-            "status": "NON CONFORME",
-            "reason": "Impossible de déterminer la capitalisation boursière pour le calcul des ratios.",
+            "status": "DONNÉES INSUFFISANTES",
+            "reason": "Impossible d'obtenir la capitalisation boursière pour le calcul des ratios AAOIFI.",
             "details": {}
         }
+
+    # Calcul de la capitalisation moyenne 24 mois
+    market_cap_24m = calculate_24m_avg_market_cap(ticker_obj, info, current_market_cap)
 
     try:
         bs = getattr(ticker_obj, 'quarterly_balance_sheet', None)
@@ -74,12 +100,15 @@ def check_financial_compliance(ticker_obj, info):
             
         if bs is None or bs.empty:
             return False, {
-                "status": "À VÉRIFIER",
-                "reason": "Bilan financier indisponible pour calculer les ratios.",
-                "details": {"market_cap": market_cap}
+                "status": "DONNÉES INSUFFISANTES",
+                "reason": "Bilan comptable indisponible pour auditer les ratios financiers AAOIFI.",
+                "details": {
+                    "market_cap": current_market_cap,
+                    "market_cap_24m": market_cap_24m
+                }
             }
             
-        # 1. Dette totale
+        # 1. Dette totale portant intérêt
         debt_keys = ["Total Debt", "Long Term Debt", "LongTermDebt", "ShortLongTermDebt", "CurrentDebt"]
         total_debt = get_financial_metric(bs, debt_keys)
         if total_debt == 0.0:
@@ -87,7 +116,7 @@ def check_financial_compliance(ticker_obj, info):
             st_debt = get_financial_metric(bs, ["Short Term Debt", "ShortLongTermDebt", "CurrentDebt"])
             total_debt = lt_debt + st_debt
 
-        # 2. Liquidités & Placements
+        # 2. Liquidités & Placements rémunérés
         cash_keys = ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments", "CashAndCashEquivalents", "OtherShortTermInvestments"]
         cash_investments = get_financial_metric(bs, cash_keys)
 
@@ -95,13 +124,15 @@ def check_financial_compliance(ticker_obj, info):
         receivables_keys = ["Accounts Receivable", "Net Receivables", "Receivables", "GrossAccountsReceivable"]
         receivables = get_financial_metric(bs, receivables_keys)
 
-        # Calcul des ratios
-        debt_ratio = total_debt / market_cap if market_cap else 0.0
-        cash_ratio = cash_investments / market_cap if market_cap else 0.0
-        receivables_ratio = receivables / market_cap if market_cap else 0.0
+        # Calcul des ratios sur la capitalisation moyenne 24 mois
+        cap_ref = market_cap_24m if market_cap_24m > 0 else current_market_cap
+        debt_ratio = total_debt / cap_ref if cap_ref else 0.0
+        cash_ratio = cash_investments / cap_ref if cap_ref else 0.0
+        receivables_ratio = receivables / cap_ref if cap_ref else 0.0
 
         details = {
-            "market_cap": market_cap,
+            "market_cap": current_market_cap,
+            "market_cap_24m": cap_ref,
             "total_debt": total_debt,
             "debt_ratio": debt_ratio,
             "cash_investments": cash_investments,
@@ -110,41 +141,38 @@ def check_financial_compliance(ticker_obj, info):
             "receivables_ratio": receivables_ratio
         }
 
-        # Évaluation par rapport aux seuils de 33%
+        # Évaluation par rapport aux seuils AAOIFI de 33%
+        violations = []
         if debt_ratio >= SHARIA_MAX_DEBT_RATIO:
-            return False, {
-                "status": "NON CONFORME",
-                "reason": f"Dette trop élevée (Ratio: {debt_ratio:.2%} >= {SHARIA_MAX_DEBT_RATIO:.0%})",
-                "details": details
-            }
+            violations.append(f"Dette / Cap. 24m élevée ({debt_ratio:.1%} >= {SHARIA_MAX_DEBT_RATIO:.0%})")
         if cash_ratio >= SHARIA_MAX_CASH_RATIO:
-            return False, {
-                "status": "NON CONFORME",
-                "reason": f"Liquidités/Placements trop élevés (Ratio: {cash_ratio:.2%} >= {SHARIA_MAX_CASH_RATIO:.0%})",
-                "details": details
-            }
+            violations.append(f"Cash & Placements / Cap. 24m élevés ({cash_ratio:.1%} >= {SHARIA_MAX_CASH_RATIO:.0%})")
         if receivables_ratio >= SHARIA_MAX_RECEIVABLES_RATIO:
+            violations.append(f"Créances clients / Cap. 24m élevées ({receivables_ratio:.1%} >= {SHARIA_MAX_RECEIVABLES_RATIO:.0%})")
+
+        if violations:
             return False, {
                 "status": "NON CONFORME",
-                "reason": f"Créances clients trop élevées (Ratio: {receivables_ratio:.2%} >= {SHARIA_MAX_RECEIVABLES_RATIO:.0%})",
+                "reason": "Dépassement des seuils AAOIFI : " + " ; ".join(violations),
                 "details": details
             }
 
         return True, {
             "status": "CONFORME",
-            "reason": "Tous les ratios financiers sont inférieurs à 33%.",
+            "reason": "Ratios AAOIFI validés sur Cap. Moyenne 24 mois (Dette, Cash, Créances < 33%).",
             "details": details
         }
     except Exception as e:
         return False, {
-            "status": "À VÉRIFIER",
-            "reason": f"Erreur lors du calcul des ratios : {str(e)}",
+            "status": "DONNÉES INSUFFISANTES",
+            "reason": f"Erreur lors de l'audit des ratios AAOIFI : {str(e)}",
             "details": {}
         }
 
 def screen_ticker(ticker_symbol):
     """
-    Exécute le screening Sharia complet pour un ticker.
+    Exécute le screening Sharia complet pour un ticker selon les normes AAOIFI / MSCI Islamic.
+    Statut : [CONFORME] | [NON CONFORME] | [DONNÉES INSUFFISANTES]
     """
     ticker_symbol = ticker_symbol.upper().strip()
     
@@ -154,8 +182,14 @@ def screen_ticker(ticker_symbol):
         sheet_statuses = read_sharia_statuses_from_sheets()
         if ticker_symbol in sheet_statuses:
             status_val = str(sheet_statuses[ticker_symbol]).strip().upper()
-            if status_val in ["CONFORME", "NON CONFORME", "HALAL", "HARAM", "TRUE", "FALSE"]:
-                normalized_status = "CONFORME" if status_val in ["CONFORME", "HALAL", "TRUE"] else "NON CONFORME"
+            if status_val in ["CONFORME", "NON CONFORME", "DONNÉES INSUFFISANTES", "HALAL", "HARAM", "TRUE", "FALSE"]:
+                if status_val in ["CONFORME", "HALAL", "TRUE"]:
+                    normalized_status = "CONFORME"
+                elif status_val in ["NON CONFORME", "HARAM", "FALSE"]:
+                    normalized_status = "NON CONFORME"
+                else:
+                    normalized_status = "DONNÉES INSUFFISANTES"
+                    
                 return {
                     "symbol": ticker_symbol,
                     "status": normalized_status,
@@ -169,7 +203,7 @@ def screen_ticker(ticker_symbol):
     info = get_ticker_info(ticker_symbol)
     ticker_obj = yf.Ticker(ticker_symbol)
 
-    # 1. Business Screen
+    # 1. Business Screen (Activités & Revenus illicites < 5%)
     is_business_compliant, business_reason = check_business_compliance(info)
     if not is_business_compliant:
         return {
@@ -179,11 +213,11 @@ def screen_ticker(ticker_symbol):
             "details": {"industry": info.get("industry", ""), "sector": info.get("sector", "")}
         }
 
-    # 2. Financial Screen
+    # 2. Financial Screen (Ratios < 33% sur Cap. Moyenne 24 mois)
     is_financial_compliant, financial_res = check_financial_compliance(ticker_obj, info)
     
     if not isinstance(financial_res, dict):
-        financial_res = {"status": "À VÉRIFIER", "reason": "Résultat financier non disponible"}
+        financial_res = {"status": "DONNÉES INSUFFISANTES", "reason": "Résultat financier non disponible"}
         
     financial_res["symbol"] = ticker_symbol
     financial_res["industry"] = info.get("industry", "")
