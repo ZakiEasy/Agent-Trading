@@ -516,6 +516,50 @@
             transition: width 0.3s ease;
         }
 
+        /* Stock Detail Fullscreen / Dedicated Page Mode */
+        #ticker-detail-card.fullscreen-detail {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 99999 !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            padding: 1.5rem 3rem 3rem 3rem !important;
+            background: rgba(15, 23, 42, 0.98) !important;
+            backdrop-filter: blur(30px) !important;
+            overflow-y: auto !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        #ticker-detail-card.fullscreen-detail .card-header {
+            position: sticky;
+            top: 0;
+            background: rgba(15, 23, 42, 0.96);
+            padding: 0.75rem 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1.25rem;
+        }
+
+        #ticker-detail-card.fullscreen-detail #tv-chart-container {
+            height: 520px !important;
+            min-height: 520px !important;
+        }
+
+        #ticker-detail-card.fullscreen-detail #tradingview_chart {
+            height: 520px !important;
+            min-height: 520px !important;
+        }
+
+        #ticker-detail-card.fullscreen-detail #ticker-detail-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
         /* Modal Popup */
         .modal-overlay {
             position: fixed;
@@ -955,12 +999,19 @@
                     
                     <!-- 8-Step Detailed Analysis Card -->
                     <div class="glass-card" id="ticker-detail-card" style="display: none;">
-                        <div class="card-header">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <h2 class="card-title" id="detail-card-title">📋 Rapport Protocolaire</h2>
                                 <span id="detail-score-pill" class="score-pill score-high">--/10</span>
                             </div>
-                            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="closeDetailCard()">Fermer</button>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <button id="btn-toggle-fullscreen" class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.8rem; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd;" onclick="toggleDetailFullscreen()" title="Basculer en mode plein écran / pleine page">
+                                    ⛶ Plein Écran
+                                </button>
+                                <button class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;" onclick="closeDetailCard()" title="Fermer le rapport">
+                                    ✕ Fermer
+                                </button>
+                            </div>
                         </div>
                         
                         <!-- TradingView Interactive Widget Container -->
@@ -1356,6 +1407,9 @@
                     </div>
 
                     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="loadJournalHistory(true)">
+                            🔄 Actualiser
+                        </button>
                         <button class="btn btn-secondary" onclick="openUploadCsvModal()">
                             📂 Importer Fichier (XLSX / CSV)
                         </button>
@@ -1903,16 +1957,31 @@
         let sortAsc = false;
         let currentMacroData = null;
 
+        // FRONTEND CACHE (Instant 0ms tab switching + background revalidation)
+        const FRONTEND_CACHE = {
+            portfolio: { data: null, ts: 0, ttl: 120000 },       // 2 min
+            diversification: { data: null, ts: 0, ttl: 300000 }, // 5 min
+            treasury: { data: null, ts: 0, ttl: 600000 },        // 10 min
+            journal: { data: null, ts: 0, ttl: 600000 },         // 10 min
+            xtbQuota: { data: null, ts: 0, ttl: 300000 },        // 5 min
+            antiFifo: { data: null, ts: 0, ttl: 120000 }         // 2 min
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             loadMacroBarometer();
             recalculateRMaxTool();
             runSimulation();
-            loadLivePortfolio();
-            loadJournalHistory();
+            
+            // Preload all tabs in background for instant switching
+            setTimeout(() => {
+                loadLivePortfolio(false);
+                loadDiversificationData(false);
+                loadJournalHistory(false);
+            }, 250);
         });
 
         // ---------------------------------------------------------------------
-        // TAB SWITCHING
+        // TAB SWITCHING (INSTANT DISPLAY FROM CACHE)
         // ---------------------------------------------------------------------
         function switchTab(tabId) {
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -1925,11 +1994,11 @@
             if (targetTab) targetTab.classList.add('active');
 
             if (tabId === 'portfolio') {
-                loadLivePortfolio();
+                loadLivePortfolio(false);
             } else if (tabId === 'diversification') {
-                loadDiversificationData();
+                loadDiversificationData(false);
             } else if (tabId === 'journal') {
-                loadJournalHistory();
+                loadJournalHistory(false);
             } else if (tabId === 'simulation') {
                 runSimulation();
             }
@@ -1941,33 +2010,57 @@
         let diversificationData = null;
         let treasuryData = null;
 
-        async function loadDiversificationData() {
+        async function loadDiversificationData(force = false) {
+            const tbody = document.getElementById('div-categories-tbody');
+            const now = Date.now();
+
+            // Instant render from cache if fresh
+            if (!force && FRONTEND_CACHE.diversification.data && (now - FRONTEND_CACHE.diversification.ts < FRONTEND_CACHE.diversification.ttl)) {
+                renderDiversificationAll(FRONTEND_CACHE.diversification.data, FRONTEND_CACHE.treasury.data);
+                return;
+            }
+
             try {
+                const divUrl = force ? `${API_URL}/portfolio/diversification?force=true` : `${API_URL}/portfolio/diversification`;
+                const tresUrl = force ? `${API_URL}/portfolio/treasury?force=true` : `${API_URL}/portfolio/treasury`;
+
                 const [divRes, tresRes] = await Promise.all([
-                    fetch(`${API_URL}/portfolio/diversification`),
-                    fetch(`${API_URL}/portfolio/treasury`)
+                    fetch(divUrl),
+                    fetch(tresUrl)
                 ]);
                 const divPayload = await divRes.json();
                 const tresPayload = await tresRes.json();
 
                 if (divPayload.success && divPayload.data) {
+                    FRONTEND_CACHE.diversification = { data: divPayload.data, ts: Date.now(), ttl: 300000 };
                     diversificationData = divPayload.data;
-                    renderDiversificationKPIs(diversificationData);
-                    renderDiversificationCategories(diversificationData.categories || []);
-                    renderDiversificationAccounts(diversificationData.accounts || []);
-                    renderDiversificationBrokers(diversificationData.brokers || []);
                 }
 
                 if (tresPayload.success) {
+                    FRONTEND_CACHE.treasury = { data: tresPayload, ts: Date.now(), ttl: 600000 };
                     treasuryData = tresPayload;
-                    renderTreasuryOperations(tresPayload.recent_operations || []);
                 }
 
-                // Charger également le quota XTB et les opportunités Anti-FIFO
-                loadXtbQuota();
-                loadAntiFifoOpportunities();
+                renderDiversificationAll(diversificationData, treasuryData);
+                loadXtbQuota(force);
+                loadAntiFifoOpportunities(force);
             } catch (e) {
                 console.error("Erreur chargement diversification & trésorerie:", e);
+                if (tbody && !FRONTEND_CACHE.diversification.data) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--danger);">⚠️ Impossible de charger la diversification (${e.message}). <button class="btn btn-secondary" style="margin-left:0.5rem; font-size:0.8rem;" onclick="loadDiversificationData(true)">Réessayer</button></td></tr>`;
+                }
+            }
+        }
+
+        function renderDiversificationAll(divData, tresData) {
+            if (divData) {
+                renderDiversificationKPIs(divData);
+                renderDiversificationCategories(divData.categories || []);
+                renderDiversificationAccounts(divData.accounts || [], divData.cash_summary);
+                renderDiversificationBrokers(divData.brokers || []);
+            }
+            if (tresData) {
+                renderTreasuryOperations(tresData.recent_operations || []);
             }
         }
 
@@ -2036,12 +2129,22 @@
 
             let html = '';
             categories.forEach(cat => {
-                const statusColor = cat.status.includes('OPTIMAL') ? 'var(--success)' : cat.status.includes('SUR-PONDÉRÉ') ? 'var(--danger)' : 'var(--warning)';
-                const statusBadgeClass = cat.status.includes('OPTIMAL') ? 'badge-success' : cat.status.includes('SUR-PONDÉRÉ') ? 'badge-warning' : 'badge-primary';
-                const pnlClass = cat.pnl_eur >= 0 ? 'text-success' : 'text-danger';
-                const pnlSign = cat.pnl_eur >= 0 ? '+' : '';
+                const statusColor = (cat.status || '').includes('OPTIMAL') ? 'var(--success)' : (cat.status || '').includes('SUR-PONDÉRÉ') ? 'var(--danger)' : 'var(--warning)';
+                const statusBadgeClass = (cat.status || '').includes('OPTIMAL') ? 'badge-success' : (cat.status || '').includes('SUR-PONDÉRÉ') ? 'badge-warning' : 'badge-primary';
+                const pnlEur = Number(cat.pnl_eur) || 0;
+                const pnlPct = Number(cat.pnl_pct) || 0;
+                const pnlClass = pnlEur >= 0 ? 'text-success' : 'text-danger';
+                const pnlSign = pnlEur >= 0 ? '+' : '';
 
-                const tickersList = (cat.symbols || []).join(', ');
+                // Handle both list of strings or list of objects
+                let tickersList = '';
+                if (Array.isArray(cat.tickers)) {
+                    tickersList = cat.tickers.map(t => typeof t === 'string' ? t : (t.symbol || '')).filter(Boolean).join(', ');
+                } else if (Array.isArray(cat.symbols)) {
+                    tickersList = cat.symbols.join(', ');
+                }
+
+                const posCount = cat.positions_count || cat.count || (Array.isArray(cat.tickers) ? cat.tickers.length : 0);
 
                 html += `
                     <tr>
@@ -2054,19 +2157,19 @@
                                 </div>
                             </div>
                         </td>
-                        <td><span class="badge badge-primary">${cat.count} pos</span></td>
+                        <td><span class="badge badge-primary">${posCount} pos</span></td>
                         <td><strong>${(Number(cat.value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong></td>
                         <td style="min-width: 140px;">
                             <div style="display:flex; align-items:center; gap:0.5rem;">
                                 <div style="flex:1; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden;">
-                                    <div style="width:${Math.min(100, cat.weight_pct)}%; height:100%; background:${statusColor};"></div>
+                                    <div style="width:${Math.min(100, Math.max(0, Number(cat.weight_pct) || 0))}%; height:100%; background:${statusColor};"></div>
                                 </div>
                                 <span style="font-weight:700; font-size:0.85rem; width:45px; text-align:right;">${cat.weight_pct}%</span>
                             </div>
                         </td>
                         <td class="${pnlClass}" style="font-weight:600;">
-                            ${pnlSign}${(Number(cat.pnl_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €
-                            <span style="font-size:0.75rem;">(${pnlSign}${cat.pnl_pct}%)</span>
+                            ${pnlSign}${pnlEur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €
+                            <span style="font-size:0.75rem;">(${pnlSign}${pnlPct}%)</span>
                         </td>
                         <td>
                             <span class="badge ${statusBadgeClass}">${cat.status}</span>
@@ -2077,7 +2180,7 @@
             tbody.innerHTML = html;
         }
 
-        function renderDiversificationAccounts(accounts) {
+        function renderDiversificationAccounts(accounts, cashSummary) {
             const container = document.getElementById('div-accounts-container');
             if (!container) return;
 
@@ -2088,22 +2191,33 @@
 
             let html = '';
             accounts.forEach(acc => {
-                const borderLeft = acc.account_name.includes('PEA') ? 'border-left: 4px solid #3b82f6;' : acc.account_name.includes('Dollar') ? 'border-left: 4px solid #8b5cf6;' : 'border-left: 4px solid #10b981;';
-                const badgeClass = acc.account_name.includes('PEA') ? 'badge-pea' : acc.account_name.includes('Dollar') ? 'badge-cto' : 'badge-success';
+                const accName = acc.account_name || acc.account_id || 'Compte';
+                const borderLeft = accName.includes('PEA') ? 'border-left: 4px solid #3b82f6;' : accName.includes('Dollar') ? 'border-left: 4px solid #8b5cf6;' : 'border-left: 4px solid #10b981;';
+                const badgeClass = accName.includes('PEA') ? 'badge-pea' : accName.includes('Dollar') ? 'badge-cto' : 'badge-success';
+                const posCount = acc.positions_count || acc.count || 0;
+
+                let cashBal = Number(acc.cash_balance) || 0;
+                let curr = acc.currency || (accName.includes('Dollar') ? '$' : '€');
+                if (cashSummary && cashSummary.accounts) {
+                    const accKey = accName.includes('PEA') ? 'PEA' : accName.includes('Dollar') ? 'CTO Dollar' : 'CTO Euro';
+                    if (cashSummary.accounts[accKey]) {
+                        cashBal = Number(cashSummary.accounts[accKey].cash_balance) || cashBal;
+                    }
+                }
 
                 html += `
                     <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); ${borderLeft} border-radius: 8px; padding: 1rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <strong>${acc.icon || '💳'} ${acc.account_name}</strong>
-                            <span class="badge ${badgeClass}">${acc.weight_pct}%</span>
+                            <strong>${acc.icon || '💳'} ${accName}</strong>
+                            <span class="badge ${badgeClass}">${acc.weight_pct || 0}%</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 0.35rem;">
                             <span style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">${(Number(acc.value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</span>
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">${acc.count} position(s)</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${posCount} position(s)</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.4rem; margin-top: 0.4rem;">
                             <span>Espèces (Cash) :</span>
-                            <strong style="color: #fbbf24;">${(Number(acc.cash_balance) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${acc.currency}</strong>
+                            <strong style="color: #fbbf24;">${cashBal.toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${curr}</strong>
                         </div>
                     </div>
                 `;
@@ -2140,7 +2254,7 @@
                             <span style="font-size: 0.8rem; color: var(--text-muted);">${b.positions_count} position(s)</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.4rem; margin-top: 0.4rem;">
-                            <span>P&L Latent : <strong style="color:${b.pnl_eur >= 0 ? 'var(--success)' : 'var(--danger)'};">${b.pnl_eur >= 0 ? '+' : ''}${b.pnl_eur.toFixed(2)} € (${b.pnl_pct}%)</strong></span>
+                            <span>P&L Latent : <strong style="color:${b.pnl_eur >= 0 ? 'var(--success)' : 'var(--danger)'};">${b.pnl_eur >= 0 ? '+' : ''}${Number(b.pnl_eur || 0).toFixed(2)} € (${b.pnl_pct}%)</strong></span>
                             <span>Cash dispo : <strong style="color:#fbbf24;">${(Number(b.cash_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong></span>
                         </div>
                     </div>
@@ -2152,93 +2266,116 @@
         // ---------------------------------------------------------------------
         // XTB 100k€ QUOTA & ANTI-FIFO ENGINE
         // ---------------------------------------------------------------------
-        async function loadXtbQuota() {
+        async function loadXtbQuota(force = false) {
+            const now = Date.now();
+            if (!force && FRONTEND_CACHE.xtbQuota.data && (now - FRONTEND_CACHE.xtbQuota.ts < FRONTEND_CACHE.xtbQuota.ttl)) {
+                renderXtbQuotaData(FRONTEND_CACHE.xtbQuota.data);
+                return;
+            }
+
             try {
-                const res = await fetch(`${API_URL}/portfolio/xtb_quota`);
+                const url = force ? `${API_URL}/portfolio/xtb_quota?force=true` : `${API_URL}/portfolio/xtb_quota`;
+                const res = await fetch(url);
                 const payload = await res.json();
                 if (!payload.success || !payload.data) return;
 
-                const q = payload.data;
-                const badge = document.getElementById('xtb-quota-badge');
-                if (badge) {
-                    badge.className = `badge ${q.badge_class || 'badge-success'}`;
-                    badge.textContent = q.status_label || '0% ACTIF 🟢';
-                }
-
-                const details = document.getElementById('xtb-quota-details');
-                if (details) {
-                    details.innerHTML = `Volume négocié ce mois : <strong>${(Number(q.turnover_current_month_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong> / ${(Number(q.limit_eur) || 100000).toLocaleString('fr-FR')} € — Reste <strong>${(Number(q.remaining_zero_commission_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong> sans commission`;
-                }
-
-                const pctElem = document.getElementById('xtb-quota-pct');
-                if (pctElem) {
-                    pctElem.textContent = `${q.usage_pct}%`;
-                    pctElem.style.color = q.usage_pct >= 100 ? 'var(--danger)' : q.usage_pct >= 80 ? 'var(--warning)' : 'var(--success)';
-                }
-
-                const savingsElem = document.getElementById('xtb-quota-savings');
-                if (savingsElem) {
-                    savingsElem.textContent = `Économies estimées : +${(Number(q.estimated_fees_saved_eur) || 0).toFixed(2)} €`;
-                }
-
-                const bar = document.getElementById('xtb-quota-bar');
-                if (bar) {
-                    bar.style.width = `${Math.min(100, Math.max(0, q.usage_pct))}%`;
-                    bar.style.background = q.usage_pct >= 100 ? 'var(--danger)' : q.usage_pct >= 80 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #10b981, #3b82f6)';
-                }
+                FRONTEND_CACHE.xtbQuota = { data: payload.data, ts: Date.now(), ttl: 300000 };
+                renderXtbQuotaData(payload.data);
             } catch (e) {
                 console.error("Erreur chargement quota XTB:", e);
             }
         }
 
-        async function loadAntiFifoOpportunities() {
+        function renderXtbQuotaData(q) {
+            const badge = document.getElementById('xtb-quota-badge');
+            if (badge) {
+                badge.className = `badge ${q.badge_class || 'badge-success'}`;
+                badge.textContent = q.status_label || '0% ACTIF 🟢';
+            }
+
+            const details = document.getElementById('xtb-quota-details');
+            if (details) {
+                details.innerHTML = `Volume négocié ce mois : <strong>${(Number(q.turnover_current_month_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong> / ${(Number(q.limit_eur) || 100000).toLocaleString('fr-FR')} € — Reste <strong>${(Number(q.remaining_zero_commission_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong> sans commission`;
+            }
+
+            const pctElem = document.getElementById('xtb-quota-pct');
+            if (pctElem) {
+                pctElem.textContent = `${q.usage_pct}%`;
+                pctElem.style.color = q.usage_pct >= 100 ? 'var(--danger)' : q.usage_pct >= 80 ? 'var(--warning)' : 'var(--success)';
+            }
+
+            const savingsElem = document.getElementById('xtb-quota-savings');
+            if (savingsElem) {
+                savingsElem.textContent = `Économies estimées : +${(Number(q.estimated_fees_saved_eur) || 0).toFixed(2)} €`;
+            }
+
+            const bar = document.getElementById('xtb-quota-bar');
+            if (bar) {
+                bar.style.width = `${Math.min(100, Math.max(0, q.usage_pct))}%`;
+                bar.style.background = q.usage_pct >= 100 ? 'var(--danger)' : q.usage_pct >= 80 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #10b981, #3b82f6)';
+            }
+        }
+
+        async function loadAntiFifoOpportunities(force = false) {
+            const now = Date.now();
+            if (!force && FRONTEND_CACHE.antiFifo.data && (now - FRONTEND_CACHE.antiFifo.ts < FRONTEND_CACHE.antiFifo.ttl)) {
+                renderAntiFifoData(FRONTEND_CACHE.antiFifo.data);
+                return;
+            }
+
             try {
-                const res = await fetch(`${API_URL}/portfolio/anti_fifo_opportunities`);
+                const url = force ? `${API_URL}/portfolio/anti_fifo_opportunities?force=true` : `${API_URL}/portfolio/anti_fifo_opportunities`;
+                const res = await fetch(url);
                 const payload = await res.json();
                 if (!payload.success) return;
 
                 const opps = payload.opportunities || [];
-                const banner = document.getElementById('anti-fifo-banner');
-                const countBadge = document.getElementById('anti-fifo-count');
-                const listContainer = document.getElementById('anti-fifo-list');
-
-                if (!banner || !listContainer) return;
-
-                if (opps.length === 0) {
-                    banner.style.display = 'none';
-                    return;
-                }
-
-                banner.style.display = 'block';
-                if (countBadge) countBadge.textContent = `${opps.length} Alerte(s)`;
-
-                let html = '';
-                opps.forEach(op => {
-                    html += `
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(245,158,11,0.2); border-radius: 6px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <strong style="color: #60a5fa; font-size: 0.95rem;">${op.symbol}</strong>
-                                    <span style="font-size: 0.8rem; color: var(--text-muted);">(${op.name})</span>
-                                    <span class="badge badge-danger">Moins-value sur ${op.held_broker} : ${op.held_pnl_pct}%</span>
-                                </div>
-                                <div style="font-size: 0.8rem; color: var(--text-main); margin-top: 0.25rem;">
-                                    👉 <strong>Action conseillée :</strong> ${op.action_title}
-                                </div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; max-width: 750px;">
-                                    ${op.rationale}
-                                </div>
-                            </div>
-                            <button class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;" onclick="showTickerDetail('${op.symbol}')">
-                                📊 Voir Analyse & Dips
-                            </button>
-                        </div>
-                    `;
-                });
-                listContainer.innerHTML = html;
+                FRONTEND_CACHE.antiFifo = { data: opps, ts: Date.now(), ttl: 120000 };
+                renderAntiFifoData(opps);
             } catch (e) {
                 console.error("Erreur chargement opportunités anti-fifo:", e);
             }
+        }
+
+        function renderAntiFifoData(opps) {
+            const banner = document.getElementById('anti-fifo-banner');
+            const countBadge = document.getElementById('anti-fifo-count');
+            const listContainer = document.getElementById('anti-fifo-list');
+
+            if (!banner || !listContainer) return;
+
+            if (!opps || opps.length === 0) {
+                banner.style.display = 'none';
+                return;
+            }
+
+            banner.style.display = 'block';
+            if (countBadge) countBadge.textContent = `${opps.length} Alerte(s)`;
+
+            let html = '';
+            opps.forEach(op => {
+                html += `
+                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(245,158,11,0.2); border-radius: 6px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <strong style="color: #60a5fa; font-size: 0.95rem;">${op.symbol}</strong>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">(${op.name})</span>
+                                <span class="badge badge-danger">Moins-value sur ${op.held_broker} : ${op.held_pnl_pct}%</span>
+                            </div>
+                            <div style="display: font-size: 0.8rem; color: var(--text-main); margin-top: 0.25rem;">
+                                👉 <strong>Action conseillée :</strong> ${op.action_title}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; max-width: 750px;">
+                                ${op.rationale}
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;" onclick="showTickerDetail('${op.symbol}')">
+                            📊 Voir Analyse & Dips
+                        </button>
+                    </div>
+                `;
+            });
+            listContainer.innerHTML = html;
         }
 
         // ---------------------------------------------------------------------
@@ -2379,53 +2516,89 @@
         let journalCurrentPage = 1;
         const JOURNAL_PAGE_SIZE = 50;
 
-        async function loadJournalHistory() {
+        async function loadJournalHistory(force = false) {
+            const now = Date.now();
+            if (!force && FRONTEND_CACHE.journal.data && (now - FRONTEND_CACHE.journal.ts < FRONTEND_CACHE.journal.ttl)) {
+                renderJournalAll(FRONTEND_CACHE.journal.data);
+                return;
+            }
+
             try {
-                const res = await fetch(`${API_URL}/journal/history`);
+                const url = force ? `${API_URL}/journal/history?force=true` : `${API_URL}/journal/history`;
+                const res = await fetch(url);
                 const payload = await res.json();
                 if (!payload.success || !payload.trades) return;
 
-                allJournalTrades = payload.trades;
-                const stats = payload.stats || {};
-
-                // Update Performance KPIs
-                const pnlEurElem = document.getElementById('journal-total-pnl');
-                pnlEurElem.textContent = `${stats.total_pnl_eur >= 0 ? '+' : ''}${stats.total_pnl_eur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-                pnlEurElem.style.color = stats.total_pnl_eur >= 0 ? 'var(--success)' : 'var(--danger)';
-
-                document.getElementById('journal-total-pnl-usd').textContent = `${stats.total_pnl_usd >= 0 ? '+' : ''}${stats.total_pnl_usd.toFixed(2)} $ (CTO US)`;
-                document.getElementById('journal-win-rate').textContent = `${stats.win_rate || 0} %`;
-                document.getElementById('journal-win-loss-count').textContent = `${stats.winning_trades || 0} Gagnants / ${stats.losing_trades || 0} Perdants`;
-                document.getElementById('journal-profit-factor').textContent = `${stats.profit_factor || 0}`;
-                document.getElementById('journal-avg-gain').textContent = `+${stats.avg_gain || 0} €`;
-                document.getElementById('journal-avg-loss').textContent = `-${stats.avg_loss || 0} € (Ratio ${stats.gain_loss_ratio || 0})`;
-
-                // Update Account Breakdown
-                const byAcc = stats.by_account || {};
-                if (byAcc['PEA']) {
-                    document.getElementById('journal-pea-rate').textContent = `${byAcc['PEA'].win_rate}% Win Rate`;
-                    document.getElementById('journal-pea-pnl').textContent = `${byAcc['PEA'].pnl >= 0 ? '+' : ''}${byAcc['PEA'].pnl.toFixed(2)} €`;
-                    document.getElementById('journal-pea-count').textContent = `${byAcc['PEA'].trades} trades clôturés (${byAcc['PEA'].wins} gagnants / ${byAcc['PEA'].trades - byAcc['PEA'].wins} perdants)`;
-                }
-                if (byAcc['CTO Euro']) {
-                    document.getElementById('journal-eur-rate').textContent = `${byAcc['CTO Euro'].win_rate}% Win Rate`;
-                    document.getElementById('journal-eur-pnl').textContent = `${byAcc['CTO Euro'].pnl >= 0 ? '+' : ''}${byAcc['CTO Euro'].pnl.toFixed(2)} €`;
-                    document.getElementById('journal-eur-count').textContent = `${byAcc['CTO Euro'].trades} trades clôturés (${byAcc['CTO Euro'].wins} gagnants / ${byAcc['CTO Euro'].trades - byAcc['CTO Euro'].wins} perdants)`;
-                }
-                if (byAcc['CTO Dollar']) {
-                    document.getElementById('journal-usd-rate').textContent = `${byAcc['CTO Dollar'].win_rate}% Win Rate`;
-                    document.getElementById('journal-usd-pnl').textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${byAcc['CTO Dollar'].pnl.toFixed(2)} $`;
-                    document.getElementById('journal-usd-count').textContent = `${byAcc['CTO Dollar'].trades} trades clôturés (${byAcc['CTO Dollar'].wins} gagnants / ${byAcc['CTO Dollar'].trades - byAcc['CTO Dollar'].wins} perdants)`;
-                }
-
-                // Nav Badge
-                const navJournal = document.getElementById('nav-journal-count');
-                if (navJournal) navJournal.textContent = allJournalTrades.length;
-
-                applyJournalFilters();
+                FRONTEND_CACHE.journal = { data: payload, ts: Date.now(), ttl: 600000 };
+                renderJournalAll(payload);
             } catch (e) {
                 console.error("Erreur chargement Journal:", e);
             }
+        }
+
+        function renderJournalAll(payload) {
+            allJournalTrades = payload.trades || [];
+            const stats = payload.stats || {};
+
+            // Update Performance KPIs
+            const pnlEurElem = document.getElementById('journal-total-pnl');
+            if (pnlEurElem) {
+                pnlEurElem.textContent = `${stats.total_pnl_eur >= 0 ? '+' : ''}${(Number(stats.total_pnl_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                pnlEurElem.style.color = stats.total_pnl_eur >= 0 ? 'var(--success)' : 'var(--danger)';
+            }
+
+            const pnlUsdElem = document.getElementById('journal-total-pnl-usd');
+            if (pnlUsdElem) {
+                pnlUsdElem.textContent = `${stats.total_pnl_usd >= 0 ? '+' : ''}${(Number(stats.total_pnl_usd) || 0).toFixed(2)} $ (CTO US)`;
+            }
+
+            const winRateElem = document.getElementById('journal-win-rate');
+            if (winRateElem) winRateElem.textContent = `${stats.win_rate || 0} %`;
+
+            const winLossElem = document.getElementById('journal-win-loss-count');
+            if (winLossElem) winLossElem.textContent = `${stats.winning_trades || 0} Gagnants / ${stats.losing_trades || 0} Perdants`;
+
+            const profitFactorElem = document.getElementById('journal-profit-factor');
+            if (profitFactorElem) profitFactorElem.textContent = `${stats.profit_factor || 0}`;
+
+            const avgGainElem = document.getElementById('journal-avg-gain');
+            if (avgGainElem) avgGainElem.textContent = `+${stats.avg_gain || 0} €`;
+
+            const avgLossElem = document.getElementById('journal-avg-loss');
+            if (avgLossElem) avgLossElem.textContent = `-${stats.avg_loss || 0} € (Ratio ${stats.gain_loss_ratio || 0})`;
+
+            // Update Account Breakdown
+            const byAcc = stats.by_account || {};
+            if (byAcc['PEA']) {
+                const peaRate = document.getElementById('journal-pea-rate');
+                if (peaRate) peaRate.textContent = `${byAcc['PEA'].win_rate}% Win Rate`;
+                const peaPnl = document.getElementById('journal-pea-pnl');
+                if (peaPnl) peaPnl.textContent = `${byAcc['PEA'].pnl >= 0 ? '+' : ''}${(Number(byAcc['PEA'].pnl) || 0).toFixed(2)} €`;
+                const peaCount = document.getElementById('journal-pea-count');
+                if (peaCount) peaCount.textContent = `${byAcc['PEA'].trades} trades clôturés (${byAcc['PEA'].wins} gagnants / ${byAcc['PEA'].trades - byAcc['PEA'].wins} perdants)`;
+            }
+            if (byAcc['CTO Euro']) {
+                const eurRate = document.getElementById('journal-eur-rate');
+                if (eurRate) eurRate.textContent = `${byAcc['CTO Euro'].win_rate}% Win Rate`;
+                const eurPnl = document.getElementById('journal-eur-pnl');
+                if (eurPnl) eurPnl.textContent = `${byAcc['CTO Euro'].pnl >= 0 ? '+' : ''}${(Number(byAcc['CTO Euro'].pnl) || 0).toFixed(2)} €`;
+                const eurCount = document.getElementById('journal-eur-count');
+                if (eurCount) eurCount.textContent = `${byAcc['CTO Euro'].trades} trades clôturés (${byAcc['CTO Euro'].wins} gagnants / ${byAcc['CTO Euro'].trades - byAcc['CTO Euro'].wins} perdants)`;
+            }
+            if (byAcc['CTO Dollar']) {
+                const usdRate = document.getElementById('journal-usd-rate');
+                if (usdRate) usdRate.textContent = `${byAcc['CTO Dollar'].win_rate}% Win Rate`;
+                const usdPnl = document.getElementById('journal-usd-pnl');
+                if (usdPnl) usdPnl.textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${(Number(byAcc['CTO Dollar'].pnl) || 0).toFixed(2)} $`;
+                const usdCount = document.getElementById('journal-usd-count');
+                if (usdCount) usdCount.textContent = `${byAcc['CTO Dollar'].trades} trades clôturés (${byAcc['CTO Dollar'].wins} gagnants / ${byAcc['CTO Dollar'].trades - byAcc['CTO Dollar'].wins} perdants)`;
+            }
+
+            // Nav Badge
+            const navJournal = document.getElementById('nav-journal-count');
+            if (navJournal) navJournal.textContent = allJournalTrades.length;
+
+            applyJournalFilters();
         }
 
         function applyJournalFilters() {
@@ -2575,73 +2748,93 @@
         let allLivePositions = [];
         let selectedClosePos = null;
 
-        async function loadLivePortfolio() {
+        async function loadLivePortfolio(force = false) {
             const tbody = document.getElementById('portfolio-table-body');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#60a5fa; padding:2rem;">⏳ Actualisation des cours en direct...</td></tr>`;
+            const now = Date.now();
+
+            // Instant render from cache if fresh
+            if (!force && FRONTEND_CACHE.portfolio.data && (now - FRONTEND_CACHE.portfolio.ts < FRONTEND_CACHE.portfolio.ttl)) {
+                renderLivePortfolioData(FRONTEND_CACHE.portfolio.data);
+                return;
+            }
+
+            if (tbody && !FRONTEND_CACHE.portfolio.data) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#60a5fa; padding:2rem;">⏳ Actualisation des cours en direct...</td></tr>`;
+            }
 
             try {
-                const res = await fetch(`${API_URL}/portfolio/live`);
+                const url = force ? `${API_URL}/portfolio/live?force=true` : `${API_URL}/portfolio/live`;
+                const res = await fetch(url);
                 const payload = await res.json();
                 if (!payload.success || !payload.data) {
-                    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur lors du chargement des positions.</td></tr>`;
+                    if (tbody && !FRONTEND_CACHE.portfolio.data) {
+                        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur lors du chargement des positions. <button class="btn btn-secondary" style="margin-left:0.5rem; font-size:0.8rem;" onclick="loadLivePortfolio(true)">Réessayer</button></td></tr>`;
+                    }
                     return;
                 }
 
                 const d = payload.data;
-                livePortfolioData = d;
-                allLivePositions = d.positions || [];
-
-                // Update KPIs safely
-                const invElem = document.getElementById('port-total-invested');
-                if (invElem) invElem.textContent = `${(Number(d.total_invested) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-
-                const valElem = document.getElementById('port-total-value');
-                if (valElem) valElem.textContent = `${(Number(d.total_current_value) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-                
-                const pnlAmount = Number(d.total_pnl_amount) || 0;
-                const pnlPct = Number(d.total_pnl_pct) || 0;
-
-                const pnlElem = document.getElementById('port-total-pnl');
-                if (pnlElem) {
-                    pnlElem.textContent = `${pnlAmount >= 0 ? '+' : ''}${pnlAmount.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-                    pnlElem.style.color = pnlAmount >= 0 ? 'var(--success)' : 'var(--danger)';
-                }
-
-                const pnlPctElem = document.getElementById('port-total-pnl-pct');
-                if (pnlPctElem) {
-                    pnlPctElem.textContent = `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)} %`;
-                    pnlPctElem.style.color = pnlPct >= 0 ? 'var(--success)' : 'var(--danger)';
-                }
-
-                const openCountElem = document.getElementById('port-open-count');
-                if (openCountElem) openCountElem.textContent = `${d.open_positions_count || 0} position(s) active(s)`;
-
-                const alertsCountElem = document.getElementById('port-alerts-count');
-                if (alertsCountElem) {
-                    alertsCountElem.textContent = `${d.alerts_count || 0}`;
-                    alertsCountElem.style.color = (d.alerts_count || 0) > 0 ? '#fbbf24' : '#60a5fa';
-                }
-
-                // Nav Alerts Badge
-                const navBadge = document.getElementById('nav-alerts-badge');
-                if (navBadge) {
-                    if ((d.alerts_count || 0) > 0) {
-                        navBadge.textContent = d.alerts_count;
-                        navBadge.style.display = 'inline-block';
-                    } else {
-                        navBadge.style.display = 'none';
-                    }
-                }
+                FRONTEND_CACHE.portfolio = { data: d, ts: Date.now(), ttl: 120000 };
+                renderLivePortfolioData(d);
 
                 // Actualiser le quota XTB et les opportunités Anti-FIFO
-                loadXtbQuota();
-                loadAntiFifoOpportunities();
-
-                applyPositionFilters();
+                loadXtbQuota(force);
+                loadAntiFifoOpportunities(force);
             } catch (e) {
                 console.error("Erreur live portfolio:", e);
-                if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur réseau: ${e.message}</td></tr>`;
+                if (tbody && !FRONTEND_CACHE.portfolio.data) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--danger); padding:2rem;">Erreur réseau: ${e.message} <button class="btn btn-secondary" style="margin-left:0.5rem; font-size:0.8rem;" onclick="loadLivePortfolio(true)">Réessayer</button></td></tr>`;
+                }
             }
+        }
+
+        function renderLivePortfolioData(d) {
+            livePortfolioData = d;
+            allLivePositions = d.positions || [];
+
+            // Update KPIs safely
+            const invElem = document.getElementById('port-total-invested');
+            if (invElem) invElem.textContent = `${(Number(d.total_invested) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const valElem = document.getElementById('port-total-value');
+            if (valElem) valElem.textContent = `${(Number(d.total_current_value) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            
+            const pnlAmount = Number(d.total_pnl_amount) || 0;
+            const pnlPct = Number(d.total_pnl_pct) || 0;
+
+            const pnlElem = document.getElementById('port-total-pnl');
+            if (pnlElem) {
+                pnlElem.textContent = `${pnlAmount >= 0 ? '+' : ''}${pnlAmount.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                pnlElem.style.color = pnlAmount >= 0 ? 'var(--success)' : 'var(--danger)';
+            }
+
+            const pnlPctElem = document.getElementById('port-total-pnl-pct');
+            if (pnlPctElem) {
+                pnlPctElem.textContent = `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)} %`;
+                pnlPctElem.style.color = pnlPct >= 0 ? 'var(--success)' : 'var(--danger)';
+            }
+
+            const openCountElem = document.getElementById('port-open-count');
+            if (openCountElem) openCountElem.textContent = `${d.open_positions_count || 0} position(s) active(s)`;
+
+            const alertsCountElem = document.getElementById('port-alerts-count');
+            if (alertsCountElem) {
+                alertsCountElem.textContent = `${d.alerts_count || 0}`;
+                alertsCountElem.style.color = (d.alerts_count || 0) > 0 ? '#fbbf24' : '#60a5fa';
+            }
+
+            // Nav Alerts Badge
+            const navBadge = document.getElementById('nav-alerts-badge');
+            if (navBadge) {
+                if ((d.alerts_count || 0) > 0) {
+                    navBadge.textContent = d.alerts_count;
+                    navBadge.style.display = 'inline-block';
+                } else {
+                    navBadge.style.display = 'none';
+                }
+            }
+
+            applyPositionFilters();
         }
 
         function applyPositionFilters() {
@@ -3491,12 +3684,16 @@
         }
 
         // ---------------------------------------------------------------------
-        // 8-STEP PROTOCOL ANALYSIS CARD & TRADINGVIEW
+        // 8-STEP PROTOCOL ANALYSIS CARD & TRADINGVIEW (WITH FULLSCREEN MODE)
         // ---------------------------------------------------------------------
         function renderTradingViewWidget(symbol) {
             const container = document.getElementById('tv-chart-container');
+            const card = document.getElementById('ticker-detail-card');
+            const isFullscreen = card && card.classList.contains('fullscreen-detail');
+            const chartHeight = isFullscreen ? '500px' : '330px';
+
             container.style.display = 'block';
-            container.innerHTML = `<div id="tradingview_chart" style="height: 320px; width: 100%;"></div>`;
+            container.innerHTML = `<div id="tradingview_chart" style="height: ${chartHeight}; width: 100%;"></div>`;
 
             let tvSymbol = symbol;
             if (symbol.endsWith(".PA")) {
@@ -3531,10 +3728,16 @@
             const container = document.getElementById('ticker-detail-content');
             const card = document.getElementById('ticker-detail-card');
             
-            document.getElementById('detail-card-title').textContent = `📋 Rapport : ${symbol}`;
+            card.setAttribute('data-current-symbol', symbol);
+            document.getElementById('detail-card-title').textContent = `📋 Rapport Protocolaire : ${symbol}`;
             container.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">Chargement du protocole en 8 étapes...</p>';
             document.getElementById('tv-chart-container').style.display = 'none';
             card.style.display = 'block';
+
+            // Scroll to detail card smoothly if not fullscreen
+            if (!card.classList.contains('fullscreen-detail')) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
 
             try {
                 const res = await fetch(`${API_URL}/analyze/${symbol}`);
@@ -3628,25 +3831,23 @@
 
                         <!-- Étape 4 -->
                         <div class="report-step">
-                            <div class="report-step-title">🏢 4. Fondamentaux & Calendrier Risques</div>
-                            <div>Santé : <strong>${fund.health_status || 'N/A'}</strong> (${fund.summary || ''})</div>
-                            <div style="margin-top:0.2rem;">Blackout Résultats (10j) : ${fund.earnings_blackout && fund.earnings_blackout.active ? '<strong style="color:var(--danger);">Actif 🔴</strong>' : '<span style="color:var(--success);">Inactif (Sécurisé) 🟢</span>'}</div>
+                            <div class="report-step-title">🏢 4. Santé Fondamentale & Earnings</div>
+                            <div>Santé Globale : <strong>${fund.health_status || 'N/A'}</strong></div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">${fund.summary || ''}</div>
+                            ${fund.earnings_blackout && fund.earnings_blackout.active ? '<div class="badge badge-danger" style="margin-top:0.35rem;">⚠️ Blackout Résultats Actif</div>' : ''}
                         </div>
 
                         <!-- Étape 5 -->
                         <div class="report-step">
-                            <div class="report-step-title">📊 5. Analyse Technique & Flux</div>
-                            <div>Cours Actuel : <strong>${(tech.current_price || 0).toFixed(2)} ${symChar}</strong> | SMA 200 : <strong>${(tech.sma_200 || 0).toFixed(2)} ${symChar}</strong> (${tech.trend_daily || 'N/A'})</div>
-                            <div>Support : <strong>${(tech.support || 0).toFixed(2)} ${symChar}</strong> | Résistance : <strong>${(tech.resistance || 0).toFixed(2)} ${symChar}</strong></div>
-                            <div>RSI (14) : <strong>${(tech.rsi || 50).toFixed(1)}</strong> | Divergence : <strong>${tech.rsi_divergence ? tech.rsi_divergence.type : 'AUCUNE'}</strong></div>
-                            <div style="font-size:0.8rem; color:var(--text-muted);">${tech.rsi_divergence ? tech.rsi_divergence.description : ''}</div>
-                            <div style="margin-top:0.25rem;">Volume : ${tech.volume_confirmed ? '<strong style="color:var(--success);">Confirmé (&gt; MA 20) 🔥</strong>' : '<span style="color:var(--text-muted);">Faible</span>'} | Momentum QQE : ${tech.qqe_buy_signal ? '<strong style="color:var(--success);">Signal ACHAT 🟢</strong>' : '<span style="color:var(--text-muted);">Neutre</span>'}</div>
+                            <div class="report-step-title">📊 5. Confluence Technique (Rebond & RSI)</div>
+                            <div>Cours Actuel : <strong>${(tech.current_price || 0).toFixed(2)} ${symChar}</strong> | SMA 200 : <strong>${(tech.sma_200 || 0).toFixed(2)} ${symChar}</strong></div>
+                            <div>Support Clé : <strong>${(tech.support || 0).toFixed(2)} ${symChar}</strong> | Résistance : <strong>${(tech.resistance || 0).toFixed(2)} ${symChar}</strong></div>
+                            <div>RSI (14) : <strong>${(tech.rsi || 50).toFixed(1)}</strong> — Divergence : <span class="badge ${tech.rsi_divergence && tech.rsi_divergence.type === 'HAUSSIÈRE' ? 'badge-success' : 'badge-secondary'}">${tech.rsi_divergence ? tech.rsi_divergence.type : 'AUCUNE'}</span></div>
                         </div>
 
                         <!-- Étape 6 -->
                         <div class="report-step">
-                            <div class="report-step-title">🎯 6. Plan de Trade Tactique</div>
-                            <div>📥 Entrée : <strong>${(tech.current_price || 0).toFixed(2)} ${symChar}</strong></div>
+                            <div class="report-step-title">🎯 6. Plan de Trading Asymétrique (Swing 10j)</div>
                             <div>🎯 TP1 (+1.25%) : <strong>${((plan.tp1_price || plan.target_min || 0)).toFixed(2)} ${symChar}</strong> | TP2 (+2.25%) : <strong>${((plan.tp2_price || plan.target_max || 0)).toFixed(2)} ${symChar}</strong></div>
                             <div>🛑 Stop-Loss : <strong style="color:var(--danger);">${((plan.stop_loss_price || plan.invalidation || 0)).toFixed(2)} ${symChar}</strong> (-${((plan.stop_distance_pct || plan.potential_loss || 0)).toFixed(2)}%)</div>
                             <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">Horizon : <strong>${plan.holding_range || '3 à 15 jours (cible ~10j)'}</strong></div>
@@ -3674,9 +3875,44 @@
             }
         }
 
-        function closeDetailCard() {
-            document.getElementById('ticker-detail-card').style.display = 'none';
+        function toggleDetailFullscreen() {
+            const card = document.getElementById('ticker-detail-card');
+            const btn = document.getElementById('btn-toggle-fullscreen');
+            if (!card) return;
+
+            const isFullscreen = card.classList.toggle('fullscreen-detail');
+            if (btn) {
+                btn.innerHTML = isFullscreen ? '🗗 Réduire' : '⛶ Plein Écran';
+                btn.title = isFullscreen ? 'Quitter le mode plein écran (Échap)' : 'Basculer en mode plein écran / pleine page';
+            }
+
+            // Adjust chart size if active
+            const currentSymbol = card.getAttribute('data-current-symbol');
+            if (currentSymbol && document.getElementById('tv-chart-container').style.display !== 'none') {
+                renderTradingViewWidget(currentSymbol);
+            }
         }
+
+        function closeDetailCard() {
+            const card = document.getElementById('ticker-detail-card');
+            if (!card) return;
+            card.style.display = 'none';
+            if (card.classList.contains('fullscreen-detail')) {
+                card.classList.remove('fullscreen-detail');
+                const btn = document.getElementById('btn-toggle-fullscreen');
+                if (btn) btn.innerHTML = '⛶ Plein Écran';
+            }
+        }
+
+        // Global Escape key listener to exit fullscreen mode
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const card = document.getElementById('ticker-detail-card');
+                if (card && card.classList.contains('fullscreen-detail')) {
+                    toggleDetailFullscreen();
+                }
+            }
+        });
 
         // ---------------------------------------------------------------------
         // CHAT ASSISTANT

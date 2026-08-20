@@ -1,5 +1,6 @@
 import os
 import re
+import math
 import concurrent.futures
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
@@ -31,6 +32,30 @@ from src.config import (
 
 app = Flask(__name__, template_folder="templates")
 CORS(app)
+
+def sanitize_for_json(obj):
+    """
+    Parcourt récursivement les structures pour convertir tout NaN, Inf, -Inf en 0.0
+    et garantir un JSON strictement valide sans erreurs de parsing JavaScript.
+    """
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return 0.0
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [sanitize_for_json(item) for item in obj]
+    return obj
+
+def safe_jsonify(data, status_code=200):
+    """
+    Retourne un JSON assaini avec le code de statut HTTP souhaité.
+    """
+    cleaned = sanitize_for_json(data)
+    response = jsonify(cleaned)
+    response.status_code = status_code
+    return response
 
 analysis_cache = {}
 
@@ -179,8 +204,9 @@ def home():
 
 @app.route("/api/watchlist")
 def get_watchlist():
-    watchlist = read_watchlist_from_sheets()
-    return jsonify({"watchlist": watchlist})
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    watchlist = read_watchlist_from_sheets(force_refresh=force)
+    return safe_jsonify({"watchlist": watchlist})
 
 @app.route("/api/watchlist/add", methods=["POST"])
 def add_watchlist_ticker():
@@ -279,8 +305,9 @@ def get_live_portfolio():
     """
     Retourne la liste des positions actives avec calcul en direct du P&L, cours actuels, alertes et broker.
     """
-    summary = get_live_portfolio_summary()
-    return jsonify({"success": True, "data": summary})
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    summary = get_live_portfolio_summary(force_refresh=force)
+    return safe_jsonify({"success": True, "data": summary})
 
 @app.route("/api/portfolio/xtb_quota")
 def get_xtb_quota():
@@ -288,7 +315,7 @@ def get_xtb_quota():
     Retourne la consommation du quota mensuel de 100 000 € de transactions à 0% de commission chez XTB.
     """
     quota = calculate_xtb_monthly_turnover()
-    return jsonify({"success": True, "data": quota})
+    return safe_jsonify({"success": True, "data": quota})
 
 @app.route("/api/trading212/status")
 def get_trading212_status():
@@ -297,7 +324,7 @@ def get_trading212_status():
     """
     test_res = test_trading212_connection()
     cash_data = get_trading212_cash()
-    return jsonify({
+    return safe_jsonify({
         "success": True,
         "connection": test_res,
         "cash": cash_data
@@ -308,8 +335,9 @@ def get_trading212_portfolio():
     """
     Retourne les positions ouvertes en direct depuis l'API Trading 212.
     """
-    positions = get_trading212_open_positions(force_refresh=True)
-    return jsonify({
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    positions = get_trading212_open_positions(force_refresh=force)
+    return safe_jsonify({
         "success": True,
         "total": len(positions),
         "positions": positions
@@ -328,7 +356,7 @@ def configure_trading212():
     set_runtime_trading212_config(api_key=api_key, api_secret=api_secret, environment=env)
     test_res = test_trading212_connection(api_key=api_key, api_secret=api_secret, environment=env)
 
-    return jsonify({
+    return safe_jsonify({
         "success": test_res.get("connected", False),
         "result": test_res
     })
@@ -339,7 +367,7 @@ def get_anti_fifo_opportunities():
     Retourne les opportunités d'arbitrage Anti-FIFO recommandant d'utiliser le broker alternatif.
     """
     opportunities = find_anti_fifo_opportunities()
-    return jsonify({
+    return safe_jsonify({
         "success": True,
         "total": len(opportunities),
         "opportunities": opportunities
@@ -350,9 +378,10 @@ def get_portfolio_treasury():
     """
     Retourne le détail des soldes d'espèces, dépôts, retraits, dividendes et opérations de trésorerie.
     """
-    cash_ops = read_treasury_from_sheets()
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    cash_ops = read_treasury_from_sheets(force_refresh=force)
     summary = calculate_cash_and_treasury_summary(cash_ops)
-    return jsonify({
+    return safe_jsonify({
         "success": True,
         "summary": summary,
         "operations_count": len(cash_ops),
@@ -364,13 +393,14 @@ def get_portfolio_diversification():
     """
     Retourne la décomposition complète du portefeuille (catégorie/secteur, compte PEA/CTO, courtier, Actions vs Cash).
     """
-    live_summary = get_live_portfolio_summary()
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    live_summary = get_live_portfolio_summary(force_refresh=force)
     live_positions = live_summary.get("positions", [])
-    cash_ops = read_treasury_from_sheets()
+    cash_ops = read_treasury_from_sheets(force_refresh=force)
     cash_summary = calculate_cash_and_treasury_summary(cash_ops)
     
     div = calculate_portfolio_diversification(live_positions, cash_summary=cash_summary)
-    return jsonify({
+    return safe_jsonify({
         "success": True,
         "data": div
     })
@@ -380,9 +410,10 @@ def get_journal_history():
     """
     Retourne l'historique complet des trades clôturés avec statistiques de performance (Win Rate, P&L, etc.).
     """
-    trades = read_journal_from_sheets()
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    trades = read_journal_from_sheets(force_refresh=force)
     stats = calculate_trading_performance_stats(trades)
-    return jsonify({
+    return safe_jsonify({
         "success": True,
         "total": len(trades),
         "stats": stats,
@@ -647,10 +678,10 @@ def scan_watchlist():
             except Exception as e:
                 print(f"Erreur écriture signaux: {e}")
             
-        return jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
+        return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
         print(f"Erreur globale scan_watchlist: {e}")
-        return jsonify({"success": False, "error": str(e), "results": []}), 500
+        return safe_jsonify({"success": False, "error": str(e), "results": []}), 500
 
 @app.route("/api/scan/market")
 def scan_market():
@@ -717,24 +748,24 @@ def scan_market():
             except Exception as e:
                 print(f"Erreur écriture signaux: {e}")
             
-        return jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
+        return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
         print(f"Erreur globale scan_market: {e}")
-        return jsonify({"success": False, "error": str(e), "results": []}), 500
+        return safe_jsonify({"success": False, "error": str(e), "results": []}), 500
 
 @app.route("/api/analyze/<ticker>")
 def analyze_ticker_endpoint(ticker):
     capital = request.args.get("capital", default=CAPITAL_REFERENCE_DEFAULT, type=float)
     res = get_detailed_analysis(ticker, capital=capital)
     if "error" in res:
-        return jsonify({"success": False, "error": res["error"]}), 400
-    return jsonify({"success": True, "data": res})
+        return safe_jsonify({"success": False, "error": res["error"]}), 400
+    return safe_jsonify({"success": True, "data": res})
 
 @app.route("/api/macro")
 def get_macro_endpoint():
     force = request.args.get("refresh", default=False, type=bool)
     barometer = get_macro_barometer(force_refresh=force)
-    return jsonify(barometer)
+    return safe_jsonify(barometer)
 
 @app.route("/api/risk-calc", methods=["POST"])
 def risk_calc_endpoint():

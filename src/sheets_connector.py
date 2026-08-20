@@ -18,6 +18,9 @@ GOOGLE_SHEET_NAME_JOURNAL = "Journal de Trading"
 # Cache local de la watchlist pour les ajouts dynamiques
 _local_watchlist_cache = list(DEFAULT_WATCHLIST)
 _local_positions_cache = []
+_POSITIONS_SHEETS_CACHE = {"data": [], "ts": 0}
+_JOURNAL_SHEETS_CACHE = {"data": [], "ts": 0}
+SHEETS_CACHE_TTL = 300  # 5 minutes de cache pour les lectures Google Sheets
 
 def get_sheets_client():
     """
@@ -410,20 +413,25 @@ def get_or_create_positions_sheet():
     except Exception as e:
         return None, str(e)
 
-def read_positions_from_sheets():
+def read_positions_from_sheets(force_refresh=False):
     """
-    Lit toutes les positions enregistrées depuis l'onglet 'Positions' de Google Sheets.
+    Lit toutes les positions enregistrées depuis l'onglet 'Positions' de Google Sheets avec cache TTL.
     Retourne la liste des positions actives (Statut == 'OUVERT' ou vide).
     """
-    global _local_positions_cache
+    global _local_positions_cache, _POSITIONS_SHEETS_CACHE
+    import time
+    now = time.time()
+    if not force_refresh and _POSITIONS_SHEETS_CACHE["data"] and (now - _POSITIONS_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+        return _POSITIONS_SHEETS_CACHE["data"]
+
     worksheet, err = get_or_create_positions_sheet()
     if err or worksheet is None:
-        return _local_positions_cache
+        return _POSITIONS_SHEETS_CACHE["data"] or _local_positions_cache
 
     try:
         all_rows = worksheet.get_all_values()
         if len(all_rows) <= 1:
-            return _local_positions_cache
+            return _POSITIONS_SHEETS_CACHE["data"] or _local_positions_cache
 
         header = all_rows[0]
         header_map = {str(h).strip().lower(): idx for idx, h in enumerate(header)}
@@ -511,10 +519,11 @@ def read_positions_from_sheets():
             positions.append(pos_obj)
 
         _local_positions_cache = positions
+        _POSITIONS_SHEETS_CACHE = {"data": positions, "ts": now}
         return positions
     except Exception as e:
         print(f"⚠️ Erreur lors de la lecture des positions : {e}")
-        return _local_positions_cache
+        return _POSITIONS_SHEETS_CACHE["data"] or _local_positions_cache
 
 def add_position_to_sheets(position_data):
     """
@@ -693,21 +702,26 @@ def batch_import_journal_to_sheets(closed_trades):
         print(f"⚠️ Erreur batch update Journal Google Sheets : {e}")
         return True, f"{len(closed_trades)} trades importés en local (Erreur Google Sheets: {e})."
 
-def read_journal_from_sheets():
+def read_journal_from_sheets(force_refresh=False):
     """
-    Lit l'historique complet des trades clôturés depuis Google Sheets ou le cache local.
+    Lit l'historique complet des trades clôturés depuis Google Sheets ou le cache local avec cache TTL.
     """
-    global _local_journal_cache
+    global _local_journal_cache, _JOURNAL_SHEETS_CACHE
+    import time
+    now = time.time()
+    if not force_refresh and _JOURNAL_SHEETS_CACHE["data"] and (now - _JOURNAL_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+        return _JOURNAL_SHEETS_CACHE["data"]
+
     client, error = get_sheets_client()
     if not client:
-        return _local_journal_cache
+        return _JOURNAL_SHEETS_CACHE["data"] or _local_journal_cache
 
     try:
         sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
         journal_ws = sheet.worksheet(GOOGLE_SHEET_NAME_JOURNAL)
         all_rows = journal_ws.get_all_values()
         if not all_rows or len(all_rows) <= 1:
-            return _local_journal_cache
+            return _JOURNAL_SHEETS_CACHE["data"] or _local_journal_cache
 
         headers = [h.strip().lower() for h in all_rows[0]]
         trades = []
@@ -763,10 +777,11 @@ def read_journal_from_sheets():
             })
 
         _local_journal_cache = trades
+        _JOURNAL_SHEETS_CACHE = {"data": trades, "ts": now}
         return trades
     except Exception as e:
         print(f"⚠️ Erreur lecture Journal Google Sheets : {e}")
-        return _local_journal_cache
+        return _JOURNAL_SHEETS_CACHE["data"] or _local_journal_cache
 
 def batch_import_positions_to_sheets(open_positions):
     """

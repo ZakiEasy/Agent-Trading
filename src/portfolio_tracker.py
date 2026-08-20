@@ -1,5 +1,6 @@
 import io
 import csv
+import math
 import concurrent.futures
 from datetime import datetime
 import pandas as pd
@@ -10,21 +11,39 @@ from src.sheets_connector import (
     add_position_to_sheets,
     close_position_in_sheets
 )
-from src.market_data import get_usd_conversion_rate, get_usd_to_eur_rate
+from src.market_data import get_usd_conversion_rate, get_usd_to_eur_rate, get_ticker_info, categorize_ticker
 
 _LIVE_QUOTE_CACHE = {}  # symbol -> {"price": float, "day_change": float, "ts": float}
-LIVE_QUOTE_TTL = 60  # 60 secondes
+LIVE_QUOTE_TTL = 300  # 5 minutes de cache pour les cours en direct
+
+def safe_float(val, default=0.0):
+    """
+    Convertit en float de manière sécurisée en évitant les NaN, Inf et None.
+    """
+    if val is None:
+        return default
+    try:
+        f = float(val)
+        if math.isnan(f) or math.isinf(f):
+            return default
+        return f
+    except (ValueError, TypeError):
+        return default
 
 def fetch_live_quote_for_position(pos):
     """
     Récupère le cours en direct, la variation du jour et les métadonnées pour une position active.
+    Garantit l'absence totale de valeurs NaN ou indéfinies.
     """
-    symbol = normalize_xtb_ticker(pos.get("symbol", ""))
-    pru = float(pos.get("pru", 0.0))
-    qty = float(pos.get("quantity", 1.0))
-    sl = float(pos.get("stop_loss", pru * 0.97))
-    tp1 = float(pos.get("tp1", pru * 1.0125))
-    tp2 = float(pos.get("tp2", pru * 1.0225))
+    raw_sym = pos.get("symbol", "")
+    symbol = normalize_xtb_ticker(raw_sym)
+    pru = safe_float(pos.get("pru"), 0.0)
+    qty = safe_float(pos.get("quantity"), 1.0)
+    if qty <= 0:
+        qty = 1.0
+    sl = safe_float(pos.get("stop_loss"), pru * 0.97)
+    tp1 = safe_float(pos.get("tp1"), pru * 1.0125)
+    tp2 = safe_float(pos.get("tp2"), pru * 1.0225)
     entry_date_str = str(pos.get("entry_date", ""))
 
     days_held = 0
@@ -35,37 +54,53 @@ def fetch_live_quote_for_position(pos):
         except:
             days_held = 0
 
-    current_price = pru
+    current_price = pru if pru > 0 else 1.0
     day_change_pct = 0.0
-    currency = pos.get("currency", "EUR" if ".PA" in symbol else "USD")
+    currency = pos.get("currency", "EUR" if ".PA" in symbol or ".DE" in symbol or ".AS" in symbol else "USD")
 
     import time
     now = time.time()
     if symbol in _LIVE_QUOTE_CACHE and (now - _LIVE_QUOTE_CACHE[symbol]["ts"]) < LIVE_QUOTE_TTL:
-        current_price = _LIVE_QUOTE_CACHE[symbol]["price"]
-        day_change_pct = _LIVE_QUOTE_CACHE[symbol]["day_change"]
+        cached_p = safe_float(_LIVE_QUOTE_CACHE[symbol].get("price"), 0.0)
+        if cached_p > 0:
+            current_price = cached_p
+            day_change_pct = safe_float(_LIVE_QUOTE_CACHE[symbol].get("day_change"), 0.0)
     else:
         try:
             t = yf.Ticker(symbol)
             hist = t.history(period="5d")
-            if hist is not None and not hist.empty:
-                closes = hist["Close"].values
-                current_price = float(closes[-1])
-                if len(closes) > 1:
-                    prev_close = float(closes[-2])
-                    day_change_pct = ((current_price - prev_close) / prev_close) * 100
-                _LIVE_QUOTE_CACHE[symbol] = {"price": current_price, "day_change": day_change_pct, "ts": now}
+            if hist is not None and not hist.empty and "Close" in hist.columns:
+                closes_s = hist["Close"].dropna()
+                if not closes_s.empty:
+                    closes = closes_s.values
+                    val = safe_float(closes[-1], 0.0)
+                    if val > 0:
+                        current_price = val
+                        if len(closes) > 1:
+                            prev_val = safe_float(closes[-2], 0.0)
+                            if prev_val > 0:
+                                day_change_pct = ((current_price - prev_val) / prev_val) * 100
+                        _LIVE_QUOTE_CACHE[symbol] = {"price": current_price, "day_change": day_change_pct, "ts": now}
             else:
                 info = getattr(t, "info", {})
                 if isinstance(info, dict):
-                    current_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or pru)
-                    _LIVE_QUOTE_CACHE[symbol] = {"price": current_price, "day_change": 0.0, "ts": now}
+                    raw_p = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
+                    if raw_p:
+                        val = safe_float(raw_p, 0.0)
+                        if val > 0:
+                            current_price = val
+                            _LIVE_QUOTE_CACHE[symbol] = {"price": current_price, "day_change": 0.0, "ts": now}
         except Exception as e:
             if symbol in _LIVE_QUOTE_CACHE:
-                current_price = _LIVE_QUOTE_CACHE[symbol]["price"]
-                day_change_pct = _LIVE_QUOTE_CACHE[symbol]["day_change"]
+                current_price = safe_float(_LIVE_QUOTE_CACHE[symbol].get("price"), pru)
+                day_change_pct = safe_float(_LIVE_QUOTE_CACHE[symbol].get("day_change"), 0.0)
             else:
-                current_price = pru
+                current_price = pru if pru > 0 else 1.0
+
+    if math.isnan(current_price) or math.isinf(current_price) or current_price <= 0:
+        current_price = pru if (pru > 0) else 1.0
+    if math.isnan(day_change_pct) or math.isinf(day_change_pct):
+        day_change_pct = 0.0
 
     # Calcul P&L
     pnl_unit = current_price - pru
@@ -118,35 +153,45 @@ def fetch_live_quote_for_position(pos):
         "account": pos.get("account", "PEA" if ".PA" in symbol else "CTO"),
         "currency": currency,
         "entry_date": entry_date_str,
-        "days_held": days_held,
-        "pru": round(pru, 2),
-        "quantity": round(qty, 4) if qty % 1 != 0 else int(qty),
-        "invested_amount": round(invested_amount, 2),
-        "current_price": round(current_price, 2),
-        "current_value": round(current_value, 2),
-        "day_change_pct": round(day_change_pct, 2),
-        "pnl_amount": round(pnl_amount, 2),
-        "pnl_pct": round(pnl_pct, 2),
-        "stop_loss": round(sl, 2),
-        "tp1": round(tp1, 2),
-        "tp2": round(tp2, 2),
-        "dist_to_sl_pct": round(dist_to_sl_pct, 2),
-        "dist_to_tp1_pct": round(dist_to_tp1_pct, 2),
-        "dist_to_tp2_pct": round(dist_to_tp2_pct, 2),
+        "days_held": int(days_held),
+        "pru": round(safe_float(pru), 2),
+        "quantity": round(safe_float(qty), 4) if qty % 1 != 0 else int(qty),
+        "invested_amount": round(safe_float(invested_amount), 2),
+        "current_price": round(safe_float(current_price), 2),
+        "current_value": round(safe_float(current_value), 2),
+        "day_change_pct": round(safe_float(day_change_pct), 2),
+        "pnl_amount": round(safe_float(pnl_amount), 2),
+        "pnl_pct": round(safe_float(pnl_pct), 2),
+        "stop_loss": round(safe_float(sl), 2),
+        "tp1": round(safe_float(tp1), 2),
+        "tp2": round(safe_float(tp2), 2),
+        "dist_to_sl_pct": round(safe_float(dist_to_sl_pct), 2),
+        "dist_to_tp1_pct": round(safe_float(dist_to_tp1_pct), 2),
+        "dist_to_tp2_pct": round(safe_float(dist_to_tp2_pct), 2),
         "status_badge": status_badge,
         "status_label": status_label,
         "status_action": status_action,
-        "progress_pct": progress_pct,
+        "progress_pct": int(progress_pct),
         "broker": pos.get("broker") or ("Trading 212" if "Trading 212" in pos.get("account", "") else "XTB"),
         "notes": pos.get("notes", "")
     }
 
-def get_live_portfolio_summary():
+_LIVE_PORTFOLIO_CACHE = {"data": None, "ts": 0}
+PORTFOLIO_CACHE_TTL = 180  # 3 minutes
+
+def get_live_portfolio_summary(force_refresh=False):
     """
     Récupère l'ensemble des positions ouvertes (XTB + Trading 212) et calcule les indicateurs clés du portefeuille.
+    Garantit une sérialisation JSON valide sans aucun NaN ou Inf.
     """
+    global _LIVE_PORTFOLIO_CACHE
+    import time
+    now = time.time()
+    if not force_refresh and _LIVE_PORTFOLIO_CACHE["data"] is not None and (now - _LIVE_PORTFOLIO_CACHE["ts"]) < PORTFOLIO_CACHE_TTL:
+        return _LIVE_PORTFOLIO_CACHE["data"]
+
     from src.trading212_connector import get_trading212_open_positions
-    raw_positions = read_positions_from_sheets() or []
+    raw_positions = read_positions_from_sheets(force_refresh=force_refresh) or []
     
     # Taguer les positions Google Sheets avec broker XTB par défaut
     for p in raw_positions:
@@ -158,7 +203,7 @@ def get_live_portfolio_summary():
     all_raw_positions = raw_positions + t212_positions
 
     if not all_raw_positions:
-        return {
+        res = {
             "total_invested": 0.0,
             "total_current_value": 0.0,
             "total_pnl_amount": 0.0,
@@ -171,16 +216,18 @@ def get_live_portfolio_summary():
             },
             "positions": []
         }
+        _LIVE_PORTFOLIO_CACHE = {"data": res, "ts": now}
+        return res
 
     # Calcul parallèle multi-threadé
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         positions_live = list(executor.map(fetch_live_quote_for_position, all_raw_positions))
 
-    total_invested = sum(p["invested_amount"] for p in positions_live)
-    total_value = sum(p["current_value"] for p in positions_live)
+    total_invested = sum(safe_float(p.get("invested_amount", 0.0)) for p in positions_live)
+    total_value = sum(safe_float(p.get("current_value", 0.0)) for p in positions_live)
     total_pnl = total_value - total_invested
     total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
-    alerts_count = sum(1 for p in positions_live if p["status_badge"] in ["tp1_reached", "tp2_reached", "sl_danger", "time_warning"])
+    alerts_count = sum(1 for p in positions_live if p.get("status_badge") in ["tp1_reached", "tp2_reached", "sl_danger", "time_warning"])
 
     brokers_summary = {
         "XTB": {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0},
@@ -191,25 +238,27 @@ def get_live_portfolio_summary():
         if b not in brokers_summary:
             brokers_summary[b] = {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0}
         brokers_summary[b]["count"] += 1
-        brokers_summary[b]["invested"] += p.get("invested_amount", 0.0)
-        brokers_summary[b]["value"] += p.get("current_value", 0.0)
-        brokers_summary[b]["pnl"] += p.get("pnl_amount", 0.0)
+        brokers_summary[b]["invested"] += safe_float(p.get("invested_amount", 0.0))
+        brokers_summary[b]["value"] += safe_float(p.get("current_value", 0.0))
+        brokers_summary[b]["pnl"] += safe_float(p.get("pnl_amount", 0.0))
 
     for b in brokers_summary:
-        brokers_summary[b]["invested"] = round(brokers_summary[b]["invested"], 2)
-        brokers_summary[b]["value"] = round(brokers_summary[b]["value"], 2)
-        brokers_summary[b]["pnl"] = round(brokers_summary[b]["pnl"], 2)
+        brokers_summary[b]["invested"] = round(safe_float(brokers_summary[b]["invested"]), 2)
+        brokers_summary[b]["value"] = round(safe_float(brokers_summary[b]["value"]), 2)
+        brokers_summary[b]["pnl"] = round(safe_float(brokers_summary[b]["pnl"]), 2)
 
-    return {
-        "total_invested": round(total_invested, 2),
-        "total_current_value": round(total_value, 2),
-        "total_pnl_amount": round(total_pnl, 2),
-        "total_pnl_pct": round(total_pnl_pct, 2),
+    res = {
+        "total_invested": round(safe_float(total_invested), 2),
+        "total_current_value": round(safe_float(total_value), 2),
+        "total_pnl_amount": round(safe_float(total_pnl), 2),
+        "total_pnl_pct": round(safe_float(total_pnl_pct), 2),
         "open_positions_count": len(positions_live),
-        "alerts_count": alerts_count,
+        "alerts_count": int(alerts_count),
         "brokers_summary": brokers_summary,
         "positions": positions_live
     }
+    _LIVE_PORTFOLIO_CACHE = {"data": res, "ts": now}
+    return res
 
 def parse_broker_csv(csv_text_or_bytes):
     """
@@ -808,7 +857,7 @@ def calculate_cash_and_treasury_summary(cash_ops_list):
             target_acc = "CTO Euro"
 
         t = op.get("type", "").lower()
-        amt = float(op.get("amount", 0.0))
+        amt = safe_float(op.get("amount", 0.0))
 
         if "deposit" in t or "pea deposit" in t:
             if amt > 0:
@@ -845,13 +894,13 @@ def calculate_cash_and_treasury_summary(cash_ops_list):
 
     return {
         "accounts": accounts,
-        "total_cash_eur": round(total_cash_eur, 2),
-        "total_deposits_eur": round(total_deposits_eur, 2),
-        "total_withdrawals_eur": round(total_withdrawals_eur, 2),
-        "net_inflows_eur": round(net_inflows_eur, 2),
-        "total_dividends_eur": round(total_dividends_eur, 2),
-        "total_interest_eur": round(total_interest_eur, 2),
-        "usd_to_eur_rate": round(usd_to_eur, 4)
+        "total_cash_eur": round(safe_float(total_cash_eur), 2),
+        "total_deposits_eur": round(safe_float(total_deposits_eur), 2),
+        "total_withdrawals_eur": round(safe_float(total_withdrawals_eur), 2),
+        "net_inflows_eur": round(safe_float(net_inflows_eur), 2),
+        "total_dividends_eur": round(safe_float(total_dividends_eur), 2),
+        "total_interest_eur": round(safe_float(total_interest_eur), 2),
+        "usd_to_eur_rate": round(safe_float(usd_to_eur), 4)
     }
 
 def calculate_portfolio_diversification(live_positions, cash_summary=None):
@@ -860,7 +909,7 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
     et par enveloppe fiscale (PEA, CTO Euro, CTO Dollar) ainsi que le ratio Actions vs Cash.
     """
     from src.market_data import categorize_ticker, get_ticker_info
-    usd_to_eur = get_usd_to_eur_rate()
+    usd_to_eur = safe_float(get_usd_to_eur_rate(), 0.92)
 
     # 1. Analyse par Catégorie
     categories_map = {}
@@ -870,9 +919,9 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
 
     for pos in live_positions:
         sym = pos.get("symbol", "").upper().strip()
-        curr_val = float(pos.get("current_value", 0.0))
-        invested = float(pos.get("invested_amount", 0.0))
-        pnl = float(pos.get("pnl_amount", 0.0))
+        curr_val = safe_float(pos.get("current_value", 0.0))
+        invested = safe_float(pos.get("invested_amount", 0.0))
+        pnl = safe_float(pos.get("pnl_amount", 0.0))
         currency = pos.get("currency", "EUR")
 
         # Conversion EUR si position en USD
@@ -887,8 +936,8 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
 
         info = get_ticker_info(sym)
         cat_meta = categorize_ticker(sym, info)
-        cat_name = cat_meta["category"]
-        cat_icon = cat_meta["category_icon"]
+        cat_name = cat_meta.get("category", "Autres")
+        cat_icon = cat_meta.get("category_icon", "📦")
 
         if cat_name not in categories_map:
             categories_map[cat_name] = {
@@ -909,9 +958,9 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             "symbol": sym,
             "name": pos.get("name", sym),
             "account": pos.get("account", "CTO"),
-            "value_eur": round(val_eur, 2),
-            "pnl_eur": round(pnl_eur, 2),
-            "pnl_pct": pos.get("pnl_pct", 0.0)
+            "value_eur": round(safe_float(val_eur), 2),
+            "pnl_eur": round(safe_float(pnl_eur), 2),
+            "pnl_pct": round(safe_float(pos.get("pnl_pct", 0.0)), 2)
         })
 
     # Calcul des pourcentages par catégorie
@@ -934,12 +983,12 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
         categories_list.append({
             "category": cat["category"],
             "category_icon": cat["category_icon"],
-            "positions_count": cat["positions_count"],
-            "invested_eur": round(cat["invested_eur"], 2),
-            "value_eur": round(cat["value_eur"], 2),
-            "pnl_eur": round(cat["pnl_eur"], 2),
-            "pnl_pct": round(pnl_pct, 2),
-            "weight_pct": round(weight, 1),
+            "positions_count": int(cat["positions_count"]),
+            "invested_eur": round(safe_float(cat["invested_eur"]), 2),
+            "value_eur": round(safe_float(cat["value_eur"]), 2),
+            "pnl_eur": round(safe_float(cat["pnl_eur"]), 2),
+            "pnl_pct": round(safe_float(pnl_pct), 2),
+            "weight_pct": round(safe_float(weight), 1),
             "status": status,
             "status_class": status_class,
             "tickers": sorted(cat["tickers"], key=lambda x: x["value_eur"], reverse=True)
@@ -964,9 +1013,9 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             target_acc = "CTO Euro"
 
         rate = usd_to_eur if pos.get("currency") == "USD" else 1.0
-        val_eur = float(pos.get("current_value", 0.0)) * rate
-        inv_eur = float(pos.get("invested_amount", 0.0)) * rate
-        pnl_eur = float(pos.get("pnl_amount", 0.0)) * rate
+        val_eur = safe_float(pos.get("current_value", 0.0)) * rate
+        inv_eur = safe_float(pos.get("invested_amount", 0.0)) * rate
+        pnl_eur = safe_float(pos.get("pnl_amount", 0.0)) * rate
 
         accounts_map[target_acc]["count"] += 1
         accounts_map[target_acc]["invested_eur"] += inv_eur
@@ -981,19 +1030,19 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             "account_id": acc_id,
             "account_name": acc_data["name"],
             "icon": acc_data["icon"],
-            "positions_count": acc_data["count"],
-            "invested_eur": round(acc_data["invested_eur"], 2),
-            "value_eur": round(acc_data["value_eur"], 2),
-            "pnl_eur": round(acc_data["pnl_eur"], 2),
-            "pnl_pct": round(pnl_pct, 2),
-            "weight_pct": round(weight, 1)
+            "positions_count": int(acc_data["count"]),
+            "invested_eur": round(safe_float(acc_data["invested_eur"]), 2),
+            "value_eur": round(safe_float(acc_data["value_eur"]), 2),
+            "pnl_eur": round(safe_float(acc_data["pnl_eur"]), 2),
+            "pnl_pct": round(safe_float(pnl_pct), 2),
+            "weight_pct": round(safe_float(weight), 1)
         })
 
     # 3. Analyse par Courtier (Broker)
     from src.trading212_connector import get_trading212_cash
-    cash_eur = (cash_summary.get("total_cash_eur", 0.0) if cash_summary else 0.0) or 0.0
+    cash_eur = safe_float(cash_summary.get("total_cash_eur", 0.0) if cash_summary else 0.0, 0.0)
     t212_cash_data = get_trading212_cash()
-    t212_cash_eur = t212_cash_data.get("free", 0.0) if t212_cash_data.get("connected") else 0.0
+    t212_cash_eur = safe_float(t212_cash_data.get("free", 0.0) if t212_cash_data.get("connected") else 0.0, 0.0)
 
     brokers_map = {
         "XTB": {"name": "XTB", "icon": "🔵", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": cash_eur},
@@ -1006,9 +1055,9 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             brokers_map[b] = {"name": b, "icon": "💼", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": 0.0}
 
         rate = usd_to_eur if pos.get("currency") == "USD" else 1.0
-        val_eur = float(pos.get("current_value", 0.0)) * rate
-        inv_eur = float(pos.get("invested_amount", 0.0)) * rate
-        pnl_eur = float(pos.get("pnl_amount", 0.0)) * rate
+        val_eur = safe_float(pos.get("current_value", 0.0)) * rate
+        inv_eur = safe_float(pos.get("invested_amount", 0.0)) * rate
+        pnl_eur = safe_float(pos.get("pnl_amount", 0.0)) * rate
 
         brokers_map[b]["count"] += 1
         brokers_map[b]["invested_eur"] += inv_eur
@@ -1023,13 +1072,13 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             "broker_id": b_id,
             "broker_name": b_data["name"],
             "icon": b_data["icon"],
-            "positions_count": b_data["count"],
-            "invested_eur": round(b_data["invested_eur"], 2),
-            "value_eur": round(b_data["value_eur"], 2),
-            "pnl_eur": round(b_data["pnl_eur"], 2),
-            "pnl_pct": round(pnl_pct, 2),
-            "cash_eur": round(b_data["cash_eur"], 2),
-            "weight_pct": round(weight, 1)
+            "positions_count": int(b_data["count"]),
+            "invested_eur": round(safe_float(b_data["invested_eur"]), 2),
+            "value_eur": round(safe_float(b_data["value_eur"]), 2),
+            "pnl_eur": round(safe_float(b_data["pnl_eur"]), 2),
+            "pnl_pct": round(safe_float(pnl_pct), 2),
+            "cash_eur": round(safe_float(b_data["cash_eur"]), 2),
+            "weight_pct": round(safe_float(weight), 1)
         })
 
     # 4. Allocation d'Actifs (Actions vs Cash)
@@ -1039,16 +1088,16 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
     cash_weight = (total_cash_all_brokers / total_nav_eur * 100) if total_nav_eur > 0 else 0.0
 
     return {
-        "total_nav_eur": round(total_nav_eur, 2),
-        "total_equity_value_eur": round(total_equity_value_eur, 2),
-        "total_equity_invested_eur": round(total_equity_invested_eur, 2),
-        "total_pnl_latent_eur": round(total_pnl_latent_eur, 2),
-        "total_pnl_latent_pct": round((total_pnl_latent_eur / total_equity_invested_eur * 100), 2) if total_equity_invested_eur > 0 else 0.0,
-        "cash_eur": round(total_cash_all_brokers, 2),
-        "xtb_cash_eur": round(cash_eur, 2),
-        "trading212_cash_eur": round(t212_cash_eur, 2),
-        "equity_weight_pct": round(equity_weight, 1),
-        "cash_weight_pct": round(cash_weight, 1),
+        "total_nav_eur": round(safe_float(total_nav_eur), 2),
+        "total_equity_value_eur": round(safe_float(total_equity_value_eur), 2),
+        "total_equity_invested_eur": round(safe_float(total_equity_invested_eur), 2),
+        "total_pnl_latent_eur": round(safe_float(total_pnl_latent_eur), 2),
+        "total_pnl_latent_pct": round(safe_float((total_pnl_latent_eur / total_equity_invested_eur * 100) if total_equity_invested_eur > 0 else 0.0), 2),
+        "cash_eur": round(safe_float(total_cash_all_brokers), 2),
+        "xtb_cash_eur": round(safe_float(cash_eur), 2),
+        "trading212_cash_eur": round(safe_float(t212_cash_eur), 2),
+        "equity_weight_pct": round(safe_float(equity_weight), 1),
+        "cash_weight_pct": round(safe_float(cash_weight), 1),
         "categories": categories_list,
         "accounts": accounts_list,
         "brokers": brokers_list,
