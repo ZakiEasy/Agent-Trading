@@ -20,7 +20,7 @@ from src.market_data import (
     calculate_sector_relative_strength
 )
 from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
-from src.backtest_engine import BacktestEngine
+from src.backtest_engine import BacktestEngine, CRISIS_PERIODS, run_all_crises_stress_test
 from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets, add_ticker_to_sheets
 from src.config import (
     DEFAULT_WATCHLIST,
@@ -844,6 +844,8 @@ def backtest_run_endpoint():
         data = request.args.to_dict()
 
     period = str(data.get("period", "2y"))
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
     capital = float(data.get("capital", 5000.0))
     tp1_pct = float(data.get("tp1_pct", 1.25))
     tp2_pct = float(data.get("tp2_pct", 2.25))
@@ -858,6 +860,8 @@ def backtest_run_endpoint():
     engine = BacktestEngine(
         symbols=symbols,
         period=period,
+        start_date=start_date,
+        end_date=end_date,
         initial_capital=capital,
         tp1_pct=tp1_pct,
         tp2_pct=tp2_pct,
@@ -865,6 +869,29 @@ def backtest_run_endpoint():
     )
     results = engine.run_simulation()
     return safe_jsonify(results)
+
+@app.route("/api/backtest/crises", methods=["GET", "POST"])
+def backtest_crises_endpoint():
+    """
+    Exécute le stress-test comparatif sur toutes les grandes crises (1999, 2008, 2020, 2022 et 27 ans).
+    """
+    if request.method == "POST":
+        data = request.json or {}
+    else:
+        data = request.args.to_dict()
+
+    capital = float(data.get("capital", 5000.0))
+    tp1_pct = float(data.get("tp1_pct", 1.25))
+    tp2_pct = float(data.get("tp2_pct", 2.25))
+    max_holding_days = int(data.get("max_holding_days", 10))
+
+    results = run_all_crises_stress_test(
+        initial_capital=capital,
+        tp1_pct=tp1_pct,
+        tp2_pct=tp2_pct,
+        max_holding_days=max_holding_days
+    )
+    return safe_jsonify({"success": True, "crises": results})
 
 def lookup_ticker_by_name(query):
     query = query.strip()

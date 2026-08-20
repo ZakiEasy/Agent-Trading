@@ -41,14 +41,55 @@ from src.sharia_screen import screen_ticker
 DATA_CACHE_DIR = Path(__file__).resolve().parent.parent / "data_cache"
 DATA_CACHE_DIR.mkdir(exist_ok=True)
 
+CRISIS_PERIODS = {
+    "crisis_2000": {
+        "id": "crisis_2000",
+        "name": "💥 Krach Dot-Com / Bulle Internet (1999-2003)",
+        "start": "1999-01-01",
+        "end": "2003-12-31",
+        "description": "Éclatement de la bulle spéculative tech (-80% Nasdaq, -50% S&P 500)"
+    },
+    "crisis_2008": {
+        "id": "crisis_2008",
+        "name": "🏦 Crise des Subprimes & GFC (2007-2009)",
+        "start": "2007-06-01",
+        "end": "2009-12-31",
+        "description": "Faillite de Lehman Brothers et récession bancaire mondiale (-55% S&P 500, VIX > 80)"
+    },
+    "crisis_2020": {
+        "id": "crisis_2020",
+        "name": "🦠 Krach Éclair Covid-19 (2020)",
+        "start": "2020-01-01",
+        "end": "2020-12-31",
+        "description": "Choc pandémique et confinements mondiaux (-35% en 1 mois, VIX > 80)"
+    },
+    "crisis_2022": {
+        "id": "crisis_2022",
+        "name": "📉 Bear Market Inflation & Taux (2022)",
+        "start": "2021-11-01",
+        "end": "2022-12-31",
+        "description": "Resserrement monétaire historique des banques centrales (-35% Nasdaq, -20% S&P 500)"
+    },
+    "all_cycles": {
+        "id": "all_cycles",
+        "name": "🌐 Cycle Complet Multi-Décennies (1999-2026 / 27 ans)",
+        "start": "1999-01-01",
+        "end": "2026-08-20",
+        "description": "Test exhaustif sur 27 ans incluant 4 krachs majeurs et 4 grands marchés haussiers"
+    }
+}
+
 class BacktestEngine:
     """
     Moteur de Backtest Walk-Forward pour la stratégie de Swing Trading Mean Reversion (Protocole 8 étapes).
+    Supporte les stress-tests sur les grandes crises historiques (1999, 2008, 2020, 2022).
     """
 
-    def __init__(self, symbols=None, period="2y", initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.25, max_holding_days=10):
+    def __init__(self, symbols=None, period="2y", start_date=None, end_date=None, initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.25, max_holding_days=10):
         self.symbols = symbols or list(set(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL))
         self.period = period
+        self.start_date = start_date
+        self.end_date = end_date
         self.initial_capital = float(initial_capital)
         self.tp1_pct = float(tp1_pct)
         self.tp2_pct = float(tp2_pct)
@@ -57,15 +98,27 @@ class BacktestEngine:
         self.macro_data = {}
         self.sector_etf_data = {}
 
+        # Résolution des périodes de crise prédéfinies
+        if self.period in CRISIS_PERIODS:
+            c_info = CRISIS_PERIODS[self.period]
+            self.start_date = c_info['start']
+            self.end_date = c_info['end']
+            self.fetch_period = "max"
+        elif self.period in ["max", "5y", "10y", "20y", "25y"]:
+            self.fetch_period = "max"
+        else:
+            self.fetch_period = self.period
+
     def fetch_historical_universe(self, force_refresh=False):
         """
         Télécharge et met en cache l'historique OHLCV pour tous les symboles, indices macro et ETFs sectoriels.
         """
         all_tickers = list(set(self.symbols + list(SECTOR_ETFS.values()) + ["^VIX", "SPY"]))
-        print(f"📥 Téléchargement des données historiques pour {len(all_tickers)} actifs (période: {self.period})...")
+        p_name = "max" if self.fetch_period == "max" or self.start_date else self.period
+        print(f"📥 Téléchargement / Chargement historique pour {len(all_tickers)} actifs (période: {p_name})...")
         
         for ticker in all_tickers:
-            cache_file = DATA_CACHE_DIR / f"{ticker.replace('^', '_')}_{self.period}.csv"
+            cache_file = DATA_CACHE_DIR / f"{ticker.replace('^', '_')}_{p_name}.csv"
             df = None
             if not force_refresh and cache_file.exists():
                 try:
@@ -76,17 +129,23 @@ class BacktestEngine:
             if df is None or df.empty:
                 try:
                     t = yf.Ticker(ticker)
-                    df = t.history(period=self.period, interval="1d")
+                    df = t.history(period=p_name, interval="1d")
                     if not df.empty:
                         # Clean column names
                         if isinstance(df.columns, pd.MultiIndex):
                             df.columns = df.columns.get_level_values(0)
+                        # Remove timezone for clean date matching
+                        if hasattr(df.index, 'tz') and df.index.tz is not None:
+                            df.index = df.index.tz_localize(None)
                         df.to_csv(cache_file)
                 except Exception as e:
                     print(f"⚠️ Erreur téléchargement pour {ticker}: {e}")
                     df = pd.DataFrame()
 
             if df is not None and not df.empty:
+                # Harmoniser le fuseau horaire
+                if hasattr(df.index, 'tz') and df.index.tz is not None:
+                    df.index = df.index.tz_localize(None)
                 # Precompute technical indicators
                 df = self._precompute_indicators(df)
                 if ticker in ["^VIX", "SPY"]:
@@ -155,8 +214,16 @@ class BacktestEngine:
             all_dates.update(df.index)
         sorted_dates = sorted(list(all_dates))
 
-        # Ne commencer la simulation qu'après 50 barres pour avoir des indicateurs stables
-        if len(sorted_dates) > 60:
+        # Filtrage par dates si spécifié (ex: crises 1999, 2008, 2020, 2022)
+        if self.start_date:
+            ts_start = pd.to_datetime(self.start_date)
+            sorted_dates = [d for d in sorted_dates if d >= ts_start]
+        if self.end_date:
+            ts_end = pd.to_datetime(self.end_date)
+            sorted_dates = [d for d in sorted_dates if d <= ts_end]
+
+        # Ne commencer la simulation qu'après les barres de chauffe si pas de date de début précise
+        if not self.start_date and len(sorted_dates) > 60:
             simulation_dates = sorted_dates[50:]
         else:
             simulation_dates = sorted_dates
@@ -663,25 +730,72 @@ class BacktestEngine:
             "recommendations": recommendations
         }
 
+def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.25, max_holding_days=10):
+    """
+    Exécute automatiquement le stress-test sur les 4 grandes crises historiques et sur le cycle complet multi-décennies.
+    """
+    print("\n" + "="*80)
+    print("🌪️  STRESS-TEST MULTI-CRISES & GRANDES DÉCENNIES (1999 - 2026)")
+    print("="*80)
+
+    # Pré-téléchargement global
+    base_engine = BacktestEngine(period="max", initial_capital=initial_capital, tp1_pct=tp1_pct, tp2_pct=tp2_pct, max_holding_days=max_holding_days)
+    base_engine.fetch_historical_universe()
+
+    results_by_crisis = {}
+
+    for c_key, c_info in CRISIS_PERIODS.items():
+        print(f"\n▶️ Test en cours : {c_info['name']} ({c_info['start']} -> {c_info['end']})...")
+        engine = BacktestEngine(
+            symbols=base_engine.symbols,
+            period=c_key,
+            start_date=c_info['start'],
+            end_date=c_info['end'],
+            initial_capital=initial_capital,
+            tp1_pct=tp1_pct,
+            tp2_pct=tp2_pct,
+            max_holding_days=max_holding_days
+        )
+        # Partager les données historiques déjà en mémoire
+        engine.historical_data = base_engine.historical_data
+        engine.macro_data = base_engine.macro_data
+        engine.sector_etf_data = base_engine.sector_etf_data
+
+        res = engine.run_simulation()
+        m = res.get('metrics', {})
+        results_by_crisis[c_key] = {
+            "name": c_info['name'],
+            "description": c_info['description'],
+            "start": c_info['start'],
+            "end": c_info['end'],
+            "initial_capital": initial_capital,
+            "final_capital": res.get('final_capital', initial_capital),
+            "net_pnl": m.get('total_net_pnl', 0.0),
+            "return_pct": m.get('total_return_pct', 0.0),
+            "win_rate": m.get('win_rate_pct', 0.0),
+            "total_trades": m.get('total_trades', 0),
+            "winning_trades": m.get('winning_trades', 0),
+            "losing_trades": m.get('losing_trades', 0),
+            "profit_factor": m.get('profit_factor', 0.0),
+            "max_drawdown": m.get('max_drawdown_pct', 0.0),
+            "avg_holding_days": m.get('avg_holding_days', 0.0),
+            "sharpe_ratio": m.get('sharpe_ratio', 0.0),
+            "exit_reasons": m.get('exit_reasons', {})
+        }
+
+    return results_by_crisis
+
 if __name__ == "__main__":
-    engine = BacktestEngine(period="2y", initial_capital=5000.0)
-    res = engine.run_simulation()
-    print("\n" + "="*60)
-    print("📊 RÉSULTATS DU BACKTEST HISTORIQUE (2 ANS)")
-    print("="*60)
-    print(f"Capital Initial : {res['initial_capital']} €")
-    print(f"Capital Final   : {res['final_capital']} €")
-    m = res['metrics']
-    print(f"Gain Net Total  : {m['total_net_pnl']} € ({m['total_return_pct']} %)")
-    print(f"Nombre Trades   : {m['total_trades']} (Gagnants: {m['winning_trades']}, Perdants: {m['losing_trades']})")
-    print(f"Taux de Succès  : {m['win_rate_pct']} %")
-    print(f"Facteur Profit  : {m['profit_factor']}")
-    print(f"Max Drawdown    : {m['max_drawdown_pct']} %")
-    print(f"Durée Moyenne   : {m['avg_holding_days']} jours")
-    print(f"Motifs Sortie   : {m['exit_reasons']}")
-    print("\n🔍 DIAGNOSTIC DES FAILLES & LIMITES :")
-    for f in res['diagnostics']['flaws']:
-        print(f" - ⚠️ {f}")
-    print("\n💡 RECOMMANDATIONS :")
-    for r in res['diagnostics']['recommendations']:
-        print(f" - 🎯 {r}")
+    crisis_res = run_all_crises_stress_test()
+    print("\n" + "="*80)
+    print("📊 TABLEAU COMPARATIF DES PERFORMANCES PAR PÉRIODE DE CRISE")
+    print("="*80)
+    for k, v in crisis_res.items():
+        print(f"\n📌 {v['name']}")
+        print(f"   Contexte : {v['description']}")
+        print(f"   Dates    : {v['start']} -> {v['end']}")
+        print(f"   Capital  : {v['initial_capital']} € -> {v['final_capital']} € (Gain: {v['net_pnl']:+.2f} € / {v['return_pct']:+.2f} %)")
+        print(f"   Win Rate : {v['win_rate']} % ({v['winning_trades']}W / {v['losing_trades']}L sur {v['total_trades']} trades)")
+        print(f"   PF / DD  : Profit Factor = {v['profit_factor']} | Max Drawdown = -{v['max_drawdown']} %")
+        print(f"   Durée    : {v['avg_holding_days']} jours | Sorties: {v['exit_reasons']}")
+

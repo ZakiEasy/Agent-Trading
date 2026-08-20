@@ -1666,11 +1666,19 @@
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label style="font-size: 0.75rem;">Période d'Historique</label>
+                            <label style="font-size: 0.75rem;">Période ou Crise Historique</label>
                             <select id="bt-period">
                                 <option value="1y">1 An (Court terme)</option>
                                 <option value="2y" selected>2 Ans (Standard)</option>
-                                <option value="3y">3 Ans (Cycle complet)</option>
+                                <option value="5y">5 Ans (Moyen terme)</option>
+                                <option value="10y">10 Ans (Long terme)</option>
+                                <option value="all_cycles">🌐 Cycle Complet 27 Ans (1999-2026)</option>
+                                <optgroup label="🌪️ Stress-Tests Crises Historiques">
+                                    <option value="crisis_2000">💥 Krach Dot-Com / Bulle Internet (1999-2003)</option>
+                                    <option value="crisis_2008">🏦 Crise Subprimes & GFC (2007-2009)</option>
+                                    <option value="crisis_2020">🦠 Krach Éclair Covid-19 (2020)</option>
+                                    <option value="crisis_2022">📉 Bear Market Inflation & Taux (2022)</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
@@ -1697,6 +1705,11 @@
                             </select>
                         </div>
                     </div>
+                    <div style="margin-top: 0.75rem; display: flex; justify-content: flex-end;">
+                        <button class="btn btn-secondary" onclick="runAllCrisesBenchmark()" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+                            <span>⚡ Lancer le Benchmark Comparatif Multi-Crises</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Spinner de chargement -->
@@ -1706,7 +1719,43 @@
                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">Téléchargement OHLCV, calcul du R-Max et exécution des ordres bar-par-bar.</div>
                 </div>
 
-                <!-- Résultats du Backtest -->
+                <!-- Tableau Comparatif Multi-Crises (Stress-Test) -->
+                <div id="bt-crises-benchmark-container" style="display: none; margin-bottom: 1.5rem;">
+                    <div style="background: rgba(59,130,246,0.03); border: 1px solid rgba(59,130,246,0.25); border-radius: 8px; padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <h3 style="font-size: 1.05rem; font-weight: 700; color: #60a5fa; margin: 0;">🌪️ Benchmark Comparatif sur les Grandes Crises (1999 - 2026)</h3>
+                                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                                    Comportement de la stratégie face aux 4 pires krachs boursiers modernes vs Cycle Complet (27 ans).
+                                </p>
+                            </div>
+                            <span class="badge badge-primary">Stress-Test Institutionnel</span>
+                        </div>
+
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table id="bt-crises-table" style="width: 100%; font-size: 0.85rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Période / Crise</th>
+                                        <th>Dates</th>
+                                        <th>Capital Final (Base 5k€)</th>
+                                        <th>Gain Net (€ / %)</th>
+                                        <th>Win Rate</th>
+                                        <th>Profit Factor</th>
+                                        <th>Max Drawdown</th>
+                                        <th>Durée Moy.</th>
+                                        <th>Résistance & Diagnostic</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Rendered dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Résultats du Backtest Individuel -->
                 <div id="bt-results-container" style="display: none;">
                     
                     <!-- KPI Cards Grid -->
@@ -4486,6 +4535,87 @@
             const query = (document.getElementById('bt-trades-search').value || '').trim().toUpperCase();
             const filtered = currentBacktestData.trades.filter(t => t.symbol.toUpperCase().includes(query) || (t.category && t.category.toUpperCase().includes(query)));
             renderBacktestTradesTable(filtered);
+        }
+
+        async function runAllCrisesBenchmark() {
+            const loading = document.getElementById('bt-loading');
+            const crisesContainer = document.getElementById('bt-crises-benchmark-container');
+            const capital = parseFloat(document.getElementById('bt-capital').value) || 5000;
+            const tp1 = parseFloat(document.getElementById('bt-tp1').value) || 1.25;
+            const tp2 = parseFloat(document.getElementById('bt-tp2').value) || 2.25;
+            const holding = parseInt(document.getElementById('bt-holding').value) || 10;
+
+            loading.style.display = 'block';
+            crisesContainer.style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_URL}/backtest/crises`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        capital: capital,
+                        tp1_pct: tp1,
+                        tp2_pct: tp2,
+                        max_holding_days: holding
+                    })
+                });
+
+                const payload = await res.json();
+                if (!payload.success || !payload.crises) {
+                    alert("Erreur lors du calcul du benchmark multi-crises.");
+                    return;
+                }
+
+                renderCrisesBenchmarkTable(payload.crises);
+                crisesContainer.style.display = 'block';
+            } catch (e) {
+                console.error("Erreur benchmark crises:", e);
+                alert(`Erreur technique: ${e.message}`);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderCrisesBenchmarkTable(crises) {
+            const tbody = document.querySelector('#bt-crises-table tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            Object.keys(crises).forEach(k => {
+                const c = crises[k];
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => {
+                    document.getElementById('bt-period').value = k;
+                    runHistoricalBacktest();
+                };
+
+                const isPos = c.net_pnl >= 0;
+                const pnlColor = isPos ? 'var(--success)' : 'var(--danger)';
+                const pfColor = c.profit_factor >= 1.2 ? 'var(--success)' : c.profit_factor >= 1.0 ? 'var(--warning)' : 'var(--danger)';
+
+                let diagBadge = '';
+                if (c.max_drawdown <= 5.0 && isPos) {
+                    diagBadge = '<span class="badge badge-success">🛡️ Protection Maximale</span>';
+                } else if (isPos) {
+                    diagBadge = '<span class="badge badge-pea">🟢 Capital Préservé / Gain</span>';
+                } else {
+                    diagBadge = '<span class="badge badge-warning">⚠️ Résistance / Baisse Limitée</span>';
+                }
+
+                tr.innerHTML = `
+                    <td><strong>${c.name}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${c.description}</span></td>
+                    <td style="white-space: nowrap;">${c.start} → ${c.end}</td>
+                    <td><strong>${c.final_capital.toFixed(2)} €</strong></td>
+                    <td style="color: ${pnlColor}; font-weight: 700;">${isPos ? '+' : ''}${c.net_pnl.toFixed(2)} € (${isPos ? '+' : ''}${c.return_pct.toFixed(2)} %)</td>
+                    <td><strong style="color: #60a5fa;">${c.win_rate.toFixed(1)} %</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${c.winning_trades}W / ${c.losing_trades}L (${c.total_trades} trades)</span></td>
+                    <td style="color: ${pfColor}; font-weight: 700;">${c.profit_factor.toFixed(2)}</td>
+                    <td style="color: var(--danger); font-weight: 700;">-${c.max_drawdown.toFixed(2)} %</td>
+                    <td>${c.avg_holding_days.toFixed(1)} j</td>
+                    <td>${diagBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
     </script>
 </body>
