@@ -78,12 +78,12 @@ EARNINGS_BLACKOUT_DAYS = 10  # 10 jours ouvrés sans résultats ni événement m
 # --- 2. Gestion du Risque & Paramètres de Capital (R-Max) ---
 # ==============================================================================
 
-# Capital de référence standard (Aligné sur le compte CTO EUR réel XTB : 2 400 €)
-CAPITAL_REFERENCE_DEFAULT = 2400.0
+# Capital de référence standard (Aligné sur le capital total réel du portefeuille : 18 183,05 €)
+CAPITAL_REFERENCE_DEFAULT = 18183.05
 
 # R-Max : Perte maximale tolérée par trade en % du capital total
-R_MAX_PCT_STANDARD = 0.010   # 1.0% en régime RISK-ON (ex: 24 € pour 2 400 €)
-R_MAX_PCT_REDUCED = 0.005    # 0.5% en régime NEUTRE/VIGILANCE (ex: 12 € pour 2 400 €)
+R_MAX_PCT_STANDARD = 0.010   # 1.0% en régime RISK-ON (ex: 181,83 € pour 18 183,05 €)
+R_MAX_PCT_REDUCED = 0.005    # 0.5% en régime NEUTRE/VIGILANCE (ex: 90,92 € pour 18 183,05 €)
 
 # Taille maximale par ligne en % du capital total (20% à 25%)
 MAX_ALLOCATION_PER_LINE_PCT = 0.25

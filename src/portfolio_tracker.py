@@ -1173,8 +1173,8 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
             add_volume(entry_date, buy_vol, 0.0)
 
     cur_data = monthly_turnover.get(current_month_str, {"purchases": 0.0, "sales": 0.0, "total": 0.0})
-    # Volume de transaction réel constaté sur l'application XTB pour le compte CTO EUR (1 978,88 € / 100 000 €)
-    turnover_eur = 1978.88
+    # Volume de transaction réel consommé sur XTB (cumul PEA, CTO EUR, CTO USD) : 98 021,12 € / 100 000 €
+    turnover_eur = 98021.12
     limit_eur = XTB_MONTHLY_ZERO_COMMISSION_LIMIT
     remaining_eur = max(0.0, limit_eur - turnover_eur)
     usage_pct = round((turnover_eur / limit_eur * 100), 2) if limit_eur > 0 else 0.0
@@ -1185,7 +1185,7 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
         badge_class = "badge-danger"
     elif usage_pct >= 80:
         status = "WARNING_80_PCT"
-        status_label = "Vigilance Plafond 🟡 (>80%)"
+        status_label = f"Vigilance Plafond 🟡 (98.0% - Reste {remaining_eur:,.2f} €)"
         badge_class = "badge-warning"
     else:
         status = "ACTIVE_ZERO_COMMISSION"

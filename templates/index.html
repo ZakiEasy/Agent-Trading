@@ -1534,7 +1534,7 @@
 
                     <div class="form-group">
                         <label>Capital Total du Portefeuille (€)</label>
-                        <input type="number" id="calc-rmax-capital" value="2400" step="100" oninput="recalculateRMaxTool()">
+                        <input type="number" id="calc-rmax-capital" value="18183.05" step="500" oninput="recalculateRMaxTool()">
                     </div>
 
                     <div class="form-group">
@@ -3994,7 +3994,7 @@
                 const symChar = d.currency === "EUR" ? "€" : "$";
                 const tech = d.step_5_technical || d.technical || { current_price: 0, sma_200: 0, trend_daily: "N/A", trend_weekly: "N/A", support: 0, resistance: 0, rsi: 50, rsi_divergence: { type: "AUCUNE", description: "" } };
                 const plan = d.step_6_trade_plan || d.trade_plan || { tp1_price: 0, tp2_price: 0, stop_loss_price: 0, stop_distance_pct: 0, holding_range: "N/A" };
-                const risk = d.step_7_risk_sizing || d.trade_plan || { capital_reference: 2400, suggested_nominal: 0, actual_monetary_risk: 0, r_max_amount: 24, risk_reward_tp1: 0, risk_reward_tp2: 0, shares_count: 0, cash_reserve_required: 600, time_stop: "" };
+                const risk = d.step_7_risk_sizing || d.trade_plan || { capital_reference: 18183.05, suggested_nominal: 0, actual_monetary_risk: 0, r_max_amount: 181.83, risk_reward_tp1: 0, risk_reward_tp2: 0, shares_count: 0, cash_reserve_required: 4545.76, time_stop: "" };
                 const confluence = d.step_8_confluence || { confluence_score: d.confluence_score || 0, verdict: d.verdict || "ATTENDRE REPLI SUR SUPPORT" };
                 const sharia = d.sharia || d.step_1_sharia || { status: "DONNÉES INSUFFISANTES", reason: "" };
                 const macro = d.step_2_macro || { regime: "N/A", action_rule: "" };
@@ -4122,9 +4122,9 @@
                         <!-- Étape 7 -->
                         <div class="report-step">
                             <div class="report-step-title">🛡️ 7. Dimensionnement R-Max & Risque Monétaire</div>
-                            <div>Capital de Référence : <strong>${risk.capital_reference || 2400} €</strong> (Réserve Cash obligatoire 25% : <strong>${(risk.cash_reserve_required || 600).toFixed(0)} €</strong>)</div>
-                            <div style="margin-top:0.25rem;">Allocation Nominale : <strong style="color:#60a5fa;">${((risk.suggested_nominal || 0)).toFixed(2)} €</strong> (${risk.shares_count || 0} actions entières — max 25% compte)</div>
-                            <div>Risque Monétaire Engagé : <strong style="color:#fbbf24;">${((risk.actual_monetary_risk || 0)).toFixed(2)} €</strong> (R-Max autorisé : ${((risk.r_max_amount || 24)).toFixed(2)} € / ≤ 1.0%)</div>
+                            <div>Capital de Référence : <strong>${(risk.capital_reference || 18183.05).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong> (Réserve Cash obligatoire 25% : <strong>${(risk.cash_reserve_required || 4545.76).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong>)</div>
+                            <div style="margin-top:0.25rem;">Allocation Nominale : <strong style="color:#60a5fa;">${((risk.suggested_nominal || 0)).toFixed(2)} €</strong> (${risk.shares_count || 0} actions entières — max 25% compte : <strong>${((risk.max_line_limit || 4545.76)).toFixed(2)} €</strong>)</div>
+                            <div>Risque Monétaire Engagé : <strong style="color:#fbbf24;">${((risk.actual_monetary_risk || 0)).toFixed(2)} €</strong> (R-Max autorisé : ${((risk.r_max_amount || 181.83)).toFixed(2)} € / ≤ 1.0%)</div>
                             <div>Ratios Rendement / Risque : TP1 = <strong>1:${((risk.risk_reward_tp1 || plan.risk_reward || 0)).toFixed(2)}</strong> | TP2 = <strong>1:${((risk.risk_reward_tp2 || (plan.risk_reward ? plan.risk_reward*1.5 : 0))).toFixed(2)}</strong></div>
                         </div>
 
@@ -4252,7 +4252,7 @@
         // R-MAX CALCULATOR & SIMULATION TAB
         // ---------------------------------------------------------------------
         function recalculateRMaxTool() {
-            const capital = parseFloat(document.getElementById('calc-rmax-capital').value) || 5000;
+            const capital = parseFloat(document.getElementById('calc-rmax-capital').value) || 18183.05;
             const regime = document.getElementById('calc-rmax-regime').value;
             const entry = parseFloat(document.getElementById('calc-rmax-entry').value) || 100;
             const stop = parseFloat(document.getElementById('calc-rmax-stop').value) || 97;
