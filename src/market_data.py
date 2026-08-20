@@ -10,6 +10,91 @@ from src.config import (
     MIN_MARKET_CAP_USD
 )
 
+COMPANY_NAMES = {
+    'AAPL': 'Apple Inc.',
+    'MC.PA': 'LVMH Moët Hennessy',
+    'RMS.PA': 'Hermès International',
+    'RMS.FR': 'Hermès International',
+    'OR.PA': "L'Oréal S.A.",
+    'OR.FR': "L'Oréal S.A.",
+    'AIR.PA': 'Airbus SE',
+    'AIR.FR': 'Airbus SE',
+    'SU.PA': 'Schneider Electric',
+    'SU.FR': 'Schneider Electric',
+    'LR.PA': 'Legrand SA',
+    'LR.FR': 'Legrand SA',
+    'STMPA.PA': 'STMicroelectronics',
+    'STM.FR': 'STMicroelectronics',
+    'AI.PA': "L'Air Liquide",
+    'AI.FR': "L'Air Liquide",
+    'ENGI.PA': 'Engie SA',
+    'ENGI.FR': 'Engie SA',
+    'GTT.PA': 'Gaztransport & Technigaz',
+    'GTT.FR': 'Gaztransport & Technigaz',
+    'SAN.PA': 'Sanofi',
+    'SAN.FR': 'Sanofi',
+    'RYAAY': 'Ryanair Holdings (ADR)',
+    'RYA.IR': 'Ryanair Holdings',
+    'NVDA': 'NVIDIA Corporation',
+    'MSFT': 'Microsoft Corporation',
+    'GOOGL': 'Alphabet Inc. (Class A)',
+    'GOOG': 'Alphabet Inc. (Class C)',
+    'GOOGC.US': 'Alphabet Inc. (Class C)',
+    'META': 'Meta Platforms Inc.',
+    'AMZN': 'Amazon.com Inc.',
+    'TSLA': 'Tesla Inc.',
+    'AVGO': 'Broadcom Inc.',
+    'TSM': 'Taiwan Semiconductor (TSMC)',
+    'ASML': 'ASML Holding N.V.',
+    'ASML.AS': 'ASML Holding N.V.',
+    'ASML.NL': 'ASML Holding N.V.',
+    'ARM': 'Arm Holdings plc',
+    'QCOM': 'QUALCOMM Inc.',
+    'INTC': 'Intel Corporation',
+    'CSCO': 'Cisco Systems Inc.',
+    'CRM': 'Salesforce Inc.',
+    'UBER': 'Uber Technologies',
+    'SAP': 'SAP SE',
+    'SAP.DE': 'SAP SE',
+    'ESTC': 'Elastic N.V.',
+    'ASAN': 'Asana Inc.',
+    'ERIC': 'Telefonaktiebolaget LM Ericsson',
+    'NOK': 'Nokia Corporation',
+    'NOKIA.FI': 'Nokia Corporation',
+    'BKNG': 'Booking Holdings',
+    'XOM': 'Exxon Mobil Corporation',
+    'BYDDY': 'BYD Company Limited',
+    'BYD': 'BYD Company Limited',
+    'BY6.DE': 'BYD Company Limited',
+    'LLY': 'Eli Lilly and Company',
+    'MRK': 'Merck & Co. Inc.',
+    'MRK.DE': 'Merck KGaA',
+    'IS3R.DE': 'iShares MSCI World Momentum',
+    'IS3E.DE': 'iShares MSCI EM Islamic',
+    'GOLD': 'Barrick Gold Corporation',
+    'SNDK': 'Western Digital / SanDisk',
+    '005930.KS': 'Samsung Electronics',
+    'LIN.PA': 'Linde plc',
+    'LIN': 'Linde plc',
+    'ACIW.US': 'ACI Worldwide Inc.',
+    'CARR.US': 'Carrier Global Corp.',
+    'VRT.US': 'Vertiv Holdings Co.',
+    'STX.US': 'Seagate Technology',
+    'WDC.US': 'Western Digital Corp.',
+    'SPCX.US': 'SpaceX Private',
+    'HFG.DE': 'HelloFresh SE'
+}
+
+def get_company_name(symbol, info=None):
+    sym = str(symbol or "").strip().upper()
+    if sym in COMPANY_NAMES:
+        return COMPANY_NAMES[sym]
+    if isinstance(info, dict):
+        name = info.get("shortname") or info.get("longname")
+        if name:
+            return name
+    return sym
+
 def categorize_ticker(symbol, info=None):
     """
     Détermine l'éligibilité au PEA (Euronext / Europe) et la catégorie sectorielle en français.
@@ -19,7 +104,7 @@ def categorize_ticker(symbol, info=None):
         info = {}
     
     # 1. Éligibilité PEA (Titres européens / français Euronext)
-    eu_suffixes = ['.PA', '.AS', '.BR', '.DE', '.MC', '.MI', '.LS', '.VI', '.IR', '.HE']
+    eu_suffixes = ['.PA', '.AS', '.BR', '.DE', '.MC', '.MI', '.LS', '.VI', '.IR', '.HE', '.FR', '.NL', '.FI']
     is_pea = any(symbol.endswith(sfx) for sfx in eu_suffixes) or symbol in [
         'MC.PA', 'OR.PA', 'AIR.PA', 'RMS.PA', 'KER.PA', 'SAN.PA', 'TTE.PA', 'EL.PA', 'ASML.AS', 'SAP.DE', 'LR.PA', 'GTT.PA', 'STMPA.PA', 'AI.PA', 'ENGI.PA', 'SU.PA'
     ]
@@ -27,33 +112,43 @@ def categorize_ticker(symbol, info=None):
     
     sector = str(info.get('sector', '') or '')
     industry = str(info.get('industry', '') or '')
-    sec_lower = (sector + ' ' + industry).lower()
+    quote_type = str(info.get('quoteType', '') or '').upper()
+    sec_lower = (sector + ' ' + industry + ' ' + quote_type).lower()
     
-    # 2. Catégories Thématiques & Sectorielles
-    if any(k in sec_lower for k in ['technology', 'software', 'semiconductor', 'hardware', 'electronic', 'it ']):
-        category = "Tech & IA"
-        category_icon = "💻"
-    elif any(k in sec_lower for k in ['health', 'pharma', 'biotech', 'drug', 'medical', 'care']):
-        category = "Santé & Pharma"
-        category_icon = "💊"
-    elif any(k in sec_lower for k in ['luxury', 'consumer cyclical', 'apparel', 'retail', 'beverage', 'cosmetic', 'luxe']):
-        category = "Luxe & Consommation"
-        category_icon = "💎"
-    elif any(k in sec_lower for k in ['industrial', 'aerospace', 'defense', 'machinery', 'transport', 'airline']):
-        category = "Industrie & Aéro"
-        category_icon = "🏭"
-    elif any(k in sec_lower for k in ['energy', 'oil', 'gas', 'petroleum', 'solar', 'clean energy']):
-        category = "Énergie & Pétrole"
+    # 2. Catégories Thématiques & Sectorielles Réorganisées (8 Catégories Homogènes)
+    semi_symbols = ['NVDA', 'TSM', 'ASML', 'AVGO', 'ARM', 'QCOM', 'INTC', 'STMPA.PA', '005930.KS', 'SNDK', 'MU', 'AMD', 'TXN', 'AMAT', 'LRCX', 'KLAC', 'MRVL', 'ADI', 'STM.FR']
+    tech_cloud_symbols = ['MSFT', 'GOOGL', 'GOOG', 'META', 'CRM', 'UBER', 'SAP', 'ESTC', 'ASAN', 'PLTR', 'ADBE', 'NOW', 'SNOW', 'ORCL', 'PANW', 'CRWD', 'NET', 'DDOG', 'SAP.DE', 'GOOGC.US']
+    luxe_conso_symbols = ['RMS.PA', 'MC.PA', 'OR.PA', 'KER.PA', 'EL.PA', 'BKNG', 'AMZN', 'BABA', 'TSLA', 'BYDDY', 'BYD', 'NKE', 'LVMH', 'RMS.FR', 'OR.FR', 'ACIW.US']
+    industrie_aero_symbols = ['AIR.PA', 'SU.PA', 'LR.PA', 'RYAAY', 'RYA.IR', 'CSCO', 'ERIC', 'NOK', 'BA', 'LMT', 'RTX', 'SAF.PA', 'HO.PA', 'AIR.FR', 'SU.FR', 'LR.FR', 'NOKIA.FI', 'CARR.US', 'VRT.US']
+    sante_pharma_symbols = ['LLY', 'MRK', 'MRK.DE', 'SAN.PA', 'PFE', 'ABBV', 'JNJ', 'AZN', 'NVO', 'VRTX', 'SAN.FR', 'HFG.DE']
+    energie_symbols = ['XOM', 'CVX', 'GTT.PA', 'ENGI.PA', 'TTE.PA', 'SHEL', 'BP', 'GTT.FR', 'ENGI.FR', 'TTE.FR']
+    materiaux_symbols = ['AI.PA', 'LIN.PA', 'LIN', 'APD', 'ECL', 'BAS.DE', 'AI.FR', 'LIN.FR']
+    etf_symbols = ['IS3R.DE', 'IS3E.DE', 'SPY', 'QQQ', 'IWDA.AS', 'EEM', 'VTI', 'VOO', 'HIJP.UK', 'ISDW.UK', 'ISDU.UK', 'ISDE.UK']
+
+    if symbol in etf_symbols or quote_type == 'ETF' or 'etf' in sec_lower or 'ishares' in sec_lower:
+        category = "ETFs & Indices Factoriels"
+        category_icon = "📊"
+    elif symbol in semi_symbols or any(k in sec_lower for k in ['semiconductor', 'hardware', 'equipment & materials']):
+        category = "Semi-conducteurs & Hardware"
         category_icon = "⚡"
-    elif any(k in sec_lower for k in ['materials', 'chemical', 'mining', 'steel']):
+    elif symbol in tech_cloud_symbols or any(k in sec_lower for k in ['software', 'internet content', 'information technology', 'cloud']):
+        category = "Tech, Cloud & IA"
+        category_icon = "💻"
+    elif symbol in luxe_conso_symbols or any(k in sec_lower for k in ['luxury', 'consumer cyclical', 'auto manufacturers', 'travel services', 'internet retail', 'personal products', 'apparel']):
+        category = "Luxe & Consommation Mondiale"
+        category_icon = "💎"
+    elif symbol in industrie_aero_symbols or any(k in sec_lower for k in ['aerospace', 'defense', 'airlines', 'machinery', 'electrical equipment', 'communication equipment', 'industrial']):
+        category = "Industrie, Défense & Aéro"
+        category_icon = "🏭"
+    elif symbol in sante_pharma_symbols or any(k in sec_lower for k in ['health', 'pharma', 'biotech', 'drug', 'medical']):
+        category = "Santé & Pharmacie"
+        category_icon = "💊"
+    elif symbol in energie_symbols or any(k in sec_lower for k in ['energy', 'oil', 'gas', 'petroleum', 'utilities']):
+        category = "Énergie & Transition"
+        category_icon = "🔋"
+    elif symbol in materiaux_symbols or any(k in sec_lower for k in ['materials', 'chemical', 'mining', 'steel']):
         category = "Matériaux & Chimie"
         category_icon = "🧪"
-    elif any(k in sec_lower for k in ['defensive', 'food', 'grocery', 'household', 'consumer defensive']):
-        category = "Agro & Défensif"
-        category_icon = "🛒"
-    elif any(k in sec_lower for k in ['financial', 'bank', 'real estate', 'reit', 'insurance']):
-        category = "Finance & Immo"
-        category_icon = "🏦"
     else:
         category = sector if sector else "Autres"
         category_icon = "📦"
@@ -64,7 +159,8 @@ def categorize_ticker(symbol, info=None):
         "category": category,
         "category_icon": category_icon,
         "sector_raw": sector,
-        "industry_raw": industry
+        "industry_raw": industry,
+        "company_name": get_company_name(symbol, info)
     }
 
 def calculate_rsi(prices, period=14):

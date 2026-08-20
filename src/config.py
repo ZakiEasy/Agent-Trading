@@ -32,14 +32,14 @@ MIN_AVG_DAILY_VOLUME_USD = 1_000_000
 
 # ETF Sectoriels de référence pour analyse de force relative Top-Down
 SECTOR_ETFS = {
-    "Tech & IA": "XLK",
-    "Santé & Pharma": "XLV",
-    "Luxe & Consommation": "XLY",
-    "Industrie & Aéro": "XLI",
-    "Énergie & Pétrole": "XLE",
+    "Tech, Cloud & IA": "XLK",
+    "Semi-conducteurs & Hardware": "SMH",
+    "Luxe & Consommation Mondiale": "XLY",
+    "Industrie, Défense & Aéro": "XLI",
+    "Santé & Pharmacie": "XLV",
+    "Énergie & Transition": "XLE",
     "Matériaux & Chimie": "XLB",
-    "Agro & Défensif": "XLP",
-    "Finance & Immo": "XLF",
+    "ETFs & Indices Factoriels": "SPY",
     "Autres": "SPY"
 }
 
@@ -75,12 +75,12 @@ EARNINGS_BLACKOUT_DAYS = 10  # 10 jours ouvrés sans résultats ni événement m
 # --- 2. Gestion du Risque & Paramètres de Capital (R-Max) ---
 # ==============================================================================
 
-# Capital de référence standard (entre 3 000 € et 10 000 €)
-CAPITAL_REFERENCE_DEFAULT = 5000.0
+# Capital de référence standard (Aligné sur le compte CTO EUR réel XTB : 2 400 €)
+CAPITAL_REFERENCE_DEFAULT = 2400.0
 
 # R-Max : Perte maximale tolérée par trade en % du capital total
-R_MAX_PCT_STANDARD = 0.010   # 1.0% en régime RISK-ON (ex: 50 € pour 5 000 €)
-R_MAX_PCT_REDUCED = 0.005    # 0.5% en régime NEUTRE/VIGILANCE ou post-drawdown
+R_MAX_PCT_STANDARD = 0.010   # 1.0% en régime RISK-ON (ex: 24 € pour 2 400 €)
+R_MAX_PCT_REDUCED = 0.005    # 0.5% en régime NEUTRE/VIGILANCE (ex: 12 € pour 2 400 €)
 
 # Taille maximale par ligne en % du capital total (20% à 25%)
 MAX_ALLOCATION_PER_LINE_PCT = 0.25

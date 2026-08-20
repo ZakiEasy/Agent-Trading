@@ -11,7 +11,7 @@ from src.sheets_connector import (
     add_position_to_sheets,
     close_position_in_sheets
 )
-from src.market_data import get_usd_conversion_rate, get_usd_to_eur_rate, get_ticker_info, categorize_ticker
+from src.market_data import get_usd_conversion_rate, get_usd_to_eur_rate, get_ticker_info, categorize_ticker, get_company_name
 
 _LIVE_QUOTE_CACHE = {}  # symbol -> {"price": float, "day_change": float, "ts": float}
 LIVE_QUOTE_TTL = 300  # 5 minutes de cache pour les cours en direct
@@ -149,7 +149,7 @@ def fetch_live_quote_for_position(pos):
     return {
         "id": pos.get("id"),
         "symbol": symbol,
-        "name": pos.get("name", symbol),
+        "name": pos.get("name") if (pos.get("name") and pos.get("name") != symbol and len(pos.get("name")) > len(symbol)) else get_company_name(symbol),
         "account": pos.get("account", "PEA" if ".PA" in symbol else "CTO"),
         "currency": currency,
         "entry_date": entry_date_str,

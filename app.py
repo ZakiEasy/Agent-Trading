@@ -18,7 +18,8 @@ from src.market_data import (
     check_earnings_blackout,
     check_fundamental_quality,
     categorize_ticker,
-    calculate_sector_relative_strength
+    calculate_sector_relative_strength,
+    get_company_name
 )
 from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
 from src.backtest_engine import BacktestEngine, CRISIS_PERIODS, run_all_crises_stress_test
@@ -100,12 +101,8 @@ def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT):
         # Force relative sectorielle
         sector_strength = calculate_sector_relative_strength(ticker_symbol, fund_quality.get("category", "Autres"), hist)
         
-        company_name = ticker_symbol
-        try:
-            info = ticker_obj.info
-            company_name = info.get("longName") or info.get("shortName") or ticker_symbol
-        except:
-            pass
+        info = getattr(ticker_obj, 'info', {}) if ticker_obj else {}
+        company_name = get_company_name(ticker_symbol, info)
             
         curr_price = tech_setup["current_price"]
         support = tech_setup["support"]
@@ -135,6 +132,7 @@ def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT):
         # 7. Rapport structuré en 8 étapes avec métadonnées PEA et Catégories
         analysis = {
             "symbol": ticker_symbol,
+            "name": company_name,
             "company_name": company_name,
             "currency": tech_setup.get("currency", "USD"),
             "category": fund_quality.get("category", "Autres"),
