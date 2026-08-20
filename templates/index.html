@@ -1645,6 +1645,162 @@
                 </div>
 
             </div>
+
+            <!-- ============================================================= -->
+            <!-- SECTION : BACKTEST HISTORIQUE & ANALYSE DES FAILLES           -->
+            <!-- ============================================================= -->
+            <div class="glass-card" style="margin-top: 1.5rem;">
+                <div class="card-header" style="flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h2 class="card-title">🔬 Backtest Historique & Validation Statistique de la Stratégie</h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                            Simulez bar-par-bar le protocole en 8 étapes sur les données historiques réelles (1 à 3 ans) pour évaluer la rentabilité et identifier les failles.
+                        </p>
+                    </div>
+                    <button class="btn btn-primary" id="btn-run-backtest" onclick="runHistoricalBacktest()">
+                        <span>🚀 Lancer le Backtest Historique</span>
+                    </button>
+                </div>
+
+                <!-- Paramètres du Backtest -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem;">Période d'Historique</label>
+                            <select id="bt-period">
+                                <option value="1y">1 An (Court terme)</option>
+                                <option value="2y" selected>2 Ans (Standard)</option>
+                                <option value="3y">3 Ans (Cycle complet)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem;">Capital de Départ (€)</label>
+                            <input type="number" id="bt-capital" value="5000" step="500">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem;">Cible TP1 (%)</label>
+                            <input type="number" id="bt-tp1" value="1.25" step="0.25">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem;">Cible TP2 (%)</label>
+                            <input type="number" id="bt-tp2" value="2.25" step="0.25">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem;">Time Stop Max (Jours)</label>
+                            <input type="number" id="bt-holding" value="10" min="3" max="20">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem;">Univers d'Actifs</label>
+                            <select id="bt-universe">
+                                <option value="all" selected>Watchlist + Market Pool (30+ titres)</option>
+                                <option value="watchlist">Watchlist seule (10 titres)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Spinner de chargement -->
+                <div id="bt-loading" style="display: none; text-align: center; padding: 2.5rem 1rem;">
+                    <div class="spinner" style="margin: 0 auto 1rem auto; width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <div style="font-weight: 600; font-size: 1rem; color: #60a5fa;">Simulation chronologique en cours...</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">Téléchargement OHLCV, calcul du R-Max et exécution des ordres bar-par-bar.</div>
+                </div>
+
+                <!-- Résultats du Backtest -->
+                <div id="bt-results-container" style="display: none;">
+                    
+                    <!-- KPI Cards Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 0.9rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Capital Final & Rendement</div>
+                            <div id="bt-kpi-capital" style="font-size: 1.25rem; font-weight: 800; color: var(--success); margin: 0.2rem 0;">-- €</div>
+                            <div id="bt-kpi-return" style="font-size: 0.8rem; font-weight: 600; color: #10b981;">+-- %</div>
+                        </div>
+                        <div style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.25); border-radius: 8px; padding: 0.9rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Taux de Réussite (Win Rate)</div>
+                            <div id="bt-kpi-winrate" style="font-size: 1.25rem; font-weight: 800; color: #60a5fa; margin: 0.2rem 0;">-- %</div>
+                            <div id="bt-kpi-trades-count" style="font-size: 0.8rem; color: var(--text-muted);">-- trades</div>
+                        </div>
+                        <div style="background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 0.9rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Facteur de Profit (PF)</div>
+                            <div id="bt-kpi-profitfactor" style="font-size: 1.25rem; font-weight: 800; color: #fbbf24; margin: 0.2rem 0;">--</div>
+                            <div id="bt-kpi-payoff" style="font-size: 0.8rem; color: var(--text-muted);">Payoff: --</div>
+                        </div>
+                        <div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 0.9rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Max Drawdown (DD)</div>
+                            <div id="bt-kpi-maxdd" style="font-size: 1.25rem; font-weight: 800; color: var(--danger); margin: 0.2rem 0;">-- %</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Risque maîtrisé</div>
+                        </div>
+                        <div style="background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.25); border-radius: 8px; padding: 0.9rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Durée Moyenne par Trade</div>
+                            <div id="bt-kpi-duration" style="font-size: 1.25rem; font-weight: 800; color: #a78bfa; margin: 0.2rem 0;">-- j</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Mean Reversion court terme</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.9rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Ratios Sharpe / Sortino</div>
+                            <div id="bt-kpi-sharpe" style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0.2rem 0;">--</div>
+                            <div id="bt-kpi-sortino" style="font-size: 0.8rem; color: var(--text-muted);">Sortino: --</div>
+                        </div>
+                    </div>
+
+                    <!-- Equity Curve Chart -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem;">📈 Évolution du Capital (Equity Curve)</h3>
+                        <div id="bt-equity-chart-container" style="height: 240px; width: 100%; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 0.5rem; position: relative;">
+                            <!-- SVG Chart rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Diagnostic & Failles de la Stratégie -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; padding: 1rem;">
+                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #34d399; margin-bottom: 0.5rem;">✅ Points Forts Validés</h4>
+                            <ul id="bt-diag-strengths" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; padding-left: 1.2rem; margin: 0;">
+                            </ul>
+                        </div>
+                        <div style="background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 1rem;">
+                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">⚠️ Failles & Limites Identifiées</h4>
+                            <ul id="bt-diag-flaws" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; padding-left: 1.2rem; margin: 0;">
+                            </ul>
+                        </div>
+                        <div style="background: rgba(59,130,246,0.04); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px; padding: 1rem;">
+                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #60a5fa; margin-bottom: 0.5rem;">💡 Recommandations d'Optimisation</h4>
+                            <ul id="bt-diag-recommendations" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; padding-left: 1.2rem; margin: 0;">
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Journal des Trades Simulés -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <h3 style="font-size: 0.95rem; font-weight: 700;">📋 Journal des Trades du Backtest</h3>
+                            <input type="text" id="bt-trades-search" placeholder="🔍 Filtrer par ticker..." oninput="filterBacktestTradesTable()" style="max-width: 220px; font-size: 0.8rem; padding: 0.35rem 0.6rem;">
+                        </div>
+                        <div class="table-container" style="max-height: 380px; overflow-y: auto;">
+                            <table id="bt-trades-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Secteur</th>
+                                        <th>Entrée</th>
+                                        <th>Prix Entrée</th>
+                                        <th>Sortie</th>
+                                        <th>Prix Sortie</th>
+                                        <th>PnL (%)</th>
+                                        <th>PnL (€)</th>
+                                        <th>Motif Sortie</th>
+                                        <th>Durée</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
 
     </div>
@@ -4139,6 +4295,197 @@
                     <text x="${getX(36)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="10">An 3</text>
                 </svg>
             `;
+        }
+
+        // ---------------------------------------------------------------------
+        // HISTORICAL BACKTEST LOGIC
+        // ---------------------------------------------------------------------
+        let currentBacktestData = null;
+
+        async function runHistoricalBacktest() {
+            const btn = document.getElementById('btn-run-backtest');
+            const loading = document.getElementById('bt-loading');
+            const resultsContainer = document.getElementById('bt-results-container');
+
+            const period = document.getElementById('bt-period').value;
+            const capital = parseFloat(document.getElementById('bt-capital').value) || 5000;
+            const tp1 = parseFloat(document.getElementById('bt-tp1').value) || 1.25;
+            const tp2 = parseFloat(document.getElementById('bt-tp2').value) || 2.25;
+            const holding = parseInt(document.getElementById('bt-holding').value) || 10;
+            const universe = document.getElementById('bt-universe').value;
+
+            btn.disabled = true;
+            btn.innerHTML = `<span>⏳ Calcul en cours...</span>`;
+            loading.style.display = 'block';
+            resultsContainer.style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_URL}/backtest/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        period: period,
+                        capital: capital,
+                        tp1_pct: tp1,
+                        tp2_pct: tp2,
+                        max_holding_days: holding,
+                        universe: universe
+                    })
+                });
+
+                const payload = await res.json();
+                if (!payload.success && payload.error) {
+                    alert(`Erreur lors du backtest: ${payload.error}`);
+                    return;
+                }
+
+                currentBacktestData = payload;
+                renderBacktestResults(payload);
+                resultsContainer.style.display = 'block';
+            } catch (e) {
+                console.error("Erreur backtest:", e);
+                alert(`Erreur technique lors de l'exécution du backtest: ${e.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span>🚀 Lancer le Backtest Historique</span>`;
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderBacktestResults(data) {
+            const m = data.metrics || {};
+            const diag = data.diagnostics || {};
+
+            // 1. KPI Cards
+            const finalCap = data.final_capital || data.initial_capital;
+            const netGain = m.total_net_pnl || 0;
+            const retPct = m.total_return_pct || 0;
+
+            const capEl = document.getElementById('bt-kpi-capital');
+            capEl.textContent = `${finalCap.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €`;
+            capEl.style.color = netGain >= 0 ? 'var(--success)' : 'var(--danger)';
+
+            const retEl = document.getElementById('bt-kpi-return');
+            retEl.textContent = `${netGain >= 0 ? '+' : ''}${netGain.toFixed(2)} € (${netGain >= 0 ? '+' : ''}${retPct.toFixed(2)}%)`;
+            retEl.style.color = netGain >= 0 ? '#10b981' : '#ef4444';
+
+            document.getElementById('bt-kpi-winrate').textContent = `${m.win_rate_pct || 0} %`;
+            document.getElementById('bt-kpi-trades-count').textContent = `${m.total_trades || 0} trades (${m.winning_trades || 0}W / ${m.losing_trades || 0}L)`;
+
+            document.getElementById('bt-kpi-profitfactor').textContent = `${m.profit_factor || 0}`;
+            document.getElementById('bt-kpi-payoff').textContent = `Payoff: 1:${(m.payoff_ratio || 0).toFixed(2)}`;
+
+            document.getElementById('bt-kpi-maxdd').textContent = `-${m.max_drawdown_pct || 0} %`;
+            document.getElementById('bt-kpi-duration').textContent = `${m.avg_holding_days || 0} jours`;
+
+            document.getElementById('bt-kpi-sharpe').textContent = `${m.sharpe_ratio || 0}`;
+            document.getElementById('bt-kpi-sortino').textContent = `Sortino: ${m.sortino_ratio || 0}`;
+
+            // 2. Chart
+            if (data.equity_curve && data.equity_curve.length > 0) {
+                renderSvgEquityChart(data.equity_curve);
+            }
+
+            // 3. Diagnostics
+            const strEl = document.getElementById('bt-diag-strengths');
+            const flawEl = document.getElementById('bt-diag-flaws');
+            const recEl = document.getElementById('bt-diag-recommendations');
+
+            strEl.innerHTML = (diag.strengths || []).map(s => `<li style="margin-bottom: 0.35rem;">${s}</li>`).join('') || '<li>Aucun point fort particulier relevé.</li>';
+            flawEl.innerHTML = (diag.flaws || []).map(f => `<li style="margin-bottom: 0.35rem;">${f}</li>`).join('') || '<li>Aucune faille majeure détectée.</li>';
+            recEl.innerHTML = (diag.recommendations || []).map(r => `<li style="margin-bottom: 0.35rem;">${r}</li>`).join('') || '<li>Stratégie optimale selon les paramètres testés.</li>';
+
+            // 4. Trades Table
+            renderBacktestTradesTable(data.trades || []);
+        }
+
+        function renderSvgEquityChart(curve) {
+            const container = document.getElementById('bt-equity-chart-container');
+            if (!container || !curve || curve.length === 0) return;
+
+            const w = container.clientWidth || 700;
+            const h = container.clientHeight || 240;
+            const pad = 45;
+
+            const values = curve.map(c => c.total_equity);
+            const minVal = Math.min(...values) * 0.98;
+            const maxVal = Math.max(...values) * 1.02;
+            const len = curve.length;
+
+            const getX = (i) => pad + (i / (len - 1 || 1)) * (w - 2 * pad);
+            const getY = (v) => h - pad - ((v - minVal) / (maxVal - minVal || 1)) * (h - 2 * pad);
+
+            const pathD = curve.map((c, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getY(c.total_equity).toFixed(1)}`).join(' ');
+
+            // Baseline (Capital initial)
+            const initialVal = curve[0].total_equity;
+            const initialY = getY(initialVal);
+
+            // Date labels
+            const dStart = curve[0].date;
+            const dMid = curve[Math.floor(len / 2)].date;
+            const dEnd = curve[len - 1].date;
+
+            container.innerHTML = `
+                <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" style="overflow: visible;">
+                    <!-- Ligne de référence capital initial -->
+                    <line x1="${pad}" y1="${initialY}" x2="${w-pad}" y2="${initialY}" stroke="rgba(255,255,255,0.15)" stroke-dasharray="3" />
+                    <text x="${w-pad+5}" y="${initialY+3}" fill="rgba(255,255,255,0.4)" font-size="10">Init: ${Math.round(initialVal)}€</text>
+
+                    <!-- Ligne max / min -->
+                    <text x="${pad-5}" y="${getY(maxVal)+10}" fill="rgba(255,255,255,0.3)" font-size="10" text-anchor="end">${Math.round(maxVal)}€</text>
+                    <text x="${pad-5}" y="${getY(minVal)}" fill="rgba(255,255,255,0.3)" font-size="10" text-anchor="end">${Math.round(minVal)}€</text>
+
+                    <!-- Courbe d'Equity -->
+                    <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="2.5" />
+
+                    <!-- Axe horizontal & Dates -->
+                    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="rgba(255,255,255,0.1)" />
+                    <text x="${pad}" y="${h-12}" fill="rgba(255,255,255,0.4)" font-size="10">${dStart}</text>
+                    <text x="${w/2}" y="${h-12}" fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="middle">${dMid}</text>
+                    <text x="${w-pad}" y="${h-12}" fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="end">${dEnd}</text>
+                </svg>
+            `;
+        }
+
+        function renderBacktestTradesTable(trades) {
+            const tbody = document.querySelector('#bt-trades-table tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (!trades || trades.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Aucun trade enregistré dans cette simulation.</td></tr>`;
+                return;
+            }
+
+            trades.forEach(t => {
+                const tr = document.createElement('tr');
+                const isWin = t.pnl_amount > 0;
+                const isLoss = t.pnl_amount < 0;
+                const pnlClass = isWin ? 'var(--success)' : isLoss ? 'var(--danger)' : 'var(--text-muted)';
+                const reasonBadge = t.exit_reason.includes('TP') ? 'badge-success' : t.exit_reason.includes('STOP') ? 'badge-danger' : 'badge-warning';
+
+                tr.innerHTML = `
+                    <td><strong>${t.symbol}</strong></td>
+                    <td><span style="font-size:0.75rem; color:var(--text-muted);">${t.category || '-'}</span></td>
+                    <td>${t.entry_date}</td>
+                    <td><strong>${t.entry_price.toFixed(2)} €</strong></td>
+                    <td>${t.exit_date}</td>
+                    <td><strong>${t.exit_price.toFixed(2)} €</strong></td>
+                    <td style="color: ${pnlClass}; font-weight: 700;">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)} %</td>
+                    <td style="color: ${pnlClass}; font-weight: 700;">${t.pnl_amount >= 0 ? '+' : ''}${t.pnl_amount.toFixed(2)} €</td>
+                    <td><span class="badge ${reasonBadge}" style="font-size:0.75rem;">${t.exit_reason}</span></td>
+                    <td>${t.days_held} j</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterBacktestTradesTable() {
+            if (!currentBacktestData || !currentBacktestData.trades) return;
+            const query = (document.getElementById('bt-trades-search').value || '').trim().toUpperCase();
+            const filtered = currentBacktestData.trades.filter(t => t.symbol.toUpperCase().includes(query) || (t.category && t.category.toUpperCase().includes(query)));
+            renderBacktestTradesTable(filtered);
         }
     </script>
 </body>

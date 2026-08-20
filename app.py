@@ -20,6 +20,7 @@ from src.market_data import (
     calculate_sector_relative_strength
 )
 from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
+from src.backtest_engine import BacktestEngine
 from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets, add_ticker_to_sheets
 from src.config import (
     DEFAULT_WATCHLIST,
@@ -831,6 +832,39 @@ def risk_calc_endpoint():
         tp2_pct=tp2_pct
     )
     return jsonify({"success": True, "data": result})
+
+@app.route("/api/backtest/run", methods=["GET", "POST"])
+def backtest_run_endpoint():
+    """
+    Exécute le backtest historique complet de la stratégie sur la Watchlist et le Market Pool.
+    """
+    if request.method == "POST":
+        data = request.json or {}
+    else:
+        data = request.args.to_dict()
+
+    period = str(data.get("period", "2y"))
+    capital = float(data.get("capital", 5000.0))
+    tp1_pct = float(data.get("tp1_pct", 1.25))
+    tp2_pct = float(data.get("tp2_pct", 2.25))
+    max_holding_days = int(data.get("max_holding_days", 10))
+    universe_type = str(data.get("universe", "all"))
+
+    if universe_type == "watchlist":
+        symbols = DEFAULT_WATCHLIST
+    else:
+        symbols = list(set(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL))
+
+    engine = BacktestEngine(
+        symbols=symbols,
+        period=period,
+        initial_capital=capital,
+        tp1_pct=tp1_pct,
+        tp2_pct=tp2_pct,
+        max_holding_days=max_holding_days
+    )
+    results = engine.run_simulation()
+    return safe_jsonify(results)
 
 def lookup_ticker_by_name(query):
     query = query.strip()
