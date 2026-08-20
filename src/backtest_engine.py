@@ -97,6 +97,7 @@ class BacktestEngine:
         self.historical_data = {}
         self.macro_data = {}
         self.sector_etf_data = {}
+        self.macro_daily_regime = {}
 
         # Résolution des périodes de crise prédéfinies
         if self.period in CRISIS_PERIODS:
@@ -112,13 +113,15 @@ class BacktestEngine:
     def fetch_historical_universe(self, force_refresh=False):
         """
         Télécharge et met en cache l'historique OHLCV pour tous les symboles, indices macro et ETFs sectoriels.
+        Inclut les 5 piliers du Baromètre Macroéconomique (VIX, DXY, Ratio XLY/XLP, SPY, Pétrole WTI, Taux US).
         """
-        all_tickers = list(set(self.symbols + list(SECTOR_ETFS.values()) + ["^VIX", "SPY"]))
+        macro_series = ["^VIX", "SPY", "DX-Y.NYB", "CL=F", "^TNX", "XLY", "XLP"]
+        all_tickers = list(set(self.symbols + list(SECTOR_ETFS.values()) + macro_series))
         p_name = "max" if self.fetch_period == "max" or self.start_date else self.period
         print(f"📥 Téléchargement / Chargement historique pour {len(all_tickers)} actifs (période: {p_name})...")
         
         for ticker in all_tickers:
-            cache_file = DATA_CACHE_DIR / f"{ticker.replace('^', '_')}_{p_name}.csv"
+            cache_file = DATA_CACHE_DIR / f"{ticker.replace('^', '_').replace('=', '_')}_{p_name}.csv"
             df = None
             if not force_refresh and cache_file.exists():
                 try:
@@ -148,14 +151,15 @@ class BacktestEngine:
                     df.index = df.index.tz_localize(None)
                 # Precompute technical indicators
                 df = self._precompute_indicators(df)
-                if ticker in ["^VIX", "SPY"]:
+                if ticker in macro_series or ticker in ["^VIX", "SPY", "DX-Y.NYB", "CL=F", "^TNX"]:
                     self.macro_data[ticker] = df
-                elif ticker in SECTOR_ETFS.values():
+                if ticker in SECTOR_ETFS.values() or ticker in ["XLY", "XLP"]:
                     self.sector_etf_data[ticker] = df
-                else:
+                if ticker not in macro_series and ticker not in SECTOR_ETFS.values():
                     self.historical_data[ticker] = df
 
-        print(f"✅ Données prêtes : {len(self.historical_data)} actions, {len(self.sector_etf_data)} ETFs, {len(self.macro_data)} indices.")
+        print(f"✅ Données prêtes : {len(self.historical_data)} actions, {len(self.sector_etf_data)} ETFs, {len(self.macro_data)} indices macro.")
+        self._precompute_macro_regimes()
         return len(self.historical_data) > 0
 
     def _precompute_indicators(self, df):
@@ -198,6 +202,100 @@ class BacktestEngine:
 
         return df
 
+    def _precompute_macro_regimes(self):
+        """
+        Précalcule de manière vectorisée le régime macroéconomique (5 piliers) pour chaque date de l'historique :
+        1. VIX (^VIX) : Volatilité et sentiment de marché
+        2. DXY (DX-Y.NYB) : Dollar Index / liquidités mondiales
+        3. Ratio XLY / XLP : Appétit pour le risque vs rotation défensive
+        4. SPY vs SMA 200 : Tendance structurelle de marché
+        5. Pétrole WTI (CL=F) : Choc inflationniste
+        """
+        self.macro_daily_regime = {}
+
+        spy_df = self.macro_data.get("SPY")
+        vix_df = self.macro_data.get("^VIX")
+        dxy_df = self.macro_data.get("DX-Y.NYB")
+        wti_df = self.macro_data.get("CL=F")
+        xly_df = self.sector_etf_data.get("XLY")
+        xlp_df = self.sector_etf_data.get("XLP")
+
+        if spy_df is None or spy_df.empty:
+            return
+
+        # Ratio XLY / XLP
+        xly_xlp_chg5 = None
+        if xly_df is not None and xlp_df is not None and not xly_df.empty and not xlp_df.empty:
+            common = xly_df.index.intersection(xlp_df.index)
+            if len(common) > 10:
+                s_ratio = xly_df.loc[common, 'Close'] / xlp_df.loc[common, 'Close']
+                xly_xlp_chg5 = s_ratio.pct_change(5)
+
+        # WTI 20d variation
+        wti_chg20 = None
+        if wti_df is not None and not wti_df.empty:
+            wti_chg20 = wti_df['Close'].pct_change(20) * 100
+
+        for date in spy_df.index:
+            score = 0
+            vix_val = None
+            spy_above_sma = True
+
+            # 1. VIX
+            if vix_df is not None and date in vix_df.index:
+                vix_val = float(vix_df.loc[date]['Close'])
+                if vix_val > 35:
+                    score -= 3 # Panique extrême / Risk-Off immédiat
+                elif vix_val >= 22:
+                    score -= 1 # Zone de vigilance / stress
+                elif vix_val <= 18:
+                    score += 1 # Marché calme / Risk-On
+
+            # 2. DXY
+            if dxy_df is not None and date in dxy_df.index:
+                dxy_val = float(dxy_df.loc[date]['Close'])
+                if dxy_val < 102:
+                    score += 1
+                elif dxy_val > 105:
+                    score -= 1
+
+            # 3. Ratio XLY / XLP
+            if xly_xlp_chg5 is not None and date in xly_xlp_chg5.index:
+                c5 = float(xly_xlp_chg5.loc[date])
+                if not pd.isna(c5):
+                    if c5 > 0:
+                        score += 1
+                    elif c5 < 0:
+                        score -= 1
+
+            # 4. SPY vs SMA 200
+            spy_close = float(spy_df.loc[date]['Close'])
+            spy_sma = float(spy_df.loc[date]['SMA_200']) if not pd.isna(spy_df.loc[date]['SMA_200']) else spy_close
+            spy_above_sma = (spy_close >= spy_sma)
+            if spy_above_sma:
+                score += 1
+            else:
+                score -= 1
+
+            # 5. Pétrole WTI
+            if wti_chg20 is not None and date in wti_chg20.index:
+                w20 = float(wti_chg20.loc[date])
+                if not pd.isna(w20) and w20 > 20.0:
+                    score -= 1
+
+            # Verdict Final
+            if (vix_val is not None and vix_val > 35) or score <= -2 or (not spy_above_sma and vix_val is not None and vix_val > 25):
+                regime = "RISK-OFF"
+                rate = 0.0
+            elif score >= 2 and (vix_val is None or vix_val <= 22) and spy_above_sma:
+                regime = "RISK-ON"
+                rate = R_MAX_PCT_STANDARD
+            else:
+                regime = "NEUTRE"
+                rate = R_MAX_PCT_REDUCED
+
+            self.macro_daily_regime[date] = (regime, rate, score)
+
     def run_simulation(self):
         """
         Exécute la simulation chronologique (walk-forward bar-by-bar).
@@ -207,6 +305,9 @@ class BacktestEngine:
 
         if not self.historical_data:
             return {"error": "Aucune donnée historique disponible pour le backtest."}
+
+        if not self.macro_daily_regime:
+            self._precompute_macro_regimes()
 
         # Aligner toutes les dates communes
         all_dates = set()
@@ -341,19 +442,10 @@ class BacktestEngine:
 
             active_positions = positions_to_keep
 
-            # 2. Évaluation du régime Macro (VIX) - Seuil de vigilance abaissé à 22
-            vix_df = self.macro_data.get("^VIX")
-            macro_regime = "RISK-ON"
-            r_max_rate = R_MAX_PCT_STANDARD # 1.0%
-
-            if vix_df is not None and date in vix_df.index:
-                vix_close = float(vix_df.loc[date]['Close'])
-                if vix_close > 35:
-                    macro_regime = "RISK-OFF"
-                    r_max_rate = 0.0 # Gel des achats
-                elif vix_close >= 22:
-                    macro_regime = "NEUTRE"
-                    r_max_rate = R_MAX_PCT_REDUCED # 0.5%
+            # 2. Évaluation Complète du Baromètre Macroéconomique (5 Piliers : VIX, DXY, XLY/XLP, SPY, WTI)
+            macro_regime, r_max_rate, macro_score = self.macro_daily_regime.get(
+                date, ("RISK-ON", R_MAX_PCT_STANDARD, 1)
+            )
 
             # 3. Détection de nouveaux signaux d'achat (si slots disponibles et cash disponible)
             current_portfolio_value = current_cash + sum(
@@ -777,6 +869,7 @@ def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.2
         engine.historical_data = base_engine.historical_data
         engine.macro_data = base_engine.macro_data
         engine.sector_etf_data = base_engine.sector_etf_data
+        engine.macro_daily_regime = base_engine.macro_daily_regime
 
         res = engine.run_simulation()
         m = res.get('metrics', {})
