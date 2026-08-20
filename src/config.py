@@ -48,7 +48,7 @@ MIN_DROP_PCT = 3.0   # Baisse minimale de -3%
 MAX_DROP_PCT = 8.0   # Baisse maximale de -8%
 LOOKBACK_DAYS = 3    # Période d'évaluation de la baisse (1 à 3 sessions)
 
-# Cibles de rebond tactique (Take Profit)
+# Cibles de rebond tactique (Take Profit) & Gestion Dynamique du Stop
 TARGET_TP1_MIN = 1.0   # TP1 : +1.0% à +1.5%
 TARGET_TP1_MAX = 1.5
 TARGET_TP1_DEFAULT = 1.25 # Médiane TP1
@@ -56,6 +56,10 @@ TARGET_TP1_DEFAULT = 1.25 # Médiane TP1
 TARGET_TP2_MIN = 2.0   # TP2 : +2.0% à +2.5%
 TARGET_TP2_MAX = 2.5
 TARGET_TP2_DEFAULT = 2.25 # Médiane TP2
+
+# Optimisations de Gestion de Position issues du Backtest
+BREAKEVEN_TRIGGER_PCT = 0.80      # +0.80% de gain -> Remontée immédiate du Stop-Loss au prix d'achat (0.0% de risque)
+TRAILING_STOP_TP1_PCT = 1.25      # À TP1 (+1.25%) -> Vente de 50% et stop suiveur à TP1 pour le solde vers TP2
 
 # Compatibilité legacy
 TARGET_REBOUND_MIN = TARGET_TP1_MIN
@@ -114,8 +118,8 @@ MACRO_TICKERS = {
 # Seuils des indicateurs macro
 # VIX
 VIX_FAVORABLE_MAX = 18.0       # < 18 : Marché calme (Risk-On)
-VIX_ALERT_MAX = 25.0           # 18-25 : Vigilance / Neutre
-VIX_RISK_OFF_MAX = 35.0        # 25-35 : Stress haussier non stabilisé (Risk-Off)
+VIX_ALERT_MAX = 22.0           # 18-22 : Vigilance / Neutre (Ajusté suite au backtest des crises)
+VIX_RISK_OFF_MAX = 35.0        # 22-35 : Stress haussier non stabilisé (Risk-Off)
 VIX_CONTRARIAN_SPIKE = 35.0    # > 35-40 : Panique extrême = opportunité contrarienne
 
 # DXY

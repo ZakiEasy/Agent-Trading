@@ -79,7 +79,12 @@ def calculate_trade_sizing(
     rr_tp1 = potential_gain_tp1_pct / potential_loss_pct if potential_loss_pct > 0 else 0.0
     rr_tp2 = potential_gain_tp2_pct / potential_loss_pct if potential_loss_pct > 0 else 0.0
 
-    # 7. Réserve de liquidités minimale (25% à 30%)
+    # 7. Règle Breakeven (+0.80%) & Trailing Stop vers TP2
+    breakeven_trigger_price = entry_price * 1.008
+    breakeven_stop_price = entry_price
+    trailing_tp1_stop_price = entry_price * (1 + tp1_pct / 100)
+
+    # 8. Réserve de liquidités minimale (25% à 30%)
     cash_reserve_required = capital_total * MIN_CASH_RESERVE_PCT
 
     return {
@@ -101,6 +106,10 @@ def calculate_trade_sizing(
         "tp2_price": tp2_price,
         "tp2_pct": potential_gain_tp2_pct,
         "tp2_gain_amount": potential_gain_tp2_amount,
+        "breakeven_trigger_price": breakeven_trigger_price,
+        "breakeven_stop_price": breakeven_stop_price,
+        "breakeven_rule": f"Dès que le cours touche {breakeven_trigger_price:.2f} € (+0.80%), remonter immédiatement le Stop au PRU ({entry_price:.2f} €) pour risque nul.",
+        "trailing_rule": f"À TP1 ({tp1_price:.2f} €), encaisser 50% de la position et placer le Stop sur le solde à TP1 pour viser TP2 ({tp2_price:.2f} €).",
         "risk_reward_tp1": rr_tp1,
         "risk_reward_tp2": rr_tp2,
         "holding_period_days": HOLDING_PERIOD_DAYS,

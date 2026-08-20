@@ -4076,10 +4076,13 @@
 
                         <!-- Étape 6 -->
                         <div class="report-step">
-                            <div class="report-step-title">🎯 6. Plan de Trade Tactique (Mean Reversion)</div>
+                            <div class="report-step-title">🎯 6. Plan de Trade Tactique & Gestion Dynamique du Risque</div>
                             <div>📥 Zone d'Entrée : <strong>${(tech.current_price || 0).toFixed(2)} ${symChar}</strong></div>
                             <div>🎯 TP1 (+1.25%) : <strong>${((plan.tp1_price || plan.target_min || 0)).toFixed(2)} ${symChar}</strong> | TP2 (+2.25%) : <strong>${((plan.tp2_price || plan.target_max || 0)).toFixed(2)} ${symChar}</strong></div>
-                            <div>🛑 Stop-Loss Technique : <strong style="color:var(--danger);">${((plan.stop_loss_price || plan.invalidation || 0)).toFixed(2)} ${symChar}</strong> (-${((plan.stop_distance_pct || plan.potential_loss || 0)).toFixed(2)}%)</div>
+                            <div>🛑 Stop-Loss Initial : <strong style="color:var(--danger);">${((plan.stop_loss_price || plan.invalidation || 0)).toFixed(2)} ${symChar}</strong> (-${((plan.stop_distance_pct || plan.potential_loss || 0)).toFixed(2)}%)</div>
+                            <div style="margin-top: 0.35rem; padding: 0.4rem 0.6rem; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 6px; font-size: 0.8rem;">
+                                🛡️ <strong>Règle Breakeven (+0.80%) :</strong> Dès que le cours atteint <strong>${((tech.current_price || 0) * 1.008).toFixed(2)} ${symChar}</strong>, remonter immédiatement le Stop au PRU (${(tech.current_price || 0).toFixed(2)} ${symChar}) pour risque nul.
+                            </div>
                             <div style="font-size:0.85rem; color:#60a5fa; margin-top:0.3rem;">⏱️ <strong>${plan.time_stop || 'Invalidation temporelle : Clôture à J+10 ouvrés si stagnation'}</strong></div>
                         </div>
 

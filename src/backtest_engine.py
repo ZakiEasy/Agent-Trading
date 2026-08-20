@@ -276,30 +276,45 @@ class BacktestEngine:
                 exit_price = 0.0
                 exit_reason = ""
 
-                # A. Stop-Loss Trigger (Priorité au contrôle du risque)
-                if low <= pos['stop_loss']:
-                    # Sortie au Stop-Loss (au prix du stop ou au prix d'ouverture si gap baissier)
-                    exit_price = min(pos['stop_loss'], open_p) if open_p < pos['stop_loss'] else pos['stop_loss']
-                    exit_reason = "STOP_LOSS"
+                # A. Vérification des Gaps d'ouverture (Open)
+                if open_p >= pos['tp2_price']:
+                    exit_price = open_p
+                    exit_reason = "TP2 (+2.25%)"
+                    is_closed = True
+                elif open_p >= pos['tp1_price']:
+                    exit_price = open_p
+                    exit_reason = "TP1 (+1.25%)"
+                    is_closed = True
+                elif open_p <= pos['stop_loss']:
+                    exit_price = open_p
+                    exit_reason = "BREAKEVEN (0.0%)" if pos.get('is_breakeven', False) else "STOP_LOSS"
                     is_closed = True
 
-                # B. Take Profit 2 (+2.25%) Trigger
+                # B. Exécution des ordres Limites en séance (TP prioritaire si le cours monte)
                 elif high >= pos['tp2_price']:
                     exit_price = pos['tp2_price']
                     exit_reason = "TP2 (+2.25%)"
                     is_closed = True
-
-                # C. Take Profit 1 (+1.25%) Trigger
                 elif high >= pos['tp1_price']:
                     exit_price = pos['tp1_price']
                     exit_reason = "TP1 (+1.25%)"
                     is_closed = True
+                elif low <= pos['stop_loss']:
+                    exit_price = pos['stop_loss']
+                    exit_reason = "BREAKEVEN (0.0%)" if pos.get('is_breakeven', False) else "STOP_LOSS"
+                    is_closed = True
 
-                # D. Time Stop (Invalidation temporelle à J+10 ouvrés)
+                # C. Invalidation Temporelle (Time Stop J+10)
                 elif days >= self.max_holding_days:
                     exit_price = close
                     exit_reason = "TIME_STOP (J+10)"
                     is_closed = True
+
+                # D. Activation du Breakeven pour les jours suivants si la clôture est > +0.80%
+                if not is_closed:
+                    if close >= entry_p * 1.008 and pos['stop_loss'] < entry_p:
+                        pos['stop_loss'] = entry_p # Stop remonté au PRU pour la session suivante
+                        pos['is_breakeven'] = True
 
                 if is_closed:
                     pnl_amount = (exit_price - entry_p) * shares
@@ -326,7 +341,7 @@ class BacktestEngine:
 
             active_positions = positions_to_keep
 
-            # 2. Évaluation du régime Macro (VIX)
+            # 2. Évaluation du régime Macro (VIX) - Seuil de vigilance abaissé à 22
             vix_df = self.macro_data.get("^VIX")
             macro_regime = "RISK-ON"
             r_max_rate = R_MAX_PCT_STANDARD # 1.0%
@@ -336,7 +351,7 @@ class BacktestEngine:
                 if vix_close > 35:
                     macro_regime = "RISK-OFF"
                     r_max_rate = 0.0 # Gel des achats
-                elif vix_close >= 20:
+                elif vix_close >= 22:
                     macro_regime = "NEUTRE"
                     r_max_rate = R_MAX_PCT_REDUCED # 0.5%
 
@@ -408,9 +423,11 @@ class BacktestEngine:
                     if not (-MAX_DROP_PCT <= min_ret <= -MIN_DROP_PCT):
                         continue
 
-                    # 4. Filtre Confluence : RSI < 45 OU mèche basse >= 0.7%
-                    has_wick = wick_pct >= 0.7
-                    has_rsi_rebound = rsi <= 45
+                    # 4. Filtre Confluence : RSI < 45 OU mèche basse >= 0.7% (plus strict si VIX >= 22)
+                    min_wick_req = 0.9 if macro_regime == "NEUTRE" else 0.6
+                    max_rsi_req = 40 if macro_regime == "NEUTRE" else 45
+                    has_wick = wick_pct >= min_wick_req
+                    has_rsi_rebound = rsi <= max_rsi_req
                     if not (has_wick or has_rsi_rebound):
                         continue
 
