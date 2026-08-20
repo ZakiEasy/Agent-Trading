@@ -3559,7 +3559,7 @@
         // ---------------------------------------------------------------------
         // SCANNING & FILTERS LOGIC
         // ---------------------------------------------------------------------
-        async function runWatchlistScan() {
+        async function runWatchlistScan(retryCount = 0) {
             setScanStatus('Scan en cours...', 'badge-warning');
             const tbody = document.querySelector('#scan-results-table tbody');
             tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2.5rem; font-size: 0.95rem;">
@@ -3568,9 +3568,18 @@
                 <span style="font-size: 0.8rem; color: var(--text-muted);">Calcul du Baromètre Macro, Divergences RSI, Ratios AAOIFI & Dimensionnement R-Max</span>
             </td></tr>`;
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
             try {
-                const res = await fetch(`${API_URL}/scan/watchlist`);
+                const res = await fetch(`${API_URL}/scan/watchlist`, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (!res.ok) {
+                    if ((res.status === 502 || res.status === 504 || res.status === 503) && retryCount < 1) {
+                        setScanStatus('Serveur en actualisation, nouvelle tentative...', 'badge-warning');
+                        await new Promise(r => setTimeout(r, 2000));
+                        return runWatchlistScan(retryCount + 1);
+                    }
                     const text = await res.text();
                     let errMsg = `Code HTTP ${res.status}`;
                     try { const errObj = JSON.parse(text); if (errObj.error) errMsg = errObj.error; } catch(e){}
@@ -3582,13 +3591,19 @@
                 applyFilters();
                 setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
             } catch (e) {
+                clearTimeout(timeoutId);
                 console.error("Erreur scan watchlist:", e);
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">❌ Erreur lors du scan : ${e.message || 'Délai d\'attente dépassé'}. Veuillez réessayer.</td></tr>`;
+                const isAbort = e.name === 'AbortError';
+                const msg = isAbort ? 'Délai d\'attente dépassé (60s)' : (e.message || 'Erreur réseau');
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">
+                    ❌ Erreur lors du scan : ${msg}.<br>
+                    <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runWatchlistScan()">🔄 Réessayer le scan</button>
+                </td></tr>`;
                 setScanStatus('Erreur', 'badge-danger');
             }
         }
 
-        async function runMarketScan() {
+        async function runMarketScan(retryCount = 0) {
             setScanStatus('Scan Marché Élargi...', 'badge-warning');
             const tbody = document.querySelector('#scan-results-table tbody');
             tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2.5rem; font-size: 0.95rem;">
@@ -3597,9 +3612,18 @@
                 <span style="font-size: 0.8rem; color: var(--text-muted);">Recherche d'opportunités à forte confluence</span>
             </td></tr>`;
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
             try {
-                const res = await fetch(`${API_URL}/scan/market`);
+                const res = await fetch(`${API_URL}/scan/market`, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (!res.ok) {
+                    if ((res.status === 502 || res.status === 504 || res.status === 503) && retryCount < 1) {
+                        setScanStatus('Serveur en actualisation, nouvelle tentative...', 'badge-warning');
+                        await new Promise(r => setTimeout(r, 2000));
+                        return runMarketScan(retryCount + 1);
+                    }
                     const text = await res.text();
                     let errMsg = `Code HTTP ${res.status}`;
                     try { const errObj = JSON.parse(text); if (errObj.error) errMsg = errObj.error; } catch(e){}
@@ -3611,8 +3635,14 @@
                 applyFilters();
                 setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
             } catch (e) {
+                clearTimeout(timeoutId);
                 console.error("Erreur scan marché:", e);
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">❌ Erreur lors du scan du marché : ${e.message}. Veuillez réessayer.</td></tr>`;
+                const isAbort = e.name === 'AbortError';
+                const msg = isAbort ? 'Délai d\'attente dépassé (60s)' : (e.message || 'Erreur réseau');
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">
+                    ❌ Erreur lors du scan du marché : ${msg}.<br>
+                    <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runMarketScan()">🔄 Réessayer le scan</button>
+                </td></tr>`;
                 setScanStatus('Erreur', 'badge-danger');
             }
         }

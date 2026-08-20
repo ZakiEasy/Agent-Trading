@@ -648,8 +648,8 @@ def scan_watchlist():
         signals_to_write = []
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Exécution parallèle modérée (4 workers) avec cache TTL
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        # Exécution parallèle accélérée (8 workers) avec cache TTL
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             analyses = list(executor.map(get_detailed_analysis, watchlist))
             
         for analysis in analyses:
@@ -710,10 +710,8 @@ def scan_watchlist():
                 })
                 
         if signals_to_write:
-            try:
-                write_signals_to_sheets(signals_to_write)
-            except Exception as e:
-                print(f"Erreur écriture signaux: {e}")
+            # Écriture asynchrone en arrière-plan pour ne pas ralentir la réponse HTTP
+            threading.Thread(target=write_signals_to_sheets, args=(signals_to_write,), daemon=True).start()
             
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
@@ -727,7 +725,7 @@ def scan_market():
         signals_to_write = []
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             analyses = list(executor.map(get_detailed_analysis, DEFAULT_MARKET_POOL))
         
         for analysis in analyses:
@@ -787,10 +785,8 @@ def scan_market():
                 })
                 
         if signals_to_write:
-            try:
-                write_signals_to_sheets(signals_to_write)
-            except Exception as e:
-                print(f"Erreur écriture signaux: {e}")
+            # Écriture asynchrone en arrière-plan pour ne pas ralentir la réponse HTTP
+            threading.Thread(target=write_signals_to_sheets, args=(signals_to_write,), daemon=True).start()
             
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
