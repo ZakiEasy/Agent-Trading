@@ -1628,12 +1628,23 @@
                             <label>Nombre de Rotations / Mois</label>
                             <input type="number" id="input-rotations" value="3" min="1" max="10" oninput="runSimulation()">
                         </div>
+                        <div class="form-group">
+                            <label>Horizon de Projection</label>
+                            <select id="input-horizon-mode" onchange="runSimulation()" class="filter-select" style="width: 100%; height: 38px;">
+                                <option value="auto">🎯 Jusqu'à l'Objectif 180k€ (Auto)</option>
+                                <option value="36">3 Ans (36 mois)</option>
+                                <option value="60">5 Ans (60 mois)</option>
+                                <option value="84">7 Ans (84 mois)</option>
+                                <option value="120">10 Ans (120 mois)</option>
+                                <option value="180">15 Ans (180 mois)</option>
+                            </select>
+                        </div>
                     </div>
 
                     <!-- KPI Cards Row -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin: 1rem 0;">
                         <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.6rem; text-align: center;">
-                            <div style="font-size: 0.7rem; color: var(--text-muted);">Capital à 5 Ans (60m)</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);" id="sim-final-capital-label">Capital Projeté</div>
                             <div style="font-size: 1.1rem; font-weight: 800; color: #10b981;" id="sim-final-capital">-- €</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.6rem; text-align: center;">
@@ -4323,6 +4334,7 @@
             const apport = parseFloat(document.getElementById('input-apport-mensuel').value) || 500;
             const winRate = (parseFloat(document.getElementById('input-win-rate').value) || 75) / 100;
             const rotations = parseFloat(document.getElementById('input-rotations').value) || 3;
+            const horizonMode = document.getElementById('input-horizon-mode') ? document.getElementById('input-horizon-mode').value : 'auto';
 
             const tpPct = 0.015;
             const slPct = 0.015;
@@ -4330,10 +4342,10 @@
 
             const expectedReturnPerTrade = (winRate * tpPct) - ((1 - winRate) * slPct);
 
-            const months = 60; // 5 Ans
-            let dataRealiste = [capInitial];
-            let dataOptimiste = [capInitial];
-            let dataPrudente = [capInitial];
+            const maxSimMonths = 180; // 15 ans max
+            let allReal = [capInitial];
+            let allOpt = [capInitial];
+            let allPess = [capInitial];
 
             let currReal = capInitial;
             let currOpt = capInitial;
@@ -4341,10 +4353,10 @@
 
             let targetReachedMonth = null;
 
-            for (let m = 1; m <= months; m++) {
+            for (let m = 1; m <= maxSimMonths; m++) {
                 const gainMonthlyReal = (currReal * posSizePct) * expectedReturnPerTrade * rotations;
                 currReal += gainMonthlyReal + apport;
-                dataRealiste.push(currReal);
+                allReal.push(currReal);
 
                 if (!targetReachedMonth && currReal >= 180000) {
                     targetReachedMonth = m;
@@ -4353,20 +4365,39 @@
                 const optWinRate = 0.85;
                 const gainOpt = (currOpt * posSizePct) * ((optWinRate * tpPct) - ((1 - optWinRate) * slPct)) * rotations;
                 currOpt += gainOpt + apport;
-                dataOptimiste.push(currOpt);
+                allOpt.push(currOpt);
 
                 const pessWinRate = 0.55;
                 const gainPess = (currPess * posSizePct) * ((pessWinRate * tpPct) - ((1 - pessWinRate) * slPct)) * rotations;
                 currPess += gainPess + apport;
-                dataPrudente.push(currPess);
+                allPess.push(currPess);
             }
 
-            // Update KPI summary
-            const totalApports = capInitial + (apport * months);
-            const totalGains = Math.max(0, currReal - totalApports);
+            // Détermination dynamique du nombre de mois affichés
+            let displayMonths = 60;
+            if (horizonMode === 'auto') {
+                if (targetReachedMonth) {
+                    displayMonths = Math.min(maxSimMonths, Math.max(24, Math.ceil((targetReachedMonth + 6) / 12) * 12));
+                } else {
+                    displayMonths = 120; // 10 ans par défaut si pas encore atteint
+                }
+            } else {
+                displayMonths = parseInt(horizonMode) || 60;
+            }
+
+            const dataRealiste = allReal.slice(0, displayMonths + 1);
+            const dataOptimiste = allOpt.slice(0, displayMonths + 1);
+            const dataPrudente = allPess.slice(0, displayMonths + 1);
+
+            const finalReal = dataRealiste[dataRealiste.length - 1];
+            const totalApports = capInitial + (apport * displayMonths);
+            const totalGains = Math.max(0, finalReal - totalApports);
+
+            const finalCapLabel = document.getElementById('sim-final-capital-label');
+            if (finalCapLabel) finalCapLabel.textContent = `Capital à ${Math.round(displayMonths/12)} Ans (${displayMonths}m)`;
 
             const finalCapElem = document.getElementById('sim-final-capital');
-            if (finalCapElem) finalCapElem.textContent = `${Math.round(currReal).toLocaleString('fr-FR')} €`;
+            if (finalCapElem) finalCapElem.textContent = `${Math.round(finalReal).toLocaleString('fr-FR')} €`;
 
             const totalGainsElem = document.getElementById('sim-total-gains');
             if (totalGainsElem) totalGainsElem.textContent = `+${Math.round(totalGains).toLocaleString('fr-FR')} €`;
@@ -4376,19 +4407,20 @@
                 if (targetReachedMonth) {
                     const ans = Math.floor(targetReachedMonth / 12);
                     const mois = targetReachedMonth % 12;
-                    targetTimeElem.textContent = `Mois ${targetReachedMonth} (${ans}a ${mois}m) 🎯`;
+                    const dureeStr = ans > 0 ? `${ans} an${ans > 1 ? 's' : ''}${mois > 0 ? ` ${mois} m` : ''}` : `${mois} mois`;
+                    targetTimeElem.innerHTML = `<strong>${dureeStr}</strong> (M${targetReachedMonth}) 🎯`;
                     targetTimeElem.style.color = '#10b981';
                 } else {
-                    targetTimeElem.textContent = `> 60 Mois (${Math.round(currReal/180000*100)}%)`;
+                    targetTimeElem.innerHTML = `> ${Math.round(maxSimMonths/12)} Ans (${Math.round(finalReal/180000*100)}%)`;
                     targetTimeElem.style.color = '#f59e0b';
                 }
             }
 
-            updateGauge('gauge-1', currReal, 50000);
-            updateGauge('gauge-2', currReal, 100000);
-            updateGauge('gauge-3', currReal, 180000);
+            updateGauge('gauge-1', finalReal, 50000);
+            updateGauge('gauge-2', finalReal, 100000);
+            updateGauge('gauge-3', finalReal, 180000);
 
-            renderSvgProjectionChart(dataRealiste, dataOptimiste, dataPrudente);
+            renderSvgProjectionChart(dataRealiste, dataOptimiste, dataPrudente, displayMonths, targetReachedMonth);
         }
 
         function updateGauge(idPrefix, currentVal, targetVal) {
@@ -4400,7 +4432,7 @@
             label.textContent = `${Math.round(Math.min(currentVal, targetVal)).toLocaleString('fr-FR')} € / ${targetVal.toLocaleString('fr-FR')} € (${pct.toFixed(0)}%)`;
         }
 
-        function renderSvgProjectionChart(real, opt, pess) {
+        function renderSvgProjectionChart(real, opt, pess, totalMonths, targetMonth) {
             const container = document.getElementById('sim-chart-container');
             if (!container) return;
             const w = container.clientWidth || 500;
@@ -4410,7 +4442,7 @@
             const maxVal = Math.max(200000, ...opt) * 1.05;
             const minVal = Math.min(...pess) * 0.95;
 
-            const getX = (m) => pad + (m / 60) * (w - 2 * pad);
+            const getX = (m) => pad + (m / totalMonths) * (w - 2 * pad);
             const getY = (v) => h - pad - ((v - minVal) / (maxVal - minVal)) * (h - 2 * pad);
 
             const makePath = (data) => data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getY(v).toFixed(1)}`).join(' ');
@@ -4418,6 +4450,30 @@
             const y180k = getY(180000);
             const y100k = getY(100000);
             const y50k = getY(50000);
+
+            // Génération dynamique des ticks d'années
+            let ticksHtml = `<text x="${pad}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9">M0</text>`;
+            const stepYears = totalMonths > 96 ? 2 : 1;
+            const totalYears = Math.floor(totalMonths / 12);
+            for (let y = stepYears; y <= totalYears; y += stepYears) {
+                const mIdx = y * 12;
+                const isFinal = (mIdx === totalMonths);
+                const col = isFinal ? '#f59e0b' : 'rgba(255,255,255,0.4)';
+                const fw = isFinal ? 'font-weight="bold"' : '';
+                ticksHtml += `<text x="${getX(mIdx)}" y="${h-10}" fill="${col}" ${fw} font-size="9" text-anchor="middle">An ${y}</text>`;
+            }
+
+            // Marqueur de l'atteinte 180k si présent
+            let targetMarkerHtml = '';
+            if (targetMonth && targetMonth <= totalMonths) {
+                const tx = getX(targetMonth);
+                const ty = getY(180000);
+                targetMarkerHtml = `
+                    <circle cx="${tx}" cy="${ty}" r="5" fill="#f59e0b" stroke="#ffffff" stroke-width="2" />
+                    <line x1="${tx}" y1="${ty}" x2="${tx}" y2="${h-pad}" stroke="#f59e0b" stroke-dasharray="2" opacity="0.6" />
+                    <text x="${tx}" y="${ty-8}" fill="#f59e0b" font-weight="bold" font-size="9" text-anchor="middle">M${targetMonth} (180k€)</text>
+                `;
+            }
 
             container.innerHTML = `
                 <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" style="overflow: visible;">
@@ -4434,19 +4490,16 @@
                     <line x1="${pad}" y1="${y50k}" x2="${w-pad}" y2="${y50k}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3" />
                     <text x="${w-pad+5}" y="${y50k+3}" fill="rgba(255,255,255,0.3)" font-size="9">50k€</text>
 
-                    <!-- Courbes de projection 60 mois -->
+                    <!-- Courbes de projection -->
                     <path d="${makePath(opt)}" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.8" />
                     <path d="${makePath(pess)}" fill="none" stroke="#ef4444" stroke-width="2" opacity="0.8" />
                     <path d="${makePath(real)}" fill="none" stroke="#10b981" stroke-width="3.5" />
 
-                    <!-- Axe horizontal & Graduation 5 Ans -->
+                    ${targetMarkerHtml}
+
+                    <!-- Axe horizontal & Graduation dynamique -->
                     <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="rgba(255,255,255,0.15)" />
-                    <text x="${pad}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9">M0</text>
-                    <text x="${getX(12)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 1</text>
-                    <text x="${getX(24)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 2</text>
-                    <text x="${getX(36)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 3</text>
-                    <text x="${getX(48)}" y="${h-10}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="middle">An 4</text>
-                    <text x="${getX(60)}" y="${h-10}" fill="#f59e0b" font-weight="bold" font-size="9" text-anchor="middle">An 5 (60m)</text>
+                    ${ticksHtml}
                 </svg>
             `;
         }

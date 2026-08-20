@@ -40,17 +40,54 @@ CORS(app)
 
 def sanitize_for_json(obj):
     """
-    Parcourt récursivement les structures pour convertir tout NaN, Inf, -Inf en 0.0
-    et garantir un JSON strictement valide sans erreurs de parsing JavaScript.
+    Parcourt récursivement les structures pour convertir tout NaN, Inf, -Inf, types NumPy et Pandas
+    en types Python natifs pour garantir un JSON strictement valide sans erreurs 500.
     """
-    if isinstance(obj, float):
-        if math.isnan(obj) or math.isinf(obj):
+    if obj is None:
+        return None
+    if isinstance(obj, (float, int)):
+        if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
             return 0.0
         return obj
-    elif isinstance(obj, dict):
-        return {k: sanitize_for_json(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    try:
+        import numpy as np
+        if isinstance(obj, (np.floating, np.integer)):
+            val = float(obj) if isinstance(obj, np.floating) else int(obj)
+            if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                return 0.0
+            return val
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.ndarray):
+            return [sanitize_for_json(item) for item in obj.tolist()]
+    except Exception:
+        pass
+        
+    try:
+        import pandas as pd
+        if pd.isna(obj):
+            return 0.0
+        if isinstance(obj, (pd.Timestamp, datetime)):
+            return str(obj)
+    except Exception:
+        pass
+
+    if isinstance(obj, dict):
+        return {str(k): sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple, set)):
         return [sanitize_for_json(item) for item in obj]
+    elif hasattr(obj, 'item') and callable(getattr(obj, 'item')):
+        try:
+            return sanitize_for_json(obj.item())
+        except:
+            return str(obj)
+    elif hasattr(obj, 'to_dict') and callable(getattr(obj, 'to_dict')):
+        try:
+            return sanitize_for_json(obj.to_dict())
+        except:
+            return str(obj)
+    elif not isinstance(obj, (str, bool)):
+        return str(obj)
     return obj
 
 def safe_jsonify(data, status_code=200):
@@ -735,8 +772,7 @@ def scan_watchlist():
             
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
-        print(f"Erreur globale scan_watchlist: {e}")
-        return safe_jsonify({"success": False, "error": str(e), "results": []}), 500
+        return safe_jsonify({"success": False, "error": str(e), "results": []}, 500)
 
 @app.route("/api/scan/market")
 def scan_market():
