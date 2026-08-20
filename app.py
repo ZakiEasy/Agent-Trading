@@ -906,6 +906,11 @@ def lookup_ticker_by_name(query):
         except:
             pass
 
+    # Alias courants
+    query_lower = query.lower()
+    if query_lower in ["ryanair", "ryan air", "ryan"]:
+        return "RYAAY", "Ryanair Holdings plc (ADR)"
+
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         url = f"https://query1.finance.yahoo.com/v1/finance/search?q={query}"
@@ -913,13 +918,30 @@ def lookup_ticker_by_name(query):
         if res.status_code == 200:
             data = res.json()
             quotes = data.get("quotes", [])
-            for q in quotes:
-                qtype = q.get("quoteType", "").upper()
-                symbol = q.get("symbol", "")
-                name = q.get("shortname") or q.get("longname") or symbol
-                if symbol and qtype in ["EQUITY", "ETF"]:
-                    if len(symbol) <= 10:
-                        return symbol, name
+            
+            # Prioriser les grandes places de cotation (Nasdaq, NYSE, Euronext, Dublin, Xetra)
+            def quote_priority(q):
+                sym = q.get("symbol", "").upper()
+                exch = q.get("exchange", "").upper()
+                score = 0
+                if exch in ["NMS", "NYQ", "NGM", "PCX"]:
+                    score += 50
+                elif exch in ["PAR", "AMS", "BRU", "DUB", "GER", "LSE"]:
+                    score += 40
+                elif ".PA" in sym or ".AS" in sym or ".IR" in sym or ".DE" in sym:
+                    score += 30
+                # Pénaliser les marchés régionaux secondaires allemands / mexicains peu liquides
+                if any(sym.endswith(sfx) for sfx in [".F", ".MU", ".BE", ".DU", ".HM", ".MX", ".SA"]):
+                    score -= 30
+                return score
+
+            valid_quotes = [q for q in quotes if q.get("symbol") and q.get("quoteType", "").upper() in ["EQUITY", "ETF"] and len(q.get("symbol", "")) <= 12]
+            if valid_quotes:
+                valid_quotes.sort(key=quote_priority, reverse=True)
+                best = valid_quotes[0]
+                symbol = best.get("symbol", "")
+                name = best.get("shortname") or best.get("longname") or symbol
+                return symbol, name
     except Exception as e:
         print(f"Error in autocomplete lookup: {e}")
         

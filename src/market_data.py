@@ -414,7 +414,7 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None, hist=None):
     - Volume moyen quotidien négocié > 1 M€/$ (élimination du slippage)
     - Free Cash Flow récurrent et marges opérationnelles solides
     """
-    from src.config import MIN_AVG_DAILY_VOLUME_USD
+    from src.config import MIN_AVG_DAILY_VOLUME_USD, MIN_MARKET_CAP_USD
     
     sym = symbol or (info.get("symbol", "") if isinstance(info, dict) else "")
     if info is None or not isinstance(info, dict) or not info:
@@ -422,29 +422,69 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None, hist=None):
             
     cat_meta = categorize_ticker(sym, info)
     
-    market_cap = info.get("marketCap", 0) or 0
-    fcf = info.get("freeCashflow", 0) or 0
-    op_margin = info.get("operatingMargins", 0) or 0
-    revenue_growth = info.get("revenueGrowth", 0) or 0
-    profit_margin = info.get("profitMargins", 0) or 0
+    # 1. Extraction Multi-Sources de la Capitalisation Boursière
+    market_cap = 0.0
+    if isinstance(info, dict):
+        market_cap = float(info.get("marketCap") or 0.0)
+        if market_cap == 0.0:
+            shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+            price = info.get("currentPrice") or info.get("previousClose") or info.get("regularMarketPrice")
+            if shares and price and float(shares) > 0 and float(price) > 0:
+                market_cap = float(shares) * float(price)
+            elif info.get("enterpriseValue"):
+                market_cap = float(info.get("enterpriseValue"))
+            elif info.get("totalAssets"):
+                market_cap = float(info.get("totalAssets"))
+
+    # Fallback via ticker_obj ou fast_info de yfinance
+    if market_cap == 0.0:
+        try:
+            if ticker_obj is not None:
+                fast_cap = getattr(getattr(ticker_obj, 'fast_info', None), 'market_cap', None)
+                if fast_cap and float(fast_cap) > 0:
+                    market_cap = float(fast_cap)
+            if market_cap == 0.0 and sym:
+                t_inst = yf.Ticker(sym)
+                fast_cap = getattr(getattr(t_inst, 'fast_info', None), 'market_cap', None)
+                if fast_cap and float(fast_cap) > 0:
+                    market_cap = float(fast_cap)
+        except Exception:
+            pass
+
+    fcf = info.get("freeCashflow", 0) if isinstance(info, dict) else 0
+    op_margin = info.get("operatingMargins", 0) if isinstance(info, dict) else 0
+    revenue_growth = info.get("revenueGrowth", 0) if isinstance(info, dict) else 0
+    profit_margin = info.get("profitMargins", 0) if isinstance(info, dict) else 0
     
-    # Calcul du volume quotidien moyen négocié en monnaie (turnover journalier)
+    # 2. Calcul du volume quotidien moyen négocié en monnaie (turnover journalier)
     avg_daily_volume = 0.0
     if hist is not None and not hist.empty and len(hist) >= 5:
         try:
             turnover_series = hist['Volume'] * hist['Close']
             avg_daily_volume = float(turnover_series.tail(20).mean())
-        except:
+        except Exception:
             pass
             
-    if avg_daily_volume == 0.0:
+    if avg_daily_volume == 0.0 and isinstance(info, dict):
         vol = info.get("averageVolume", 0) or info.get("volume24Hr", 0) or info.get("regularMarketVolume", 0) or 0
         price = info.get("currentPrice") or info.get("previousClose") or 100.0
         avg_daily_volume = float(vol * price)
         
-    is_large_cap = bool(market_cap >= MIN_MARKET_CAP_USD)
+    # 3. Validation de la Capitalisation Boursière avec conversion de devise
+    currency = (info.get("currency") if isinstance(info, dict) else None) or "USD"
+    fx_to_usd = get_usd_conversion_rate(currency)
+    market_cap_usd = float(market_cap * fx_to_usd) if market_cap > 0 else 0.0
+
+    if market_cap > 0:
+        # Seuil 2 Mrd USD (ou 2 Mrd dans la devise locale)
+        is_large_cap = bool(market_cap_usd >= MIN_MARKET_CAP_USD or market_cap >= MIN_MARKET_CAP_USD)
+    else:
+        # Si Yahoo n'a pas renseigné la capitalisation (ex: ETF, certains ADRs),
+        # mais que la liquidité quotidienne est confirmée (> 1 M€/$), on ne bloque pas le titre
+        is_large_cap = bool(avg_daily_volume >= MIN_AVG_DAILY_VOLUME_USD)
+
     has_min_liquidity = bool(avg_daily_volume >= MIN_AVG_DAILY_VOLUME_USD)
-    is_fcf_positive = bool(fcf > 0 or fcf is None)
+    is_fcf_positive = bool(fcf > 0 or fcf is None or fcf == 0)
     is_profitable = bool(op_margin > 0 or profit_margin > 0)
     
     if is_large_cap and has_min_liquidity and is_profitable:
@@ -456,8 +496,11 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None, hist=None):
     else:
         health_status = "SPÉCULATIVE (< 2 Mrd)"
         
+    cap_display = f"{market_cap/1e9:.1f}B" if market_cap > 0 else ("> 2B (Validé liquidité)" if is_large_cap else "< 2B")
+    
     return {
         "market_cap": market_cap,
+        "market_cap_usd": market_cap_usd,
         "is_large_cap": is_large_cap,
         "avg_daily_volume": avg_daily_volume,
         "has_min_liquidity": has_min_liquidity,
@@ -473,7 +516,7 @@ def check_fundamental_quality(ticker_obj, info=None, symbol=None, hist=None):
         "is_pea": cat_meta["is_pea"],
         "account_type": cat_meta["account_type"],
         "health_status": health_status,
-        "summary": f"Cap: {market_cap/1e9:.1f}B | Vol/j: {avg_daily_volume/1e6:.1f}M | Marge Op: {op_margin*100:.1f}%"
+        "summary": f"Cap: {cap_display} | Vol/j: {avg_daily_volume/1e6:.1f}M | Marge Op: {op_margin*100:.1f}%"
     }
 
 def analyze_technical_setup(hist):

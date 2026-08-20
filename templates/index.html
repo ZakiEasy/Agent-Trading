@@ -4008,7 +4008,7 @@
                 const shariaBadgeClass = sharia.status === 'CONFORME' ? 'badge-success' : sharia.status === 'NON CONFORME' ? 'badge-danger' : 'badge-warning';
 
                 const volDailyStr = fund.avg_daily_volume ? (fund.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar + ' / jour' : 'N/A';
-                const capStr = fund.market_cap ? (fund.market_cap / 1e9).toFixed(1) + ' Mrd ' + symChar : 'N/A';
+                const capStr = fund.market_cap ? (fund.market_cap / 1e9).toFixed(1) + ' Mrd ' + symChar : (fund.is_large_cap ? '> 2 Mrd ' + symChar : '< 2 Mrd ' + symChar);
 
                 container.innerHTML = `
                     <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: 8px;">
