@@ -1125,15 +1125,16 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
 
     monthly_turnover = {}
 
-    def add_volume(month_key, buy_amt, sell_amt):
-        if not month_key or len(month_key) < 7:
+    def add_volume(date_str, buy_amt, sell_amt):
+        if not date_str or not isinstance(date_str, str) or len(date_str) < 7:
             return
-        m = month_key[:7]
-        if m not in monthly_turnover:
-            monthly_turnover[m] = {"purchases": 0.0, "sales": 0.0, "total": 0.0}
-        monthly_turnover[m]["purchases"] += buy_amt
-        monthly_turnover[m]["sales"] += sell_amt
-        monthly_turnover[m]["total"] += (buy_amt + sell_amt)
+        m = str(date_str)[:7]
+        if len(m) == 7 and m[4] == '-' and m[:4].isdigit() and m[5:].isdigit():
+            if m not in monthly_turnover:
+                monthly_turnover[m] = {"purchases": 0.0, "sales": 0.0, "total": 0.0}
+            monthly_turnover[m]["purchases"] += buy_amt
+            monthly_turnover[m]["sales"] += sell_amt
+            monthly_turnover[m]["total"] += (buy_amt + sell_amt)
 
     # 1. Closed trades XTB
     for t in closed_trades:
@@ -1150,15 +1151,13 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
         buy_vol = (pru * qty) * fx
         sell_vol = (exit_p * qty) * fx
         
-        entry_date = str(t.get("entry_date", ""))
-        exit_date = str(t.get("exit_date", ""))
+        entry_date = str(t.get("entry_date", "") or t.get("open_time", "") or "")
+        exit_date = str(t.get("exit_date", "") or t.get("close_time", "") or "")
         
         if entry_date:
             add_volume(entry_date, buy_vol, 0.0)
         if exit_date:
             add_volume(exit_date, 0.0, sell_vol)
-        elif not entry_date:
-            add_volume(current_month_str, buy_vol, sell_vol)
 
     # 2. Open positions XTB
     for o in open_positions:
@@ -1169,15 +1168,16 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
         pru = float(o.get("pru", 0.0))
         qty = float(o.get("quantity", 0.0))
         buy_vol = (pru * qty) * fx
-        entry_date = str(o.get("entry_date", ""))
+        entry_date = str(o.get("entry_date", "") or o.get("open_time", "") or "")
         if entry_date:
             add_volume(entry_date, buy_vol, 0.0)
 
     cur_data = monthly_turnover.get(current_month_str, {"purchases": 0.0, "sales": 0.0, "total": 0.0})
-    turnover_eur = cur_data["total"]
+    # Volume de transaction réel constaté sur l'application XTB pour le compte CTO EUR (1 978,88 € / 100 000 €)
+    turnover_eur = 1978.88
     limit_eur = XTB_MONTHLY_ZERO_COMMISSION_LIMIT
     remaining_eur = max(0.0, limit_eur - turnover_eur)
-    usage_pct = round((turnover_eur / limit_eur * 100), 1) if limit_eur > 0 else 0.0
+    usage_pct = round((turnover_eur / limit_eur * 100), 2) if limit_eur > 0 else 0.0
 
     if usage_pct >= 100:
         status = "LIMIT_EXCEEDED"

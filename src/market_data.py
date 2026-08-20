@@ -17,12 +17,17 @@ COMPANY_NAMES = {
     'RMS.FR': 'Hermès International',
     'OR.PA': "L'Oréal S.A.",
     'OR.FR': "L'Oréal S.A.",
+    'KER.PA': 'Kering SA',
+    'EL.PA': 'EssilorLuxottica SA',
+    'CDI.PA': 'Christian Dior SE',
     'AIR.PA': 'Airbus SE',
     'AIR.FR': 'Airbus SE',
     'SU.PA': 'Schneider Electric',
     'SU.FR': 'Schneider Electric',
     'LR.PA': 'Legrand SA',
     'LR.FR': 'Legrand SA',
+    'SAF.PA': 'Safran SA',
+    'HO.PA': 'Thales SA',
     'STMPA.PA': 'STMicroelectronics',
     'STM.FR': 'STMicroelectronics',
     'AI.PA': "L'Air Liquide",
@@ -51,38 +56,78 @@ COMPANY_NAMES = {
     'ARM': 'Arm Holdings plc',
     'QCOM': 'QUALCOMM Inc.',
     'INTC': 'Intel Corporation',
+    'AMD': 'Advanced Micro Devices (AMD)',
+    'TXN': 'Texas Instruments Inc.',
+    'AMAT': 'Applied Materials Inc.',
+    'LRCX': 'Lam Research Corporation',
+    'KLAC': 'KLA Corporation',
+    'MRVL': 'Marvell Technology Inc.',
+    'ADI': 'Analog Devices Inc.',
+    'MU': 'Micron Technology Inc.',
+    'WDC.US': 'Western Digital Corporation',
+    'WDC': 'Western Digital Corporation',
+    'STX.US': 'Seagate Technology Holdings',
+    'STX': 'Seagate Technology Holdings',
+    'SNDK': 'Western Digital / SanDisk',
+    '005930.KS': 'Samsung Electronics',
     'CSCO': 'Cisco Systems Inc.',
     'CRM': 'Salesforce Inc.',
     'UBER': 'Uber Technologies',
     'SAP': 'SAP SE',
     'SAP.DE': 'SAP SE',
+    'NOW': 'ServiceNow Inc.',
+    'ADBE': 'Adobe Inc.',
+    'SNOW': 'Snowflake Inc.',
+    'ORCL': 'Oracle Corporation',
+    'PLTR': 'Palantir Technologies Inc.',
+    'CRWD': 'CrowdStrike Holdings',
+    'NET': 'Cloudflare Inc.',
+    'DDOG': 'Datadog Inc.',
+    'PANW': 'Palo Alto Networks',
     'ESTC': 'Elastic N.V.',
     'ASAN': 'Asana Inc.',
     'ERIC': 'Telefonaktiebolaget LM Ericsson',
     'NOK': 'Nokia Corporation',
     'NOKIA.FI': 'Nokia Corporation',
     'BKNG': 'Booking Holdings',
+    'BABA': 'Alibaba Group',
+    'NKE': 'Nike Inc.',
     'XOM': 'Exxon Mobil Corporation',
+    'CVX': 'Chevron Corporation',
+    'TTE.PA': 'TotalEnergies SE',
+    'TTE.FR': 'TotalEnergies SE',
+    'SHEL': 'Shell plc',
+    'BP': 'BP p.l.c.',
     'BYDDY': 'BYD Company Limited',
     'BYD': 'BYD Company Limited',
     'BY6.DE': 'BYD Company Limited',
     'LLY': 'Eli Lilly and Company',
     'MRK': 'Merck & Co. Inc.',
     'MRK.DE': 'Merck KGaA',
-    'IS3R.DE': 'iShares MSCI World Momentum',
-    'IS3E.DE': 'iShares MSCI EM Islamic',
-    'GOLD': 'Barrick Gold Corporation',
-    'SNDK': 'Western Digital / SanDisk',
-    '005930.KS': 'Samsung Electronics',
+    'PFE': 'Pfizer Inc.',
+    'ABBV': 'AbbVie Inc.',
+    'JNJ': 'Johnson & Johnson',
+    'AZN': 'AstraZeneca PLC',
+    'NVO': 'Novo Nordisk A/S',
+    'VRTX': 'Vertex Pharmaceuticals',
+    'HFG.DE': 'HelloFresh SE',
     'LIN.PA': 'Linde plc',
     'LIN': 'Linde plc',
+    'APD': 'Air Products and Chemicals',
+    'ECL': 'Ecolab Inc.',
+    'BAS.DE': 'BASF SE',
+    'IS3R.DE': 'iShares MSCI World Momentum',
+    'IS3E.DE': 'iShares MSCI EM Islamic',
+    'SPY': 'SPDR S&P 500 ETF',
+    'QQQ': 'Invesco QQQ Trust',
+    'GOLD': 'Barrick Gold Corporation',
     'ACIW.US': 'ACI Worldwide Inc.',
     'CARR.US': 'Carrier Global Corp.',
     'VRT.US': 'Vertiv Holdings Co.',
-    'STX.US': 'Seagate Technology',
-    'WDC.US': 'Western Digital Corp.',
-    'SPCX.US': 'SpaceX Private',
-    'HFG.DE': 'HelloFresh SE'
+    'BA': 'Boeing Company',
+    'LMT': 'Lockheed Martin Corporation',
+    'RTX': 'RTX Corporation',
+    'SPCX.US': 'SpaceX Private'
 }
 
 def get_company_name(symbol, info=None):
@@ -97,7 +142,8 @@ def get_company_name(symbol, info=None):
 
 def categorize_ticker(symbol, info=None):
     """
-    Détermine l'éligibilité au PEA (Euronext / Europe) et la catégorie sectorielle en français.
+    Détermine l'éligibilité au PEA (Euronext / Europe) et la catégorie sectorielle en français
+    selon la segmentation affinée en 11 catégories distinctes.
     """
     symbol = str(symbol or "").upper().strip()
     if not isinstance(info, dict):
@@ -115,28 +161,40 @@ def categorize_ticker(symbol, info=None):
     quote_type = str(info.get('quoteType', '') or '').upper()
     sec_lower = (sector + ' ' + industry + ' ' + quote_type).lower()
     
-    # 2. Catégories Thématiques & Sectorielles Réorganisées (8 Catégories Homogènes)
-    semi_symbols = ['NVDA', 'TSM', 'ASML', 'AVGO', 'ARM', 'QCOM', 'INTC', 'STMPA.PA', '005930.KS', 'SNDK', 'MU', 'AMD', 'TXN', 'AMAT', 'LRCX', 'KLAC', 'MRVL', 'ADI', 'STM.FR']
-    tech_cloud_symbols = ['MSFT', 'GOOGL', 'GOOG', 'META', 'CRM', 'UBER', 'SAP', 'ESTC', 'ASAN', 'PLTR', 'ADBE', 'NOW', 'SNOW', 'ORCL', 'PANW', 'CRWD', 'NET', 'DDOG', 'SAP.DE', 'GOOGC.US']
-    luxe_conso_symbols = ['RMS.PA', 'MC.PA', 'OR.PA', 'KER.PA', 'EL.PA', 'BKNG', 'AMZN', 'BABA', 'TSLA', 'BYDDY', 'BYD', 'NKE', 'LVMH', 'RMS.FR', 'OR.FR', 'ACIW.US']
-    industrie_aero_symbols = ['AIR.PA', 'SU.PA', 'LR.PA', 'RYAAY', 'RYA.IR', 'CSCO', 'ERIC', 'NOK', 'BA', 'LMT', 'RTX', 'SAF.PA', 'HO.PA', 'AIR.FR', 'SU.FR', 'LR.FR', 'NOKIA.FI', 'CARR.US', 'VRT.US']
-    sante_pharma_symbols = ['LLY', 'MRK', 'MRK.DE', 'SAN.PA', 'PFE', 'ABBV', 'JNJ', 'AZN', 'NVO', 'VRTX', 'SAN.FR', 'HFG.DE']
-    energie_symbols = ['XOM', 'CVX', 'GTT.PA', 'ENGI.PA', 'TTE.PA', 'SHEL', 'BP', 'GTT.FR', 'ENGI.FR', 'TTE.FR']
-    materiaux_symbols = ['AI.PA', 'LIN.PA', 'LIN', 'APD', 'ECL', 'BAS.DE', 'AI.FR', 'LIN.FR']
+    # 2. Catégories Thématiques & Sectorielles Réorganisées (11 Catégories Précises)
+    hyperscaler_symbols = ['MSFT', 'GOOGL', 'GOOG', 'GOOGC.US', 'META', 'AAPL']
+    software_saas_symbols = ['CRM', 'SAP', 'SAP.DE', 'NOW', 'ADBE', 'SNOW', 'ORCL', 'ESTC', 'ASAN', 'PLTR', 'CRWD', 'NET', 'DDOG', 'ACIW.US', 'PANW', 'UBER']
+    memory_storage_symbols = ['MU', 'WDC', 'WDC.US', 'STX', 'STX.US', '005930.KS', 'SNDK']
+    semi_equip_symbols = ['NVDA', 'TSM', 'ASML', 'ASML.AS', 'ASML.NL', 'AVGO', 'ARM', 'QCOM', 'INTC', 'STMPA.PA', 'STM.FR', 'AMD', 'TXN', 'AMAT', 'LRCX', 'KLAC', 'MRVL', 'ADI']
+    luxe_prestige_symbols = ['RMS.PA', 'RMS.FR', 'MC.PA', 'LVMH', 'OR.PA', 'OR.FR', 'KER.PA', 'EL.PA', 'CDI.PA']
+    conso_ecommerce_symbols = ['AMZN', 'BKNG', 'TSLA', 'BABA', 'BYDDY', 'BYD', 'BY6.DE', 'NKE']
+    industrie_aero_symbols = ['AIR.PA', 'AIR.FR', 'SU.PA', 'SU.FR', 'LR.PA', 'LR.FR', 'SAF.PA', 'HO.PA', 'RYAAY', 'RYA.IR', 'CSCO', 'NOK', 'NOKIA.FI', 'ERIC', 'BA', 'LMT', 'RTX', 'CARR.US', 'VRT.US', 'SPCX.US']
+    sante_pharma_symbols = ['SAN.PA', 'SAN.FR', 'LLY', 'MRK', 'MRK.DE', 'PFE', 'ABBV', 'JNJ', 'AZN', 'NVO', 'VRTX', 'HFG.DE']
+    energie_symbols = ['TTE.PA', 'TTE.FR', 'ENGI.PA', 'ENGI.FR', 'GTT.PA', 'GTT.FR', 'XOM', 'CVX', 'SHEL', 'BP']
+    materiaux_symbols = ['AI.PA', 'AI.FR', 'LIN.PA', 'LIN.FR', 'LIN', 'APD', 'ECL', 'BAS.DE']
     etf_symbols = ['IS3R.DE', 'IS3E.DE', 'SPY', 'QQQ', 'IWDA.AS', 'EEM', 'VTI', 'VOO', 'HIJP.UK', 'ISDW.UK', 'ISDU.UK', 'ISDE.UK']
 
     if symbol in etf_symbols or quote_type == 'ETF' or 'etf' in sec_lower or 'ishares' in sec_lower:
         category = "ETFs & Indices Factoriels"
         category_icon = "📊"
-    elif symbol in semi_symbols or any(k in sec_lower for k in ['semiconductor', 'hardware', 'equipment & materials']):
-        category = "Semi-conducteurs & Hardware"
+    elif symbol in memory_storage_symbols or any(k in sec_lower for k in ['storage', 'memory', 'nand', 'dram', 'hard drive', 'flash memory']):
+        category = "Mémoire & Stockage de Données"
+        category_icon = "💾"
+    elif symbol in semi_equip_symbols or any(k in sec_lower for k in ['semiconductor', 'foundry', 'wafer', 'lithography', 'equipment & materials']):
+        category = "Semi-conducteurs & Équipements"
         category_icon = "⚡"
-    elif symbol in tech_cloud_symbols or any(k in sec_lower for k in ['software', 'internet content', 'information technology', 'cloud']):
-        category = "Tech, Cloud & IA"
+    elif symbol in hyperscaler_symbols:
+        category = "Hyperscalers & Géants Cloud/IA"
+        category_icon = "☁️"
+    elif symbol in software_saas_symbols or any(k in sec_lower for k in ['software', 'application software', 'infrastructure software', 'saas', 'cloud services']):
+        category = "Éditeurs de Logiciels & SaaS Enterprise"
         category_icon = "💻"
-    elif symbol in luxe_conso_symbols or any(k in sec_lower for k in ['luxury', 'consumer cyclical', 'auto manufacturers', 'travel services', 'internet retail', 'personal products', 'apparel']):
-        category = "Luxe & Consommation Mondiale"
+    elif symbol in luxe_prestige_symbols or any(k in sec_lower for k in ['luxury', 'cosmetics', 'luxury goods', 'apparel luxury']):
+        category = "Luxe & Cosmétique Prestige"
         category_icon = "💎"
+    elif symbol in conso_ecommerce_symbols or any(k in sec_lower for k in ['internet retail', 'travel services', 'auto manufacturers', 'consumer cyclical', 'retail - cyclical', 'footwear']):
+        category = "Consommation Mondiale & E-Commerce"
+        category_icon = "🛒"
     elif symbol in industrie_aero_symbols or any(k in sec_lower for k in ['aerospace', 'defense', 'airlines', 'machinery', 'electrical equipment', 'communication equipment', 'industrial']):
         category = "Industrie, Défense & Aéro"
         category_icon = "🏭"
@@ -146,7 +204,7 @@ def categorize_ticker(symbol, info=None):
     elif symbol in energie_symbols or any(k in sec_lower for k in ['energy', 'oil', 'gas', 'petroleum', 'utilities']):
         category = "Énergie & Transition"
         category_icon = "🔋"
-    elif symbol in materiaux_symbols or any(k in sec_lower for k in ['materials', 'chemical', 'mining', 'steel']):
+    elif symbol in materiaux_symbols or any(k in sec_lower for k in ['materials', 'chemical', 'mining', 'steel', 'gases']):
         category = "Matériaux & Chimie"
         category_icon = "🧪"
     else:

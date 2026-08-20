@@ -32,9 +32,12 @@ MIN_AVG_DAILY_VOLUME_USD = 1_000_000
 
 # ETF Sectoriels de référence pour analyse de force relative Top-Down
 SECTOR_ETFS = {
-    "Tech, Cloud & IA": "XLK",
-    "Semi-conducteurs & Hardware": "SMH",
-    "Luxe & Consommation Mondiale": "XLY",
+    "Hyperscalers & Géants Cloud/IA": "XLK",
+    "Éditeurs de Logiciels & SaaS": "XLK",
+    "Semi-conducteurs & Équipements": "SMH",
+    "Mémoire & Stockage de Données": "SMH",
+    "Luxe & Cosmétique Prestige": "XLY",
+    "Consommation Mondiale & E-Commerce": "XLY",
     "Industrie, Défense & Aéro": "XLI",
     "Santé & Pharmacie": "XLV",
     "Énergie & Transition": "XLE",
