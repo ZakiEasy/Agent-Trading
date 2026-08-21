@@ -682,6 +682,134 @@ def close_portfolio_position():
     success, msg = close_position_in_sheets(pos_id, exit_price, notes=notes)
     return jsonify({"success": success, "message": msg})
 
+@app.route("/api/watchlist/tickers")
+def get_watchlist_tickers():
+    """
+    Retourne la liste des tickers de la Watchlist avec leurs métadonnées
+    pour initialiser l'affichage instantanément avant le scan par lots.
+    """
+    try:
+        force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+        watchlist = read_watchlist_from_sheets(force_refresh=force)
+        if not watchlist:
+            watchlist = DEFAULT_WATCHLIST
+            
+        tickers_data = []
+        for sym in watchlist:
+            s = str(sym).strip().upper()
+            if not s:
+                continue
+            cat = categorize_ticker(s)
+            is_pea = s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS") or s.endswith(".MC")
+            acc_type = "PEA (Boursorama)" if is_pea else "CTO (US)"
+            tickers_data.append({
+                "symbol": s,
+                "name": get_company_name(s),
+                "category": cat.get("category", "Autres"),
+                "category_icon": cat.get("category_icon", "📦"),
+                "is_pea": cat.get("is_pea", is_pea),
+                "account_type": cat.get("account_type", acc_type)
+            })
+            
+        return safe_jsonify({"success": True, "tickers": tickers_data, "count": len(tickers_data)})
+    except Exception as e:
+        return safe_jsonify({"success": False, "error": str(e), "tickers": []}, 500)
+
+@app.route("/api/scan/batch", methods=["GET", "POST"])
+def scan_batch():
+    """
+    Scanne un sous-ensemble (lot de 6 à 10 actions) en parallèle ultra-rapide (1-3s).
+    Permet un affichage progressif en continu sur le frontend sans aucun risque de timeout 60s.
+    """
+    try:
+        force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+        symbols = []
+        if request.method == "POST":
+            data = request.json or {}
+            symbols = data.get("symbols", [])
+            if not force:
+                force = bool(data.get("force", False))
+        else:
+            symbols_param = request.args.get("symbols", "")
+            if symbols_param:
+                symbols = [s.strip().upper() for s in symbols_param.split(",") if s.strip()]
+                
+        if not symbols:
+            return safe_jsonify({"success": False, "error": "Aucun symbole fourni pour le lot.", "results": []}), 400
+            
+        results = []
+        signals_to_write = []
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(symbols), 8)) as executor:
+            future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in symbols}
+            for future in concurrent.futures.as_completed(future_to_sym, timeout=20):
+                try:
+                    analysis = future.result()
+                    if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                        continue
+                        
+                    symbol = analysis.get("symbol")
+                    tech = analysis.get("technical") or {}
+                    drop = analysis.get("drop") or {}
+                    sharia = analysis.get("sharia") or {}
+                    trade_plan = analysis.get("trade_plan") or {}
+                    risk_plan = analysis.get("step_7_risk_sizing") or {}
+                    macro_plan = analysis.get("step_2_macro") or {}
+                    fund = analysis.get("step_4_fundamentals") or {}
+                    sec_rel = analysis.get("sector_strength") or {}
+
+                    results.append({
+                        "symbol": symbol,
+                        "name": analysis.get("company_name", symbol),
+                        "category": analysis.get("category", "Autres"),
+                        "category_icon": analysis.get("category_icon", "📦"),
+                        "is_pea": analysis.get("is_pea", False),
+                        "account_type": analysis.get("account_type", "CTO (US)"),
+                        "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
+                        "price": tech.get("current_price", 0.0),
+                        "drop": drop.get("drop_pct", 0.0),
+                        "drop_nature": drop.get("nature", "N/A"),
+                        "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
+                        "has_min_liquidity": fund.get("has_min_liquidity", True),
+                        "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
+                        "sector_etf": sec_rel.get("sector_etf", "SPY"),
+                        "rsi": tech.get("rsi", 50.0),
+                        "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
+                        "confluence_score": analysis.get("confluence_score", 0),
+                        "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                        "currency": tech.get("currency", "USD")
+                    })
+                    
+                    if "ACHETER" in analysis.get("verdict", ""):
+                        signals_to_write.append({
+                            "date": now_str,
+                            "symbol": symbol,
+                            "sharia_status": sharia.get("status"),
+                            "category": analysis.get("category", "Autres"),
+                            "account_type": analysis.get("account_type", "CTO (US)"),
+                            "macro_regime": macro_plan.get("regime", "N/A"),
+                            "current_price": tech.get("current_price", 0.0),
+                            "drop_pct": drop.get("drop_pct", 0.0),
+                            "support": tech.get("support", 0.0),
+                            "tp1_target": trade_plan.get("target_min", 0.0),
+                            "tp2_target": trade_plan.get("target_max", 0.0),
+                            "stop_loss": trade_plan.get("invalidation", 0.0),
+                            "r_max_amount": risk_plan.get("r_max_amount", 50.0),
+                            "suggested_nominal": risk_plan.get("suggested_nominal", 0.0),
+                            "confluence_score": analysis.get("confluence_score", 0),
+                            "verdict": analysis.get("verdict", "ACHETER LE REBOND")
+                        })
+                except Exception as fe:
+                    pass
+                    
+        if signals_to_write:
+            threading.Thread(target=write_signals_to_sheets, args=(signals_to_write,), daemon=True).start()
+            
+        return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
+    except Exception as e:
+        return safe_jsonify({"success": False, "error": str(e), "results": []}, 500)
+
 @app.route("/api/scan/watchlist")
 def scan_watchlist():
     try:
@@ -696,7 +824,7 @@ def scan_watchlist():
         
         # Exécution parallèle accélérée avec timeout de sécurité de 25s pour garantir zéro erreur 502
         analyses = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in watchlist}
             try:
                 for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
@@ -720,7 +848,6 @@ def scan_watchlist():
             trade_plan = analysis.get("trade_plan") or {}
             risk_plan = analysis.get("step_7_risk_sizing") or {}
             macro_plan = analysis.get("step_2_macro") or {}
-
             fund = analysis.get("step_4_fundamentals") or {}
             sec_rel = analysis.get("sector_strength") or {}
 
@@ -767,7 +894,6 @@ def scan_watchlist():
                 })
                 
         if signals_to_write:
-            # Écriture asynchrone en arrière-plan pour ne pas ralentir la réponse HTTP
             threading.Thread(target=write_signals_to_sheets, args=(signals_to_write,), daemon=True).start()
             
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})

@@ -968,6 +968,17 @@
                             <div class="filter-count-badge" id="filter-count-badge">0 action(s)</div>
                         </div>
 
+                        <!-- Live Scan Progress Bar (Batch Streaming) -->
+                        <div id="scan-progress-box" style="display: none; margin: 0.5rem 0 1rem 0; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                                <span id="scan-progress-label" style="color: #60a5fa; font-weight: bold;">🔍 Scan progressif par lots en cours...</span>
+                                <span id="scan-progress-pct" style="color: var(--text-muted); font-weight: 600;">0 / 45 (0%)</span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
+                                <div id="scan-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+
                         <!-- Table -->
                         <div class="table-container">
                             <table id="scan-results-table">
@@ -3595,94 +3606,187 @@
         }
 
         // ---------------------------------------------------------------------
-        // SCANNING & FILTERS LOGIC
+        // SCANNING & FILTERS LOGIC (BATCH CHUNKING & PROGRESSIVE STREAMING)
         // ---------------------------------------------------------------------
-        async function runWatchlistScan(retryCount = 0) {
-            setScanStatus('Scan en cours...', 'badge-warning');
+        let scanAbortController = null;
+
+        async function runWatchlistScan(forceRefresh = false) {
+            if (scanAbortController) {
+                scanAbortController.abort();
+            }
+            scanAbortController = new AbortController();
+
+            setScanStatus('Initialisation...', 'badge-warning');
+            const progressBox = document.getElementById('scan-progress-box');
+            const progressBar = document.getElementById('scan-progress-bar');
+            const progressLabel = document.getElementById('scan-progress-label');
+            const progressPct = document.getElementById('scan-progress-pct');
+
+            if (progressBox) progressBox.style.display = 'block';
+            if (progressBar) progressBar.style.width = '5%';
+            if (progressLabel) progressLabel.innerHTML = '🔍 Récupération de la liste Watchlist...';
+            if (progressPct) progressPct.textContent = 'Préparation...';
+
             const tbody = document.querySelector('#scan-results-table tbody');
-            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2.5rem; font-size: 0.95rem;">
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2rem; font-size: 0.95rem;">
                 <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
-                <strong>Analyse quantitative de la Watchlist en cours...</strong><br>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">Calcul du Baromètre Macro, Divergences RSI, Ratios AAOIFI & Dimensionnement R-Max</span>
+                <strong>Démarrage du scan progressif par lots...</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Les actions s'affichent en temps réel par groupes de 6 à 8 sans blocage réseau.</span>
             </td></tr>`;
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
-
             try {
-                const res = await fetch(`${API_URL}/scan/watchlist`, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (!res.ok) {
-                    if ((res.status === 502 || res.status === 504 || res.status === 503) && retryCount < 1) {
-                        setScanStatus('Serveur en actualisation, nouvelle tentative...', 'badge-warning');
-                        await new Promise(r => setTimeout(r, 2000));
-                        return runWatchlistScan(retryCount + 1);
-                    }
-                    const text = await res.text();
-                    let errMsg = `Code HTTP ${res.status}`;
-                    try { const errObj = JSON.parse(text); if (errObj.error) errMsg = errObj.error; } catch(e){}
-                    throw new Error(errMsg);
+                // Étape 1 : Récupérer la liste des tickers instantanément
+                const tickersRes = await fetch(`${API_URL}/watchlist/tickers${forceRefresh ? '?force=true' : ''}`, { 
+                    signal: scanAbortController.signal 
+                });
+                const tickersData = await tickersRes.json();
+                const tickers = (tickersData && tickersData.tickers) ? tickersData.tickers : [];
+
+                if (!tickers.length) {
+                    throw new Error("Aucun ticker trouvé dans la Watchlist.");
                 }
-                const data = await res.json();
-                document.getElementById('results-table-title').textContent = '📊 Résultats du Scan Watchlist (v2.0)';
-                currentScanResults = data.results || [];
-                applyFilters();
+
+                document.getElementById('results-table-title').textContent = `📊 Résultats du Scan Watchlist (${tickers.length} actions)`;
+
+                // Découpage en lots légers de 6 à 8 tickers (réponse en 1.5s à 3s par lot)
+                const BATCH_SIZE = 7;
+                const batches = [];
+                for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+                    batches.push(tickers.slice(i, i + BATCH_SIZE).map(t => t.symbol));
+                }
+
+                currentScanResults = [];
+                let completedCount = 0;
+                let opportunitiesCount = 0;
+
+                setScanStatus(`Scan (0/${tickers.length})...`, 'badge-warning');
+
+                // Étape 2 : Exécution séquentielle des lots rapides
+                for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+                    const batchSymbols = batches[bIdx];
+                    if (progressLabel) {
+                        progressLabel.innerHTML = `🔍 Analyse du lot ${bIdx + 1}/${batches.length} : <span style="color:#fff; font-weight:bold;">${batchSymbols.join(', ')}</span>`;
+                    }
+
+                    try {
+                        const batchRes = await fetch(`${API_URL}/scan/batch?symbols=${batchSymbols.join(',')}${forceRefresh ? '&force=true' : ''}`, {
+                            signal: scanAbortController.signal
+                        });
+
+                        if (batchRes.ok) {
+                            const batchJson = await batchRes.json();
+                            const batchResults = batchJson.results || [];
+                            
+                            for (const r of batchResults) {
+                                const existingIdx = currentScanResults.findIndex(x => x.symbol === r.symbol);
+                                if (existingIdx >= 0) {
+                                    currentScanResults[existingIdx] = r;
+                                } else {
+                                    currentScanResults.push(r);
+                                }
+                                if (r.verdict && r.verdict.includes('ACHETER')) {
+                                    opportunitiesCount++;
+                                }
+                            }
+                        }
+                    } catch (batchErr) {
+                        if (batchErr.name === 'AbortError') return;
+                        console.warn(`Avertissement lot ${bIdx + 1}:`, batchErr);
+                    }
+
+                    completedCount += batchSymbols.length;
+                    const pct = Math.min(100, Math.round((completedCount / tickers.length) * 100));
+
+                    if (progressBar) progressBar.style.width = `${pct}%`;
+                    if (progressPct) progressPct.textContent = `${Math.min(completedCount, tickers.length)} / ${tickers.length} (${pct}%) — ${opportunitiesCount} opportunité(s)`;
+
+                    // Rendu en direct dans le tableau à chaque lot terminé !
+                    applyFilters();
+                    setScanStatus(`${Math.min(completedCount, tickers.length)}/${tickers.length} (${opportunitiesCount} 🎯)`, 'badge-warning');
+                }
+
+                // Fin du scan complet
+                if (progressBar) progressBar.style.width = '100%';
+                if (progressLabel) progressLabel.innerHTML = `✅ Scan complet terminé : <span style="color:#10b981;">${currentScanResults.length} actions analysées, ${opportunitiesCount} signal/signaux détecté(s)</span>`;
                 setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
+
+                setTimeout(() => {
+                    if (progressBox) progressBox.style.display = 'none';
+                }, 5000);
+
             } catch (e) {
-                clearTimeout(timeoutId);
+                if (e.name === 'AbortError') return;
                 console.error("Erreur scan watchlist:", e);
-                const isAbort = e.name === 'AbortError';
-                const msg = isAbort ? 'Délai d\'attente dépassé (60s)' : (e.message || 'Erreur réseau');
                 tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">
-                    ❌ Erreur lors du scan : ${msg}.<br>
-                    <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runWatchlistScan()">🔄 Réessayer le scan</button>
+                    ❌ Erreur lors du scan : ${e.message || 'Erreur réseau'}.<br>
+                    <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runWatchlistScan(true)">🔄 Réessayer le scan (Mode Forcé)</button>
                 </td></tr>`;
                 setScanStatus('Erreur', 'badge-danger');
+                if (progressBox) progressBox.style.display = 'none';
             }
         }
 
-        async function runMarketScan(retryCount = 0) {
-            setScanStatus('Scan Marché Élargi...', 'badge-warning');
-            const tbody = document.querySelector('#scan-results-table tbody');
-            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2.5rem; font-size: 0.95rem;">
-                <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
-                <strong>Scan du Marché Élargi en cours (Large & Mid Caps)...</strong><br>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">Recherche d'opportunités à forte confluence</span>
-            </td></tr>`;
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-            try {
-                const res = await fetch(`${API_URL}/scan/market`, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (!res.ok) {
-                    if ((res.status === 502 || res.status === 504 || res.status === 503) && retryCount < 1) {
-                        setScanStatus('Serveur en actualisation, nouvelle tentative...', 'badge-warning');
-                        await new Promise(r => setTimeout(r, 2000));
-                        return runMarketScan(retryCount + 1);
-                    }
-                    const text = await res.text();
-                    let errMsg = `Code HTTP ${res.status}`;
-                    try { const errObj = JSON.parse(text); if (errObj.error) errMsg = errObj.error; } catch(e){}
-                    throw new Error(errMsg);
-                }
-                const data = await res.json();
-                document.getElementById('results-table-title').textContent = '🌐 Résultats du Scan Marché Élargi (v2.0)';
-                currentScanResults = data.results || [];
-                applyFilters();
-                setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
-            } catch (e) {
-                clearTimeout(timeoutId);
-                console.error("Erreur scan marché:", e);
-                const isAbort = e.name === 'AbortError';
-                const msg = isAbort ? 'Délai d\'attente dépassé (60s)' : (e.message || 'Erreur réseau');
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">
-                    ❌ Erreur lors du scan du marché : ${msg}.<br>
-                    <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runMarketScan()">🔄 Réessayer le scan</button>
-                </td></tr>`;
-                setScanStatus('Erreur', 'badge-danger');
+        async function runMarketScan(forceRefresh = false) {
+            if (scanAbortController) {
+                scanAbortController.abort();
             }
+            scanAbortController = new AbortController();
+
+            setScanStatus('Scan Marché...', 'badge-warning');
+            const progressBox = document.getElementById('scan-progress-box');
+            const progressBar = document.getElementById('scan-progress-bar');
+            const progressLabel = document.getElementById('scan-progress-label');
+            const progressPct = document.getElementById('scan-progress-pct');
+
+            if (progressBox) progressBox.style.display = 'block';
+            if (progressBar) progressBar.style.width = '5%';
+            if (progressLabel) progressLabel.innerHTML = '🌐 Initialisation du scan marché élargi...';
+
+            const defaultPool = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'ASML', 'TSM', 'OR.PA', 'RMS.PA', 'SAN.PA', 'AI.PA', 'ENGI.PA', 'SU.PA', 'AIR.PA'];
+
+            document.getElementById('results-table-title').textContent = `🌐 Résultats du Scan Marché Élargi (${defaultPool.length} actions)`;
+
+            const BATCH_SIZE = 6;
+            const batches = [];
+            for (let i = 0; i < defaultPool.length; i += BATCH_SIZE) {
+                batches.push(defaultPool.slice(i, i + BATCH_SIZE));
+            }
+
+            currentScanResults = [];
+            let completedCount = 0;
+            let opportunitiesCount = 0;
+
+            for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+                const batchSymbols = batches[bIdx];
+                if (progressLabel) progressLabel.innerHTML = `🌐 Analyse Marché lot ${bIdx + 1}/${batches.length} : <span style="color:#fff; font-weight:bold;">${batchSymbols.join(', ')}</span>`;
+
+                try {
+                    const batchRes = await fetch(`${API_URL}/scan/batch?symbols=${batchSymbols.join(',')}${forceRefresh ? '&force=true' : ''}`, {
+                        signal: scanAbortController.signal
+                    });
+                    if (batchRes.ok) {
+                        const batchJson = await batchRes.json();
+                        for (const r of (batchJson.results || [])) {
+                            currentScanResults.push(r);
+                            if (r.verdict && r.verdict.includes('ACHETER')) opportunitiesCount++;
+                        }
+                    }
+                } catch(e) {
+                    if (e.name === 'AbortError') return;
+                }
+
+                completedCount += batchSymbols.length;
+                const pct = Math.min(100, Math.round((completedCount / defaultPool.length) * 100));
+                if (progressBar) progressBar.style.width = `${pct}%`;
+                if (progressPct) progressPct.textContent = `${Math.min(completedCount, defaultPool.length)} / ${defaultPool.length} (${pct}%) — ${opportunitiesCount} opportunité(s)`;
+                applyFilters();
+                setScanStatus(`${Math.min(completedCount, defaultPool.length)}/${defaultPool.length} (${opportunitiesCount} 🎯)`, 'badge-warning');
+            }
+
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressLabel) progressLabel.innerHTML = `✅ Scan Marché Élargi terminé : <span style="color:#10b981;">${currentScanResults.length} actions analysées, ${opportunitiesCount} opportunité(s)</span>`;
+            setScanStatus(`Terminé (${currentScanResults.length} actions)`, 'badge-success');
+            setTimeout(() => { if (progressBox) progressBox.style.display = 'none'; }, 5000);
         }
 
         function setScanStatus(text, badgeClass) {
