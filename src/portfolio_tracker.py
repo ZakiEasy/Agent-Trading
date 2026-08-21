@@ -1263,3 +1263,132 @@ def find_anti_fifo_opportunities(scan_signals=None, live_positions=None):
 
     return opportunities
 
+def calculate_monthly_rotation_by_stock(journal=None, open_positions=None, month_prefix=None):
+    """
+    Calcule la rotation détaillée du mois en cours (par actions, montant investi/vendu,
+    et nombre de transactions achats/ventes).
+    """
+    if journal is None:
+        from src.sheets_connector import read_journal_from_sheets
+        journal = read_journal_from_sheets() or []
+        
+    if open_positions is None:
+        from src.sheets_connector import read_positions_from_sheets
+        open_positions = read_positions_from_sheets() or []
+        
+    if not month_prefix:
+        month_prefix = datetime.now().strftime("%Y-%m")
+        
+    usd_to_eur = get_usd_to_eur_rate()
+    rotation_by_symbol = {}
+
+    # 1. Traitement des trades clôturés dans le mois
+    for t in journal:
+        sym = str(t.get("symbol", "")).strip().upper()
+        if not sym:
+            continue
+        cur = t.get("currency", "EUR")
+        fx = usd_to_eur if cur == "USD" else 1.0
+        pru = safe_float(t.get("pru", 0.0))
+        exit_p = safe_float(t.get("exit_price", 0.0))
+        qty = safe_float(t.get("quantity", 0.0))
+        pnl = safe_float(t.get("pnl_amount", 0.0)) * fx
+        
+        open_t = str(t.get("open_time", "") or t.get("entry_date", ""))
+        close_t = str(t.get("close_time", "") or t.get("exit_date", ""))
+        
+        buy_in_month = open_t.startswith(month_prefix)
+        sell_in_month = close_t.startswith(month_prefix)
+        
+        if not buy_in_month and not sell_in_month:
+            continue
+            
+        if sym not in rotation_by_symbol:
+            cat = categorize_ticker(sym)
+            rotation_by_symbol[sym] = {
+                "symbol": sym,
+                "name": get_company_name(sym),
+                "category": cat.get("category", "Autres"),
+                "category_icon": cat.get("category_icon", "📦"),
+                "is_pea": cat.get("is_pea", False),
+                "account_type": cat.get("account_type", "CTO (US)"),
+                "buys_count": 0,
+                "sells_count": 0,
+                "total_transactions": 0,
+                "invested_amount_eur": 0.0,
+                "sold_amount_eur": 0.0,
+                "turnover_eur": 0.0,
+                "pnl_realized_eur": 0.0
+            }
+            
+        if buy_in_month:
+            rotation_by_symbol[sym]["buys_count"] += 1
+            rotation_by_symbol[sym]["invested_amount_eur"] += (pru * qty) * fx
+            
+        if sell_in_month:
+            rotation_by_symbol[sym]["sells_count"] += 1
+            rotation_by_symbol[sym]["sold_amount_eur"] += (exit_p * qty) * fx
+            rotation_by_symbol[sym]["pnl_realized_eur"] += pnl
+
+    # 2. Traitement des positions ouvertes dans le mois
+    for p in open_positions:
+        sym = str(p.get("symbol", "")).strip().upper()
+        if not sym:
+            continue
+        cur = p.get("currency", "EUR")
+        fx = usd_to_eur if cur == "USD" else 1.0
+        pru = safe_float(p.get("pru", 0.0))
+        qty = safe_float(p.get("quantity", 0.0))
+        entry_d = str(p.get("entry_date", "") or p.get("open_time", ""))
+        
+        if entry_d.startswith(month_prefix):
+            if sym not in rotation_by_symbol:
+                cat = categorize_ticker(sym)
+                rotation_by_symbol[sym] = {
+                    "symbol": sym,
+                    "name": get_company_name(sym),
+                    "category": cat.get("category", "Autres"),
+                    "category_icon": cat.get("category_icon", "📦"),
+                    "is_pea": cat.get("is_pea", False),
+                    "account_type": cat.get("account_type", "CTO (US)"),
+                    "buys_count": 0,
+                    "sells_count": 0,
+                    "total_transactions": 0,
+                    "invested_amount_eur": 0.0,
+                    "sold_amount_eur": 0.0,
+                    "turnover_eur": 0.0,
+                    "pnl_realized_eur": 0.0
+                }
+            rotation_by_symbol[sym]["buys_count"] += 1
+            rotation_by_symbol[sym]["invested_amount_eur"] += (pru * qty) * fx
+
+    # Agrégats globaux
+    total_purchases_eur = sum(d["invested_amount_eur"] for d in rotation_by_symbol.values())
+    total_sales_eur = sum(d["sold_amount_eur"] for d in rotation_by_symbol.values())
+    total_turnover_eur = total_purchases_eur + total_sales_eur
+    total_transactions_count = sum(d["buys_count"] + d["sells_count"] for d in rotation_by_symbol.values())
+    total_pnl_realized_eur = sum(d["pnl_realized_eur"] for d in rotation_by_symbol.values())
+
+    for sym, d in rotation_by_symbol.items():
+        d["total_transactions"] = d["buys_count"] + d["sells_count"]
+        d["turnover_eur"] = d["invested_amount_eur"] + d["sold_amount_eur"]
+        d["share_pct"] = round((d["turnover_eur"] / total_turnover_eur * 100), 1) if total_turnover_eur > 0 else 0.0
+        d["invested_amount_eur"] = round(d["invested_amount_eur"], 2)
+        d["sold_amount_eur"] = round(d["sold_amount_eur"], 2)
+        d["turnover_eur"] = round(d["turnover_eur"], 2)
+        d["pnl_realized_eur"] = round(d["pnl_realized_eur"], 2)
+
+    sorted_stocks = sorted(rotation_by_symbol.values(), key=lambda x: x["turnover_eur"], reverse=True)
+
+    return {
+        "month": month_prefix,
+        "total_turnover_eur": round(total_turnover_eur, 2),
+        "total_purchases_eur": round(total_purchases_eur, 2),
+        "total_sales_eur": round(total_sales_eur, 2),
+        "total_transactions_count": total_transactions_count,
+        "total_stocks_count": len(sorted_stocks),
+        "total_pnl_realized_eur": round(total_pnl_realized_eur, 2),
+        "stocks": sorted_stocks
+    }
+
+

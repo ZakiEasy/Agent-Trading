@@ -353,7 +353,8 @@ from src.portfolio_tracker import (
     calculate_cash_and_treasury_summary,
     calculate_portfolio_diversification,
     calculate_xtb_monthly_turnover,
-    find_anti_fifo_opportunities
+    find_anti_fifo_opportunities,
+    calculate_monthly_rotation_by_stock
 )
 from src.trading212_connector import (
     test_trading212_connection,
@@ -366,6 +367,7 @@ from src.sheets_connector import (
     close_position_in_sheets,
     batch_import_journal_to_sheets,
     read_journal_from_sheets,
+    read_positions_from_sheets,
     batch_import_positions_to_sheets,
     read_treasury_from_sheets,
     batch_import_treasury_to_sheets
@@ -430,6 +432,23 @@ def configure_trading212():
     return safe_jsonify({
         "success": test_res.get("connected", False),
         "result": test_res
+    })
+
+@app.route("/api/portfolio/monthly_rotation")
+def get_portfolio_monthly_rotation():
+    """
+    Retourne la décomposition complète de la rotation du mois (par actions, montant investi, et transactions achat/vente).
+    """
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    month_prefix = request.args.get("month", "")
+    
+    journal = read_journal_from_sheets(force_refresh=force)
+    open_pos = read_positions_from_sheets(force_refresh=force)
+    
+    rotation_data = calculate_monthly_rotation_by_stock(journal=journal, open_positions=open_pos, month_prefix=month_prefix)
+    return safe_jsonify({
+        "success": True,
+        "data": rotation_data
     })
 
 @app.route("/api/portfolio/anti_fifo_opportunities")

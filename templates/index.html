@@ -1065,27 +1065,45 @@
         <!-- ================================================================= -->
         <div id="portfolio-tab" class="tab-content">
             
-            <!-- Portfolio Top Summary KPIs -->
-            <div class="metrics-grid" style="margin-bottom: 1.5rem;">
-                <div class="metric-card">
-                    <div class="metric-title">💼 Total Capital Engagé</div>
-                    <div class="metric-value" id="port-total-invested">0.00 €</div>
-                    <div class="metric-subtitle" id="port-open-count">0 position(s) active(s)</div>
+            <!-- Portfolio Top Summary Table -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid var(--card-border);">
+                <div style="padding: 0.85rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="font-size: 0.95rem; font-weight: 700; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📊</span> Synthèse Globale du Portefeuille (Multi-Broker)
+                    </h3>
+                    <span class="badge badge-success" style="font-size: 0.75rem;">Flux Temps Réel 🟢</span>
                 </div>
-                <div class="metric-card">
-                    <div class="metric-title">📊 Valeur Actuelle du Portefeuille</div>
-                    <div class="metric-value" id="port-total-value">0.00 €</div>
-                    <div class="metric-subtitle" id="port-last-update">Synchronisé en direct</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">📈 P&L Latent Global</div>
-                    <div class="metric-value" id="port-total-pnl">0.00 €</div>
-                    <div class="metric-subtitle" id="port-total-pnl-pct">+0.00 %</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">🔔 Alertes Cibles & Risque</div>
-                    <div class="metric-value" id="port-alerts-count" style="color: #60a5fa;">0</div>
-                    <div class="metric-subtitle">TP1, TP2, Stop ou Time-Stop</div>
+                <div class="table-container" style="margin: 0; overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="background: rgba(255,255,255,0.015); border-bottom: 1px solid var(--card-border);">
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">💼 Total Capital Engagé</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📊 Valeur Actuelle du Portefeuille</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📈 P&L Latent Global</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">🔔 Alertes Cibles & Risque</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);" id="port-total-invested">0.00 €</div>
+                                    <div style="font-size: 0.8rem; color: #60a5fa; margin-top: 0.25rem;" id="port-open-count">0 position(s) active(s)</div>
+                                </td>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);" id="port-total-value">0.00 €</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="port-last-update">Synchronisé en direct</div>
+                                </td>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);" id="port-total-pnl">0.00 €</div>
+                                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--success); margin-top: 0.25rem;" id="port-total-pnl-pct">+0.00 %</div>
+                                </td>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #60a5fa;" id="port-alerts-count">0</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">TP1, TP2, Stop ou Time-Stop</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1111,6 +1129,74 @@
                 </div>
                 <div style="height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden;">
                     <div id="xtb-quota-bar" style="height: 100%; background: linear-gradient(90deg, #10b981, #3b82f6); width: 0%; transition: width 0.4s ease;"></div>
+                </div>
+            </div>
+
+            <!-- MONTHLY ROTATION BREAKDOWN CARD (ROTATION DU MOIS PAR ACTION, MONTANT ET TRANSACTIONS) -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.3rem;">🔄</span>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;" id="monthly-rot-title">
+                                Rotation du Mois en Cours : Analyse Détaillée par Action
+                            </h3>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                            Volume cumulé des flux d'achats et de ventes, nombre de transactions et rentabilité réalisée par titre.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="text" id="rot-search-input" class="filter-search" style="height: 32px; font-size: 0.8rem; width: 180px;" placeholder="🔍 Filtrer une action..." oninput="filterMonthlyRotationTable()">
+                        <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="loadMonthlyRotation(true)">
+                            🔄 Actualiser
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Rotation Summary KPI mini-grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Volume Total Négocié</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #60a5fa;" id="rot-kpi-total">-- €</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Total Achats Investis</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #10b981;" id="rot-kpi-purchases">-- €</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Total Ventes Dénouées</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #f59e0b;" id="rot-kpi-sales">-- €</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Transactions Réalisées</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #a78bfa;" id="rot-kpi-trades">0 tx</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Titres Traités</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #38bdf8;" id="rot-kpi-stocks">0 actions</div>
+                    </div>
+                </div>
+
+                <!-- Rotation Details Table -->
+                <div class="table-container" style="max-height: 420px; overflow-y: auto;">
+                    <table id="monthly-rotation-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Action & Société</th>
+                                <th>Catégorie Sectorielle</th>
+                                <th style="text-align: right;">Achats (Nb / Montant)</th>
+                                <th style="text-align: right;">Ventes (Nb / Montant)</th>
+                                <th style="text-align: center;">Total Tx</th>
+                                <th style="text-align: right;">Volume Roté (€)</th>
+                                <th style="text-align: center; width: 140px;">Part Rotation (%)</th>
+                                <th style="text-align: right;">P&L Réalisé (€)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Chargement de la rotation mensuelle...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -2215,6 +2301,7 @@
         // FRONTEND CACHE (Instant 0ms tab switching + background revalidation)
         const FRONTEND_CACHE = {
             portfolio: { data: null, ts: 0, ttl: 120000 },       // 2 min
+            monthlyRotation: { data: null, ts: 0, ttl: 300000 }, // 5 min
             diversification: { data: null, ts: 0, ttl: 300000 }, // 5 min
             treasury: { data: null, ts: 0, ttl: 600000 },        // 10 min
             journal: { data: null, ts: 0, ttl: 600000 },         // 10 min
@@ -2230,6 +2317,7 @@
             // Preload all tabs in background for instant switching
             setTimeout(() => {
                 loadLivePortfolio(false);
+                loadMonthlyRotation(false);
                 loadDiversificationData(false);
                 loadJournalHistory(false);
             }, 250);
@@ -2634,6 +2722,128 @@
         }
 
         // ---------------------------------------------------------------------
+        // MONTHLY ROTATION ENGINE (ROTATION DU MOIS EN COURS)
+        // ---------------------------------------------------------------------
+        let allMonthlyRotationStocks = [];
+
+        async function loadMonthlyRotation(force = false) {
+            const tbody = document.querySelector('#monthly-rotation-table tbody');
+            const now = Date.now();
+            if (!force && FRONTEND_CACHE.monthlyRotation.data && (now - FRONTEND_CACHE.monthlyRotation.ts < FRONTEND_CACHE.monthlyRotation.ttl)) {
+                renderMonthlyRotationData(FRONTEND_CACHE.monthlyRotation.data);
+                return;
+            }
+
+            try {
+                const url = force ? `${API_URL}/portfolio/monthly_rotation?force=true` : `${API_URL}/portfolio/monthly_rotation`;
+                const res = await fetch(url);
+                const payload = await res.json();
+                if (!payload.success || !payload.data) return;
+
+                FRONTEND_CACHE.monthlyRotation = { data: payload.data, ts: Date.now(), ttl: 300000 };
+                renderMonthlyRotationData(payload.data);
+            } catch (e) {
+                console.error("Erreur chargement rotation mensuelle:", e);
+                if (tbody && !FRONTEND_CACHE.monthlyRotation.data) {
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--danger);">Erreur de chargement de la rotation mensuelle.</td></tr>`;
+                }
+            }
+        }
+
+        function renderMonthlyRotationData(d) {
+            allMonthlyRotationStocks = d.stocks || [];
+
+            // Update KPIs
+            const totalElem = document.getElementById('rot-kpi-total');
+            if (totalElem) totalElem.textContent = `${(Number(d.total_turnover_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const purchasesElem = document.getElementById('rot-kpi-purchases');
+            if (purchasesElem) purchasesElem.textContent = `${(Number(d.total_purchases_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const salesElem = document.getElementById('rot-kpi-sales');
+            if (salesElem) salesElem.textContent = `${(Number(d.total_sales_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const tradesElem = document.getElementById('rot-kpi-trades');
+            if (tradesElem) tradesElem.textContent = `${d.total_transactions_count || 0} tx`;
+
+            const stocksElem = document.getElementById('rot-kpi-stocks');
+            if (stocksElem) stocksElem.textContent = `${d.total_stocks_count || 0} action(s)`;
+
+            const titleElem = document.getElementById('monthly-rot-title');
+            if (titleElem && d.month) {
+                titleElem.textContent = `Rotation du Mois (${d.month}) : Analyse Détaillée par Action`;
+            }
+
+            filterMonthlyRotationTable();
+        }
+
+        function filterMonthlyRotationTable() {
+            const rawQuery = (document.getElementById('rot-search-input')?.value || '').toLowerCase().trim();
+            const normalizeStr = (str) => (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const query = normalizeStr(rawQuery);
+            const tbody = document.querySelector('#monthly-rotation-table tbody');
+            if (!tbody) return;
+
+            const filtered = allMonthlyRotationStocks.filter(s => {
+                if (!query) return true;
+                return normalizeStr(s.symbol).includes(query) ||
+                       normalizeStr(s.name).includes(query) ||
+                       normalizeStr(s.category).includes(query);
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Aucune rotation trouvée pour ce critère.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(s => {
+                const pnlClass = s.pnl_realized_eur > 0 ? 'text-success' : s.pnl_realized_eur < 0 ? 'text-danger' : 'text-muted';
+                const pnlSign = s.pnl_realized_eur > 0 ? '+' : '';
+                const pnlStr = `${pnlSign}${s.pnl_realized_eur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <td style="padding: 0.75rem 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <strong style="color: #60a5fa; font-size: 0.95rem;">${s.symbol}</strong>
+                                ${s.is_pea ? '<span class="badge badge-pea" style="font-size:0.65rem; padding:0.15rem 0.4rem;">PEA</span>' : '<span class="badge badge-cto" style="font-size:0.65rem; padding:0.15rem 0.4rem;">CTO</span>'}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${s.name}</div>
+                        </td>
+                        <td style="padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                            <span>${s.category_icon || '📦'} ${s.category}</span>
+                        </td>
+                        <td style="padding: 0.75rem 1rem; text-align: right;">
+                            <div style="font-weight: 700; color: #10b981;">${s.invested_amount_eur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${s.buys_count} achat(s)</div>
+                        </td>
+                        <td style="padding: 0.75rem 1rem; text-align: right;">
+                            <div style="font-weight: 700; color: #f59e0b;">${s.sold_amount_eur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${s.sells_count} vente(s)</div>
+                        </td>
+                        <td style="padding: 0.75rem 1rem; text-align: center;">
+                            <span class="badge badge-neutral" style="font-weight: 700;">${s.total_transactions}</span>
+                        </td>
+                        <td style="padding: 0.75rem 1rem; text-align: right;">
+                            <strong style="font-size: 0.95rem; color: #60a5fa;">${s.turnover_eur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong>
+                        </td>
+                        <td style="padding: 0.75rem 1rem; text-align: center;">
+                            <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 0.2rem;">${s.share_pct}%</div>
+                            <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+                                <div style="width: ${Math.min(100, s.share_pct * 3)}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
+                            </div>
+                        </td>
+                        <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 700;">
+                            <span style="color: ${s.pnl_realized_eur >= 0 ? 'var(--success)' : 'var(--danger)'};">${pnlStr}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ---------------------------------------------------------------------
         // TRADING 212 API CONFIG MODAL
         // ---------------------------------------------------------------------
         function openTrading212ConfigModal() {
@@ -3032,9 +3242,10 @@
                 FRONTEND_CACHE.portfolio = { data: d, ts: Date.now(), ttl: 120000 };
                 renderLivePortfolioData(d);
 
-                // Actualiser le quota XTB et les opportunités Anti-FIFO
+                // Actualiser le quota XTB, opportunités Anti-FIFO et la rotation mensuelle
                 loadXtbQuota(force);
                 loadAntiFifoOpportunities(force);
+                loadMonthlyRotation(force);
             } catch (e) {
                 console.error("Erreur live portfolio:", e);
                 if (tbody && !FRONTEND_CACHE.portfolio.data) {
