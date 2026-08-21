@@ -102,12 +102,19 @@ def fetch_live_quote_for_position(pos):
     if math.isnan(day_change_pct) or math.isinf(day_change_pct):
         day_change_pct = 0.0
 
-    # Calcul P&L
+    # Calcul P&L en devise native
     pnl_unit = current_price - pru
     pnl_amount = pnl_unit * qty
     pnl_pct = (pnl_unit / pru * 100) if pru > 0 else 0.0
     invested_amount = pru * qty
     current_value = current_price * qty
+
+    # Conversion en EUR rigoureuse pour consolidation globale
+    usd_to_eur = safe_float(get_usd_to_eur_rate(), 0.8545)
+    rate = usd_to_eur if currency == "USD" else 1.0
+    invested_amount_eur = invested_amount * rate
+    current_value_eur = current_value * rate
+    pnl_amount_eur = pnl_amount * rate
 
     # Distances aux cibles
     dist_to_sl_pct = ((current_price - sl) / current_price * 100) if current_price > 0 else 0.0
@@ -159,6 +166,9 @@ def fetch_live_quote_for_position(pos):
         "invested_amount": round(safe_float(invested_amount), 2),
         "current_price": round(safe_float(current_price), 2),
         "current_value": round(safe_float(current_value), 2),
+        "invested_amount_eur": round(safe_float(invested_amount_eur), 2),
+        "current_value_eur": round(safe_float(current_value_eur), 2),
+        "pnl_amount_eur": round(safe_float(pnl_amount_eur), 2),
         "day_change_pct": round(safe_float(day_change_pct), 2),
         "pnl_amount": round(safe_float(pnl_amount), 2),
         "pnl_pct": round(safe_float(pnl_pct), 2),
@@ -223,10 +233,10 @@ def get_live_portfolio_summary(force_refresh=False):
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         positions_live = list(executor.map(fetch_live_quote_for_position, all_raw_positions))
 
-    total_invested = sum(safe_float(p.get("invested_amount", 0.0)) for p in positions_live)
-    total_value = sum(safe_float(p.get("current_value", 0.0)) for p in positions_live)
-    total_pnl = total_value - total_invested
-    total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
+    total_invested_eur = sum(safe_float(p.get("invested_amount_eur", p.get("invested_amount", 0.0))) for p in positions_live)
+    total_value_eur = sum(safe_float(p.get("current_value_eur", p.get("current_value", 0.0))) for p in positions_live)
+    total_pnl_eur = total_value_eur - total_invested_eur
+    total_pnl_pct = (total_pnl_eur / total_invested_eur * 100) if total_invested_eur > 0 else 0.0
     alerts_count = sum(1 for p in positions_live if p.get("status_badge") in ["tp1_reached", "tp2_reached", "sl_danger", "time_warning"])
 
     brokers_summary = {
@@ -238,9 +248,9 @@ def get_live_portfolio_summary(force_refresh=False):
         if b not in brokers_summary:
             brokers_summary[b] = {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0}
         brokers_summary[b]["count"] += 1
-        brokers_summary[b]["invested"] += safe_float(p.get("invested_amount", 0.0))
-        brokers_summary[b]["value"] += safe_float(p.get("current_value", 0.0))
-        brokers_summary[b]["pnl"] += safe_float(p.get("pnl_amount", 0.0))
+        brokers_summary[b]["invested"] += safe_float(p.get("invested_amount_eur", 0.0))
+        brokers_summary[b]["value"] += safe_float(p.get("current_value_eur", 0.0))
+        brokers_summary[b]["pnl"] += safe_float(p.get("pnl_amount_eur", 0.0))
 
     for b in brokers_summary:
         brokers_summary[b]["invested"] = round(safe_float(brokers_summary[b]["invested"]), 2)
@@ -248,9 +258,9 @@ def get_live_portfolio_summary(force_refresh=False):
         brokers_summary[b]["pnl"] = round(safe_float(brokers_summary[b]["pnl"]), 2)
 
     res = {
-        "total_invested": round(safe_float(total_invested), 2),
-        "total_current_value": round(safe_float(total_value), 2),
-        "total_pnl_amount": round(safe_float(total_pnl), 2),
+        "total_invested": round(safe_float(total_invested_eur), 2),
+        "total_current_value": round(safe_float(total_value_eur), 2),
+        "total_pnl_amount": round(safe_float(total_pnl_eur), 2),
         "total_pnl_pct": round(safe_float(total_pnl_pct), 2),
         "open_positions_count": len(positions_live),
         "alerts_count": int(alerts_count),

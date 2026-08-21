@@ -3451,7 +3451,7 @@
                     </td>
                     <td>
                         <strong>${pru.toFixed(2)} ${symChar}</strong><br>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">${qty} actions (${invAmt.toFixed(2)} ${symChar})</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">${qty} actions (${invAmt.toFixed(2)} ${symChar}${symChar === '$' ? ` / ${(p.invested_amount_eur || (invAmt * 0.8545)).toFixed(2)} €` : ''})</span>
                     </td>
                     <td>
                         <strong style="font-size: 0.95rem;">${cur.toFixed(2)} ${symChar}</strong><br>
@@ -3459,7 +3459,7 @@
                     </td>
                     <td>
                         <strong style="color:${pnlColor}; font-size: 0.95rem;">${isProfit ? '+' : ''}${pnlAmt.toFixed(2)} ${symChar}</strong><br>
-                        <span style="color:${pnlColor}; font-size:0.75rem; font-weight:600;">${isProfit ? '+' : ''}${pnlPct.toFixed(2)}%</span>
+                        <span style="color:${pnlColor}; font-size:0.75rem; font-weight:600;">${isProfit ? '+' : ''}${pnlPct.toFixed(2)}%${symChar === '$' ? ` (${isProfit ? '+' : ''}${(p.pnl_amount_eur || (pnlAmt * 0.8545)).toFixed(2)} €)` : ''}</span>
                     </td>
                     <td>
                         <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
