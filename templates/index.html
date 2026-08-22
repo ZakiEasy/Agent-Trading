@@ -1850,21 +1850,42 @@
 
                 <!-- Paramètres du Backtest -->
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label style="font-size: 0.75rem;">Période ou Crise Historique</label>
-                            <select id="bt-period">
-                                <option value="1y">1 An (Court terme)</option>
-                                <option value="2y" selected>2 Ans (Standard)</option>
-                                <option value="5y">5 Ans (Moyen terme)</option>
-                                <option value="10y">10 Ans (Long terme)</option>
-                                <option value="all_cycles">🌐 Cycle Complet 27 Ans (1999-2026)</option>
-                                <optgroup label="🌪️ Stress-Tests Crises Historiques">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: #60a5fa;">🎯 Stratégie à Backtester</label>
+                            <select id="bt-strategy" style="color: #60a5fa; font-weight: 700;">
+                                <option value="v3_institutional" selected>🏛️ V3 Institutionnel (Confluence 3 Moteurs + R-Max)</option>
+                                <option value="v2_standard">📈 V2 Standard (Mean Reversion)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem;">Période Historique (1999 - 2026)</label>
+                            <select id="bt-period" onchange="onBacktestPeriodChange()">
+                                <option value="all_cycles" selected>🌐 Cycle Complet 27 Ans (1999 - 2026)</option>
+                                <optgroup label="🌪️ Stress-Tests Grandes Crises">
                                     <option value="crisis_2000">💥 Krach Dot-Com / Bulle Internet (1999-2003)</option>
-                                    <option value="crisis_2008">🏦 Crise Subprimes & GFC (2007-2009)</option>
+                                    <option value="crisis_2008">🏦 Grande Crise Financière & Subprimes (2007-2009)</option>
                                     <option value="crisis_2020">🦠 Krach Éclair Covid-19 (2020)</option>
                                     <option value="crisis_2022">📉 Bear Market Inflation & Taux (2022)</option>
                                 </optgroup>
+                                <optgroup label="🐂 Cycles Économiques Clés (1999-2026)">
+                                    <option value="cycle_2003_2007">🐂 Super-Cycle Matières Premières & Crédit (2003-2007)</option>
+                                    <option value="cycle_2010_2015">🇪🇺 Crise Dette Euro & Reprise QE (2010-2015)</option>
+                                    <option value="cycle_2015_2019">🌐 Guerre Commerciale US-Chine & Volatilité (2015-2019)</option>
+                                    <option value="cycle_2023_2026">🤖 Boom Intelligence Artificielle & Nouveaux Sommets (2023-2026)</option>
+                                </optgroup>
+                                <optgroup label="📅 Grandes Décennies">
+                                    <option value="decade_2000s">📅 Décennie 2000-2009 : Les 2 Grands Krachs</option>
+                                    <option value="decade_2010s">📅 Décennie 2010-2019 : Le Grand Marché Haussier</option>
+                                    <option value="decade_2020s">📅 Décennie 2020-2026 : Hyper-Volatilité, Covid & IA</option>
+                                </optgroup>
+                                <optgroup label="⏱️ Périodes Récentes">
+                                    <option value="1y">1 An (Court terme)</option>
+                                    <option value="2y">2 Ans (Standard)</option>
+                                    <option value="5y">5 Ans (Moyen terme)</option>
+                                    <option value="10y">10 Ans (Long terme)</option>
+                                </optgroup>
+                                <option value="custom">🛠️ Période Personnalisée (Du / Au)...</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
@@ -1891,9 +1912,22 @@
                             </select>
                         </div>
                     </div>
-                    <div style="margin-top: 0.75rem; display: flex; justify-content: flex-end;">
+
+                    <!-- Ligne optionnelle pour Période Personnalisée -->
+                    <div id="bt-custom-dates-row" style="display: none; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.05); grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem; color: #60a5fa;">📅 Date de Début (Min: 1999-01-01)</label>
+                            <input type="date" id="bt-start-date" value="1999-01-01" min="1999-01-01" max="2026-08-20">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.75rem; color: #60a5fa;">📅 Date de Fin (Max: 2026-08-20)</label>
+                            <input type="date" id="bt-end-date" value="2026-08-20" min="1999-01-01" max="2026-08-20">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 0.75rem; display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap;">
                         <button class="btn btn-secondary" onclick="runAllCrisesBenchmark()" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
-                            <span>⚡ Lancer le Benchmark Comparatif Multi-Crises</span>
+                            <span>⚡ Lancer le Benchmark Comparatif Multi-Périodes (1999 - 2026)</span>
                         </button>
                     </div>
                 </div>
@@ -4929,16 +4963,31 @@
         }
 
         // ---------------------------------------------------------------------
-        // HISTORICAL BACKTEST LOGIC
+        // HISTORICAL BACKTEST LOGIC (1999 - 2026 & MULTI-STRATEGY)
         // ---------------------------------------------------------------------
         let currentBacktestData = null;
+
+        function onBacktestPeriodChange() {
+            const periodSelect = document.getElementById('bt-period');
+            const customDatesRow = document.getElementById('bt-custom-dates-row');
+            if (!periodSelect || !customDatesRow) return;
+            if (periodSelect.value === 'custom') {
+                customDatesRow.style.display = 'grid';
+            } else {
+                customDatesRow.style.display = 'none';
+            }
+        }
 
         async function runHistoricalBacktest() {
             const btn = document.getElementById('btn-run-backtest');
             const loading = document.getElementById('bt-loading');
             const resultsContainer = document.getElementById('bt-results-container');
 
+            const strategy = document.getElementById('bt-strategy') ? document.getElementById('bt-strategy').value : 'v3_institutional';
             const period = document.getElementById('bt-period').value;
+            const isCustom = period === 'custom';
+            const startDate = isCustom ? (document.getElementById('bt-start-date').value || '1999-01-01') : null;
+            const endDate = isCustom ? (document.getElementById('bt-end-date').value || '2026-08-20') : null;
             const capital = parseFloat(document.getElementById('bt-capital').value) || 5000;
             const tp1 = parseFloat(document.getElementById('bt-tp1').value) || 1.25;
             const tp2 = parseFloat(document.getElementById('bt-tp2').value) || 2.25;
@@ -4955,7 +5004,10 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        strategy: strategy,
                         period: period,
+                        start_date: startDate,
+                        end_date: endDate,
                         capital: capital,
                         tp1_pct: tp1,
                         tp2_pct: tp2,
@@ -5048,44 +5100,56 @@
 
             const pathD = curve.map((c, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getY(c.total_equity).toFixed(1)}`).join(' ');
 
-            // Baseline (Capital initial)
-            const initialVal = curve[0].total_equity;
-            const initialY = getY(initialVal);
+            const isProfitable = curve[curve.length - 1].total_equity >= curve[0].total_equity;
+            const lineColor = isProfitable ? '#10b981' : '#ef4444';
+            const areaColor = isProfitable ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
 
-            // Date labels
-            const dStart = curve[0].date;
-            const dMid = curve[Math.floor(len / 2)].date;
-            const dEnd = curve[len - 1].date;
+            const areaD = `${pathD} L ${getX(len - 1)} ${h - pad} L ${getX(0)} ${h - pad} Z`;
+
+            // Draw Y-axis labels
+            const yMinLabel = minVal.toFixed(0);
+            const yMaxLabel = maxVal.toFixed(0);
+            const yMidLabel = ((minVal + maxVal) / 2).toFixed(0);
 
             container.innerHTML = `
-                <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" style="overflow: visible;">
-                    <!-- Ligne de référence capital initial -->
-                    <line x1="${pad}" y1="${initialY}" x2="${w-pad}" y2="${initialY}" stroke="rgba(255,255,255,0.15)" stroke-dasharray="3" />
-                    <text x="${w-pad+5}" y="${initialY+3}" fill="rgba(255,255,255,0.4)" font-size="10">Init: ${Math.round(initialVal)}€</text>
-
-                    <!-- Ligne max / min -->
-                    <text x="${pad-5}" y="${getY(maxVal)+10}" fill="rgba(255,255,255,0.3)" font-size="10" text-anchor="end">${Math.round(maxVal)}€</text>
-                    <text x="${pad-5}" y="${getY(minVal)}" fill="rgba(255,255,255,0.3)" font-size="10" text-anchor="end">${Math.round(minVal)}€</text>
-
-                    <!-- Courbe d'Equity -->
-                    <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="2.5" />
-
-                    <!-- Axe horizontal & Dates -->
+                <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}">
+                    <defs>
+                        <linearGradient id="eq-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.35" />
+                            <stop offset="100%" stop-color="${lineColor}" stop-opacity="0.0" />
+                        </linearGradient>
+                    </defs>
+                    <!-- Background Grid -->
+                    <line x1="${pad}" y1="${getY(maxVal)}" x2="${w-pad}" y2="${getY(maxVal)}" stroke="rgba(255,255,255,0.05)" />
+                    <line x1="${pad}" y1="${getY((minVal+maxVal)/2)}" x2="${w-pad}" y2="${getY((minVal+maxVal)/2)}" stroke="rgba(255,255,255,0.05)" />
                     <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="rgba(255,255,255,0.1)" />
-                    <text x="${pad}" y="${h-12}" fill="rgba(255,255,255,0.4)" font-size="10">${dStart}</text>
-                    <text x="${w/2}" y="${h-12}" fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="middle">${dMid}</text>
-                    <text x="${w-pad}" y="${h-12}" fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="end">${dEnd}</text>
+
+                    <!-- Y-Axis Labels -->
+                    <text x="${pad-8}" y="${getY(maxVal)+4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${yMaxLabel}€</text>
+                    <text x="${pad-8}" y="${getY((minVal+maxVal)/2)+4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${yMidLabel}€</text>
+                    <text x="${pad-8}" y="${h-pad+4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${yMinLabel}€</text>
+
+                    <!-- Area & Line -->
+                    <path d="${areaD}" fill="url(#eq-grad)" />
+                    <path d="${pathD}" fill="none" stroke="${lineColor}" stroke-width="2.5" />
+
+                    <!-- X Dates -->
+                    <text x="${pad}" y="${h-15}" fill="var(--text-muted)" font-size="10">${curve[0].date}</text>
+                    <text x="${w-pad}" y="${h-15}" fill="var(--text-muted)" font-size="10" text-anchor="end">${curve[len-1].date}</text>
                 </svg>
             `;
         }
 
         function renderBacktestTradesTable(trades) {
             const tbody = document.querySelector('#bt-trades-table tbody');
+            const countEl = document.getElementById('bt-trades-count-badge');
             if (!tbody) return;
-            tbody.innerHTML = '';
 
-            if (!trades || trades.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Aucun trade enregistré dans cette simulation.</td></tr>`;
+            tbody.innerHTML = '';
+            if (countEl) countEl.textContent = `${trades.length} trade(s)`;
+
+            if (trades.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 2rem; color: var(--text-muted);">Aucun trade exécuté sur cette période avec les paramètres actuels.</td></tr>`;
                 return;
             }
 
@@ -5122,6 +5186,7 @@
         async function runAllCrisesBenchmark() {
             const loading = document.getElementById('bt-loading');
             const crisesContainer = document.getElementById('bt-crises-benchmark-container');
+            const strategy = document.getElementById('bt-strategy') ? document.getElementById('bt-strategy').value : 'v3_institutional';
             const capital = parseFloat(document.getElementById('bt-capital').value) || 5000;
             const tp1 = parseFloat(document.getElementById('bt-tp1').value) || 1.25;
             const tp2 = parseFloat(document.getElementById('bt-tp2').value) || 2.25;
@@ -5135,6 +5200,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        strategy: strategy,
                         capital: capital,
                         tp1_pct: tp1,
                         tp2_pct: tp2,
@@ -5169,6 +5235,9 @@
                 tr.style.cursor = 'pointer';
                 tr.onclick = () => {
                     document.getElementById('bt-period').value = k;
+                    if (document.getElementById('bt-custom-dates-row')) {
+                        document.getElementById('bt-custom-dates-row').style.display = 'none';
+                    }
                     runHistoricalBacktest();
                 };
 
@@ -5186,7 +5255,11 @@
                 }
 
                 tr.innerHTML = `
-                    <td><strong>${c.name}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${c.description}</span></td>
+                    <td>
+                        <strong>${c.name}</strong>
+                        ${c.category ? `<span class="badge badge-neutral" style="margin-left: 0.4rem; font-size: 0.68rem;">${c.category}</span>` : ''}
+                        <br><span style="font-size:0.75rem; color:var(--text-muted);">${c.description}</span>
+                    </td>
                     <td style="white-space: nowrap;">${c.start} → ${c.end}</td>
                     <td><strong>${c.final_capital.toFixed(2)} €</strong></td>
                     <td style="color: ${pnlColor}; font-weight: 700;">${isPos ? '+' : ''}${c.net_pnl.toFixed(2)} € (${isPos ? '+' : ''}${c.return_pct.toFixed(2)} %)</td>

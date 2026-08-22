@@ -1080,6 +1080,17 @@ def get_v3_scanner_institutional():
     res = scan_watchlist_institutional(capital_total=capital)
     return safe_jsonify(res)
 
+@app.route("/api/backtest/periods")
+def get_backtest_periods_endpoint():
+    """
+    Retourne l'ensemble des périodes historiques prédéfinies (1999-2026) pour le sélecteur d'interface.
+    """
+    from src.backtest_engine import HISTORICAL_PERIODS_1999_2026
+    return safe_jsonify({
+        "success": True,
+        "periods": HISTORICAL_PERIODS_1999_2026
+    })
+
 @app.route("/api/backtest/run", methods=["GET", "POST"])
 def backtest_run_endpoint():
     """
@@ -1098,6 +1109,7 @@ def backtest_run_endpoint():
     tp2_pct = float(data.get("tp2_pct", 2.25))
     max_holding_days = int(data.get("max_holding_days", 10))
     universe_type = str(data.get("universe", "all"))
+    strategy = str(data.get("strategy", "v3_institutional"))
 
     if universe_type == "watchlist":
         symbols = DEFAULT_WATCHLIST
@@ -1112,7 +1124,8 @@ def backtest_run_endpoint():
         initial_capital=capital,
         tp1_pct=tp1_pct,
         tp2_pct=tp2_pct,
-        max_holding_days=max_holding_days
+        max_holding_days=max_holding_days,
+        strategy=strategy
     )
     results = engine.run_simulation()
     return safe_jsonify(results)
@@ -1120,7 +1133,7 @@ def backtest_run_endpoint():
 @app.route("/api/backtest/crises", methods=["GET", "POST"])
 def backtest_crises_endpoint():
     """
-    Exécute le stress-test comparatif sur toutes les grandes crises (1999, 2008, 2020, 2022 et 27 ans).
+    Exécute le stress-test comparatif sur toutes les périodes historiques (1999 à 2026).
     """
     if request.method == "POST":
         data = request.json or {}
@@ -1131,12 +1144,14 @@ def backtest_crises_endpoint():
     tp1_pct = float(data.get("tp1_pct", 1.25))
     tp2_pct = float(data.get("tp2_pct", 2.25))
     max_holding_days = int(data.get("max_holding_days", 10))
+    strategy = str(data.get("strategy", "v3_institutional"))
 
     results = run_all_crises_stress_test(
         initial_capital=capital,
         tp1_pct=tp1_pct,
         tp2_pct=tp2_pct,
-        max_holding_days=max_holding_days
+        max_holding_days=max_holding_days,
+        strategy=strategy
     )
     return safe_jsonify({"success": True, "crises": results})
 

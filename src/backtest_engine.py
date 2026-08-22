@@ -41,19 +41,22 @@ from src.sharia_screen import screen_ticker
 DATA_CACHE_DIR = Path(__file__).resolve().parent.parent / "data_cache"
 DATA_CACHE_DIR.mkdir(exist_ok=True)
 
-CRISIS_PERIODS = {
+HISTORICAL_PERIODS_1999_2026 = {
+    # 1. Stress-Tests Grandes Crises & Krachs
     "crisis_2000": {
         "id": "crisis_2000",
-        "name": "💥 Krach Dot-Com / Bulle Internet (1999-2003)",
+        "name": "💥 Krach Dot-Com & Déflation Tech (1999-2003)",
         "start": "1999-01-01",
         "end": "2003-12-31",
-        "description": "Éclatement de la bulle spéculative tech (-80% Nasdaq, -50% S&P 500)"
+        "category": "Grandes Crises",
+        "description": "Éclatement de la bulle spéculative internet (-80% Nasdaq, -50% S&P 500)"
     },
     "crisis_2008": {
         "id": "crisis_2008",
-        "name": "🏦 Crise des Subprimes & GFC (2007-2009)",
+        "name": "🏦 Grande Crise Financière (GFC) & Subprimes (2007-2009)",
         "start": "2007-06-01",
         "end": "2009-12-31",
+        "category": "Grandes Crises",
         "description": "Faillite de Lehman Brothers et récession bancaire mondiale (-55% S&P 500, VIX > 80)"
     },
     "crisis_2020": {
@@ -61,31 +64,98 @@ CRISIS_PERIODS = {
         "name": "🦠 Krach Éclair Covid-19 (2020)",
         "start": "2020-01-01",
         "end": "2020-12-31",
+        "category": "Grandes Crises",
         "description": "Choc pandémique et confinements mondiaux (-35% en 1 mois, VIX > 80)"
     },
     "crisis_2022": {
         "id": "crisis_2022",
-        "name": "📉 Bear Market Inflation & Taux (2022)",
+        "name": "📉 Bear Market Inflation & Choc de Taux (2022)",
         "start": "2021-11-01",
         "end": "2022-12-31",
+        "category": "Grandes Crises",
         "description": "Resserrement monétaire historique des banques centrales (-35% Nasdaq, -20% S&P 500)"
     },
+
+    # 2. Cycles Macroéconomiques Clés
+    "cycle_2003_2007": {
+        "id": "cycle_2003_2007",
+        "name": "🐂 Super-Cycle Matières Premières & Crédit (2003-2007)",
+        "start": "2003-01-01",
+        "end": "2007-06-01",
+        "category": "Cycles Macro",
+        "description": "Croissance mondiale synchronisée, boom des émergents et de l'immobilier"
+    },
+    "cycle_2010_2015": {
+        "id": "cycle_2010_2015",
+        "name": "🇪🇺 Crise Dette Euro & Reprise Quantitative Easing (2010-2015)",
+        "start": "2010-01-01",
+        "end": "2015-12-31",
+        "category": "Cycles Macro",
+        "description": "Tensions sur les dettes souveraines européennes et politiques accommodantes Fed/BCE"
+    },
+    "cycle_2015_2019": {
+        "id": "cycle_2015_2019",
+        "name": "🌐 Guerre Commerciale US-Chine & Volatilité (2015-2019)",
+        "start": "2015-01-01",
+        "end": "2019-12-31",
+        "category": "Cycles Macro",
+        "description": "Choc déflationniste chinois (2015), tensions douanières et baisse des taux"
+    },
+    "cycle_2023_2026": {
+        "id": "cycle_2023_2026",
+        "name": "🤖 Boom Intelligence Artificielle & Nouveaux Sommets (2023-2026)",
+        "start": "2023-01-01",
+        "end": "2026-08-20",
+        "category": "Cycles Macro",
+        "description": "Rallye technologique mondial porté par l'IA générative et les semi-conducteurs"
+    },
+
+    # 3. Grandes Décennies
+    "decade_2000s": {
+        "id": "decade_2000s",
+        "name": "📅 Décennie 2000-2009 : Les 2 Grands Krachs (Dot-Com + GFC)",
+        "start": "1999-01-01",
+        "end": "2009-12-31",
+        "category": "Décennies",
+        "description": "10 ans de forte turbulence boursière et de dégonflement d'actifs"
+    },
+    "decade_2010s": {
+        "id": "decade_2010s",
+        "name": "📅 Décennie 2010-2019 : Le Grand Marché Haussier Post-Crise",
+        "start": "2010-01-01",
+        "end": "2019-12-31",
+        "category": "Décennies",
+        "description": "10 ans de hausse ininterrompue des actions sous régime de taux zéro"
+    },
+    "decade_2020s": {
+        "id": "decade_2020s",
+        "name": "📅 Décennie 2020-2026 : Hyper-Volatilité, Covid & Révolution IA",
+        "start": "2020-01-01",
+        "end": "2026-08-20",
+        "category": "Décennies",
+        "description": "Cycles macro express : Pandémie, choc inflationniste et essor de l'IA"
+    },
+
+    # 4. Cycle Global Exhaustif
     "all_cycles": {
         "id": "all_cycles",
         "name": "🌐 Cycle Complet Multi-Décennies (1999-2026 / 27 ans)",
         "start": "1999-01-01",
         "end": "2026-08-20",
+        "category": "Cycle Global",
         "description": "Test exhaustif sur 27 ans incluant 4 krachs majeurs et 4 grands marchés haussiers"
     }
 }
 
+CRISIS_PERIODS = HISTORICAL_PERIODS_1999_2026
+
 class BacktestEngine:
     """
-    Moteur de Backtest Walk-Forward pour la stratégie de Swing Trading Mean Reversion (Protocole 8 étapes).
-    Supporte les stress-tests sur les grandes crises historiques (1999, 2008, 2020, 2022).
+    Moteur de Backtest Walk-Forward pour la stratégie de Swing Trading (V2 Standard & V3 Institutionnelle).
+    Supporte l'analyse multi-décennies (1999 à 2026) et les stress-tests sur toutes les crises historiques.
     """
 
-    def __init__(self, symbols=None, period="2y", start_date=None, end_date=None, initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.25, max_holding_days=10):
+    def __init__(self, symbols=None, period="2y", start_date=None, end_date=None, initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.25, max_holding_days=10, strategy="v3_institutional"):
         self.symbols = symbols or list(set(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL))
         self.period = period
         self.start_date = start_date
@@ -94,18 +164,19 @@ class BacktestEngine:
         self.tp1_pct = float(tp1_pct)
         self.tp2_pct = float(tp2_pct)
         self.max_holding_days = int(max_holding_days)
+        self.strategy = strategy or "v3_institutional"
         self.historical_data = {}
         self.macro_data = {}
         self.sector_etf_data = {}
         self.macro_daily_regime = {}
 
-        # Résolution des périodes de crise prédéfinies
-        if self.period in CRISIS_PERIODS:
-            c_info = CRISIS_PERIODS[self.period]
+        # Résolution des périodes historiques prédéfinies
+        if self.period in HISTORICAL_PERIODS_1999_2026:
+            c_info = HISTORICAL_PERIODS_1999_2026[self.period]
             self.start_date = c_info['start']
             self.end_date = c_info['end']
             self.fetch_period = "max"
-        elif self.period in ["max", "5y", "10y", "20y", "25y"]:
+        elif self.period in ["max", "5y", "10y", "20y", "25y", "all_cycles"]:
             self.fetch_period = "max"
         else:
             self.fetch_period = self.period
@@ -839,21 +910,22 @@ class BacktestEngine:
             "recommendations": recommendations
         }
 
-def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.25, max_holding_days=10):
+def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.25, max_holding_days=10, strategy="v3_institutional"):
     """
-    Exécute automatiquement le stress-test sur les 4 grandes crises historiques et sur le cycle complet multi-décennies.
+    Exécute automatiquement le stress-test sur toutes les périodes historiques (1999 à 2026) :
+    Grandes crises, cycles macro, grandes décennies et cycle complet 27 ans.
     """
     print("\n" + "="*80)
     print("🌪️  STRESS-TEST MULTI-CRISES & GRANDES DÉCENNIES (1999 - 2026)")
     print("="*80)
 
     # Pré-téléchargement global
-    base_engine = BacktestEngine(period="max", initial_capital=initial_capital, tp1_pct=tp1_pct, tp2_pct=tp2_pct, max_holding_days=max_holding_days)
+    base_engine = BacktestEngine(period="max", initial_capital=initial_capital, tp1_pct=tp1_pct, tp2_pct=tp2_pct, max_holding_days=max_holding_days, strategy=strategy)
     base_engine.fetch_historical_universe()
 
     results_by_crisis = {}
 
-    for c_key, c_info in CRISIS_PERIODS.items():
+    for c_key, c_info in HISTORICAL_PERIODS_1999_2026.items():
         print(f"\n▶️ Test en cours : {c_info['name']} ({c_info['start']} -> {c_info['end']})...")
         engine = BacktestEngine(
             symbols=base_engine.symbols,
@@ -863,7 +935,8 @@ def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.2
             initial_capital=initial_capital,
             tp1_pct=tp1_pct,
             tp2_pct=tp2_pct,
-            max_holding_days=max_holding_days
+            max_holding_days=max_holding_days,
+            strategy=strategy
         )
         # Partager les données historiques déjà en mémoire
         engine.historical_data = base_engine.historical_data
@@ -875,6 +948,7 @@ def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.2
         m = res.get('metrics', {})
         results_by_crisis[c_key] = {
             "name": c_info['name'],
+            "category": c_info.get('category', 'Général'),
             "description": c_info['description'],
             "start": c_info['start'],
             "end": c_info['end'],
