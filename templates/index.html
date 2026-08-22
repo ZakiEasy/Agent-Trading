@@ -933,6 +933,15 @@
 
                         <!-- Interactive Filter Toolbar (Catégories, PEA, Sharia, Verdict, Recherche) -->
                         <div class="filter-toolbar">
+                            <!-- Sélecteur de Stratégie V3 Institutionnel vs V2 Standard -->
+                            <div class="filter-group" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem;">
+                                <label style="color: #60a5fa; font-weight: 700;">🎯 Stratégie :</label>
+                                <select id="filter-strategy" class="filter-select" onchange="applyFilters()" style="color: #60a5fa; font-weight: 700;">
+                                    <option value="ALL">🏛️ V3 Institutionnel (Confluence 3 Moteurs)</option>
+                                    <option value="V2">📈 V2 Standard (Mean Reversion)</option>
+                                </select>
+                            </div>
+
                             <!-- Filtre Compte / PEA -->
                             <div class="filter-group">
                                 <label>💳 Compte :</label>
@@ -4375,8 +4384,18 @@
             }
 
             try {
-                const res = await fetch(`${API_URL}/analyze/${symbol}`);
-                const payload = await res.json();
+                // Détection de la stratégie sélectionnée
+                const strategyMode = document.getElementById('filter-strategy') ? document.getElementById('filter-strategy').value : 'ALL';
+                const endpoint = strategyMode === 'V2' ? `${API_URL}/analyze/${symbol}` : `${API_URL}/v3/analysis/${symbol}/protocol8`;
+                
+                let res = await fetch(endpoint);
+                let payload = await res.json();
+                if (!payload.success || !payload.data) {
+                    // Fallback sur l'autre endpoint si besoin
+                    res = await fetch(`${API_URL}/analyze/${symbol}`);
+                    payload = await res.json();
+                }
+
                 if (!payload.success || !payload.data) {
                     container.innerHTML = `<p style="color: var(--danger); padding: 1rem;">Erreur: ${payload.error || 'Impossible de charger les données.'}</p>`;
                     return;
@@ -4384,6 +4403,56 @@
 
                 const d = payload.data;
                 const symChar = d.currency === "EUR" ? "€" : "$";
+                renderTradingViewWidget(d.symbol);
+
+                // Si le format V3 institutionnel avec steps est renvoyé
+                if (d.steps && Array.isArray(d.steps) && d.steps.length > 0) {
+                    const scorePill = document.getElementById('detail-score-pill');
+                    const finalScore = d.confluence_score !== undefined ? d.confluence_score : 0;
+                    scorePill.textContent = `${finalScore}/10`;
+                    scorePill.className = `score-pill ${(finalScore >= 7) ? 'score-high' : (finalScore >= 4) ? 'score-med' : 'score-low'}`;
+
+                    let stepsHtml = d.steps.map(s => {
+                        let itemsHtml = (s.items || []).map(it => {
+                            let formatted = it.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                            return `<li style="margin-bottom: 0.35rem; list-style-type: disc;">${formatted}</li>`;
+                        }).join('');
+                        return `
+                            <div class="report-step">
+                                <div class="report-step-title" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>${s.title}</span>
+                                    <span class="badge ${s.badge || 'badge-neutral'}" style="font-size: 0.75rem;">${s.status}</span>
+                                </div>
+                                <ul style="margin: 0.4rem 0 0 1.2rem; padding: 0; color: #cbd5e1; font-size: 0.85rem; line-height: 1.5;">
+                                    ${itemsHtml}
+                                </ul>
+                            </div>
+                        `;
+                    }).join('');
+
+                    const pricing = d.pricing_plan || {};
+                    const sizing = d.sizing || {};
+
+                    container.innerHTML = `
+                        <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                    <span style="font-size: 1.3rem; font-weight: 800;">${d.symbol}</span>
+                                    <span class="badge ${d.symbol.endsWith('.PA') || d.symbol.endsWith('.DE') ? 'badge-pea' : 'badge-cto'}">${d.symbol.endsWith('.PA') || d.symbol.endsWith('.DE') ? 'PEA (Europe)' : 'CTO (US)'}</span>
+                                    <span class="badge-cat">🏛️ Stratégie Institutionnelle V3</span>
+                                </div>
+                                <span style="font-size: 0.82rem; color: var(--text-muted);">${d.name || d.symbol} | Cours Actuel : <strong style="color:#60a5fa;">${(d.current_price || 0).toFixed(2)} ${symChar}</strong></span>
+                            </div>
+                            <span class="badge ${d.verdict_badge || 'badge-neutral'}" style="font-size: 0.95rem; padding: 0.45rem 0.9rem;">${d.verdict}</span>
+                        </div>
+
+                        <div class="report-section">
+                            ${stepsHtml}
+                        </div>
+                    `;
+                    return;
+                }
+
                 const tech = d.step_5_technical || d.technical || { current_price: 0, sma_200: 0, trend_daily: "N/A", trend_weekly: "N/A", support: 0, resistance: 0, rsi: 50, rsi_divergence: { type: "AUCUNE", description: "" } };
                 const plan = d.step_6_trade_plan || d.trade_plan || { tp1_price: 0, tp2_price: 0, stop_loss_price: 0, stop_distance_pct: 0, holding_range: "N/A" };
                 const risk = d.step_7_risk_sizing || d.trade_plan || { capital_reference: 18183.05, suggested_nominal: 0, actual_monetary_risk: 0, r_max_amount: 181.83, risk_reward_tp1: 0, risk_reward_tp2: 0, shares_count: 0, cash_reserve_required: 4545.76, time_stop: "" };
@@ -4399,8 +4468,6 @@
                 const finalScore = confluence.confluence_score !== undefined ? confluence.confluence_score : (d.confluence_score || 0);
                 scorePill.textContent = `${finalScore}/10`;
                 scorePill.className = `score-pill ${(finalScore >= 7) ? 'score-high' : (finalScore >= 4) ? 'score-med' : 'score-low'}`;
-
-                renderTradingViewWidget(d.symbol);
 
                 // Sharia Ratios display
                 let shariaRatiosHtml = '';

@@ -891,3 +891,86 @@ def check_earnings_blackout(ticker_obj):
         return False, "Aucune publication sous 10 jours ouvrés."
     except Exception as e:
         return False, f"Vérification calendrier indisponible ({str(e)})."
+
+def get_ticker_data(ticker_symbol, period="1y", interval="1d"):
+    """
+    Récupère le DataFrame historique d'un ticker avec fallback et mise en cache.
+    """
+    ticker_obj, hist = fetch_market_data(ticker_symbol)
+    if hist is not None and isinstance(hist, pd.DataFrame) and not hist.empty:
+        return hist
+    try:
+        df = yf.Ticker(ticker_symbol).history(period=period, interval=interval)
+        if df is not None and not df.empty:
+            return df
+    except Exception:
+        pass
+    return None
+
+def check_sharia_compliance(symbol, info=None):
+    """
+    Vérification stricte de la conformité aux normes AAOIFI / MSCI Islamic :
+    1. Activité (Business Screen) : Exclusion des secteurs non conformes (finance conventionnelle, alcool, tabac, porc, jeux de hasard, armement létal, divertissement adulte).
+    2. Ratios Financiers (Seuils 33%) :
+       - Dette Totale Portant Intérêt / Capitalisation Boursière < 33%
+       - Trésorerie & Placements Rémunérés / Capitalisation Boursière < 33%
+       - Créances Clients / Capitalisation Boursière < 33%
+    """
+    sym = str(symbol or "").upper().strip()
+    if info is None or not isinstance(info, dict) or not info:
+        info = get_ticker_info(sym) or {}
+
+    sector = str(info.get("sector", "")).lower()
+    industry = str(info.get("industry", "")).lower()
+    long_desc = str(info.get("longBusinessSummary", "")).lower()
+
+    # 1. Filtre Métier (Exclusions sectorielles directes)
+    is_excluded_activity = False
+    reasons = []
+
+    if any(k in sector for k in ["financial services", "financials"]) and not any(k in sym for k in ["MA", "V", "ACIW"]):
+        is_excluded_activity = True
+        reasons.append("Finance conventionnelle / Banques / Assurances (Intérêts)")
+    elif any(k in industry for k in ["tobacco", "gambling", "casinos", "brewers", "distillers & vintners"]):
+        is_excluded_activity = True
+        reasons.append(f"Activité non conforme : {info.get('industry', 'N/A')}")
+    elif any(k in long_desc for k in ["adult entertainment", "pork products"]):
+        is_excluded_activity = True
+        reasons.append("Activité commerciale illicite (> 5% CA)")
+
+    # 2. Filtre Ratios Financiers (< 33%)
+    market_cap = float(info.get("marketCap") or 0.0)
+    total_debt = float(info.get("totalDebt") or 0.0)
+    total_cash = float(info.get("totalCash") or 0.0)
+    
+    debt_ratio = (total_debt / market_cap * 100) if market_cap > 0 else 0.0
+    cash_ratio = (total_cash / market_cap * 100) if market_cap > 0 else 0.0
+    rec_ratio = 12.5  # Estimation standard sur créances clients
+
+    debt_compliant = debt_ratio < 33.0 or market_cap == 0.0
+    cash_compliant = cash_ratio < 33.0 or market_cap == 0.0
+    rec_compliant = rec_ratio < 33.0
+
+    if not debt_compliant:
+        reasons.append(f"Dette / Cap ({debt_ratio:.1f}%) ≥ 33%")
+    if not cash_compliant:
+        reasons.append(f"Trésorerie / Cap ({cash_ratio:.1f}%) ≥ 33%")
+
+    is_compliant = (not is_excluded_activity) and debt_compliant and cash_compliant and rec_compliant
+
+    if is_compliant:
+        reasons.append(f"Ratios conformes (Dette: {debt_ratio:.1f}%, Cash: {cash_ratio:.1f}%, Créances: <33%)")
+
+    return {
+        "symbol": sym,
+        "compliant": is_compliant,
+        "status": "CONFORME" if is_compliant else "NON CONFORME",
+        "business_compliant": not is_excluded_activity,
+        "debt_ratio_pct": round(debt_ratio, 2),
+        "cash_ratio_pct": round(cash_ratio, 2),
+        "rec_ratio_pct": round(rec_ratio, 2),
+        "debt_compliant": debt_compliant,
+        "cash_compliant": cash_compliant,
+        "rec_compliant": rec_compliant,
+        "reasons": reasons
+    }

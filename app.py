@@ -372,6 +372,12 @@ from src.sheets_connector import (
     read_treasury_from_sheets,
     batch_import_treasury_to_sheets
 )
+from src.institutional_engine import (
+    get_macro_sentiment_barometer,
+    generate_8_step_protocol_analysis,
+    compute_institutional_rmax_sizing,
+    scan_watchlist_institutional
+)
 
 @app.route("/api/portfolio/live")
 def get_live_portfolio():
@@ -1030,6 +1036,50 @@ def risk_calc_endpoint():
     )
     return jsonify({"success": True, "data": result})
 
+# ==============================================================================
+# --- V3. Routes Stratégie Institutionnelle Tactique (Confluence 3 Moteurs) ---
+# ==============================================================================
+
+@app.route("/api/v3/macro/sentiment")
+def get_v3_macro_sentiment():
+    """
+    Retourne le baromètre macroéconomique et inter-marchés V3 (VIX, DXY, XLY/XLP, WTI, Yield Curve).
+    """
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    macro = get_macro_sentiment_barometer(force_refresh=force)
+    return safe_jsonify({"success": True, "data": macro})
+
+@app.route("/api/v3/analysis/<ticker>/protocol8")
+def get_v3_protocol8_analysis(ticker):
+    """
+    Retourne l'analyse institutionnelle complète en 8 étapes pour un ticker.
+    """
+    capital = request.args.get("capital", default=CAPITAL_REFERENCE_DEFAULT, type=float)
+    res = generate_8_step_protocol_analysis(ticker, capital_total=capital)
+    return safe_jsonify({"success": True, "data": res})
+
+@app.route("/api/v3/risk/calculator", methods=["POST"])
+def post_v3_risk_calculator():
+    """
+    Calculateur R-Max exact pour dimensionnement au comptant (1% perte max, 25% max allocation).
+    """
+    data = request.json or {}
+    capital = float(data.get("capital", CAPITAL_REFERENCE_DEFAULT))
+    entry = float(data.get("entry_price", 100.0))
+    stop = float(data.get("stop_loss", entry * 0.97))
+    tp = float(data.get("take_profit", entry * 1.0225))
+    sizing = compute_institutional_rmax_sizing(capital, entry, stop, tp)
+    return safe_jsonify({"success": True, "data": sizing})
+
+@app.route("/api/v3/scanner/institutional")
+def get_v3_scanner_institutional():
+    """
+    Scan complet de la watchlist selon la stratégie institutionnelle V3 (Confluence 3 Moteurs).
+    """
+    capital = request.args.get("capital", default=CAPITAL_REFERENCE_DEFAULT, type=float)
+    res = scan_watchlist_institutional(capital_total=capital)
+    return safe_jsonify(res)
+
 @app.route("/api/backtest/run", methods=["GET", "POST"])
 def backtest_run_endpoint():
     """
@@ -1245,73 +1295,35 @@ def chat():
     ticker, company_name = find_ticker_in_message(message)
     
     if ticker:
-        analysis = get_detailed_analysis(ticker)
+        analysis = generate_8_step_protocol_analysis(ticker)
         if "error" in analysis:
             return jsonify({
                 "response": f"J'ai détecté une demande pour **{company_name or ticker}**, mais une erreur est survenue lors de l'analyse : *{analysis['error']}*."
             })
             
-        sharia_status = analysis["sharia"].get("status", "À VÉRIFIER")
-        sharia_reason = analysis["sharia"].get("reason", "")
-        tech = analysis["step_5_technical"]
-        plan = analysis["step_6_trade_plan"]
-        risk = analysis["step_7_risk_sizing"]
-        confluence = analysis["step_8_confluence"]
-        sym_char = "€" if tech.get("currency") == "EUR" else "$"
+        sym_char = "€" if analysis.get("currency") == "EUR" else "$"
         
-        response = f"### 📋 Rapport Protocolaire en 8 Étapes : **{ticker}** ({company_name})\n\n"
-        response += f"- **Catégorie :** {analysis.get('category_icon', '📦')} {analysis.get('category')} | **Compte :** {analysis.get('account_type')}\n"
-        response += f"- **Verdict de l'Agent** : `[{confluence['verdict']}]` | **Score de Confluence** : **{confluence['confluence_score']} / 10**\n\n"
+        response = f"### 🏛️ Grille d'Analyse Protocolaire (8 Étapes) : **{ticker}** ({analysis.get('name', ticker)})\n\n"
+        response += f"**Verdict :** `[{analysis.get('verdict')}]` | **Score de Confluence :** **{analysis.get('confluence_score')} / 10**\n\n"
         
-        response += f"#### 1. Conformité Sharia (AAOIFI)\n"
-        response += f"- Statut : **{sharia_status}** ({sharia_reason})\n"
-        if "details" in analysis["sharia"] and isinstance(analysis["sharia"]["details"], dict):
-            d = analysis["sharia"]["details"]
-            response += f"- Ratios : Dette: {d.get('debt_ratio', 0)*100:.2f}% | Cash: {d.get('cash_ratio', 0)*100:.2f}% | Créances: {d.get('receivables_ratio', 0)*100:.2f}% (< 33%)\n\n"
-            
-        response += f"#### 2. Contexte Macroéconomique\n"
-        response += f"- Régime Global : **{analysis['step_2_macro']['regime']}** ({analysis['step_2_macro']['action_rule']})\n\n"
-        
-        response += f"#### 3. Diagnostic de la Baisse (-3% à -8%)\n"
-        response += f"- Baisse : **{analysis['step_3_drop']['drop_pct']:.2f}%** sur {analysis['step_3_drop']['lookback_days']}j. Nature : **{analysis['step_3_drop']['nature']}**\n\n"
-        
-        response += f"#### 4. Fondamentaux & Calendrier\n"
-        response += f"- Santé : {analysis['step_4_fundamentals']['health_status']} ({analysis['step_4_fundamentals']['summary']})\n"
-        response += f"- Blackout Résultats : {'🔴 Actif' if analysis['step_4_fundamentals']['earnings_blackout']['active'] else '🟢 Inactif (Fenêtre sécurisée)'}\n\n"
-        
-        response += f"#### 5. Analyse Technique & Flux\n"
-        response += f"- Cours Actuel : **{tech['current_price']:.2f} {sym_char}** | Tendance SMA 200 : **{tech['trend_daily']}**\n"
-        response += f"- Support Majeur : **{tech['support']:.2f} {sym_char}** | Résistance : **{tech['resistance']:.2f} {sym_char}**\n"
-        response += f"- RSI (14) : **{tech['rsi']:.1f}** | Divergence : **{tech['rsi_divergence']['type']}**\n\n"
-        
-        response += f"#### 6. Plan de Trade Tactique\n"
-        response += f"- 📥 **Zone d'Entrée** : {plan['entry_price']:.2f} {sym_char}\n"
-        response += f"- 🎯 **Take Profit 1 (+1,0% à +1,5%)** : {plan['tp1_price']:.2f} {sym_char} (+{plan['tp1_pct']:.2f}%)\n"
-        response += f"- 🎯 **Take Profit 2 (+2,0% à +2,5%)** : {plan['tp2_price']:.2f} {sym_char} (+{plan['tp2_pct']:.2f}%)\n"
-        response += f"- 🛑 **Stop-Loss Invalidation** : {plan['stop_loss_price']:.2f} {sym_char} (-{plan['stop_distance_pct']:.2f}%)\n"
-        response += f"- ⏱️ **Horizon de Détention** : {plan['holding_range']}\n\n"
-        
-        response += f"#### 7. Dimensionnement R-Max (Capital Réf: {risk['capital_reference']:,.0f} €)\n"
-        response += f"- Allocation Nominale Suggérée : **{risk['suggested_nominal']:,.2f} €** ({risk['shares_count']} actions)\n"
-        response += f"- Risque Monétaire Engagé : **{risk['actual_monetary_risk']:.2f} €** (R-Max max : {risk['r_max_amount']:.2f} € / {risk['r_max_pct']:.1f}%)\n"
-        response += f"- Ratios R:R : TP1 = 1:{risk['risk_reward_tp1']:.2f} | TP2 = 1:{risk['risk_reward_tp2']:.2f}\n\n"
-        
-        response += f"#### 8. Verdict & Synthèse Décisionnelle\n"
-        response += f"- **Avis** : `[{confluence['verdict']}]`\n"
-        response += f"- **Thèse** : *{confluence['synthesis']}*\n"
+        for step in analysis.get("steps", []):
+            response += f"#### {step.get('title')}\n"
+            for item in step.get("items", []):
+                response += f"- {item}\n"
+            response += "\n"
         
         return jsonify({"response": response})
         
     if any(w in message_lower for w in ["bonjour", "salut", "hello", "hi"]):
         return jsonify({
-            "response": "Bonjour ! Je suis votre **Macro & Sharia Mean Reversion Trading Assistant (v2.0)**.\n\n"
+            "response": "Bonjour ! Je suis votre **Stratège & Analyste de Trading Tactique Institutionnel (V3)**.\n\n"
+                        "Ma stratégie repose sur la **confluence de trois moteurs** : *Trend Following* (MM200), *Event-Driven* (Repli conjoncturel -3% à -8%) et *Breakout Trading* (Cassure H1/H4 + Volume).\n\n"
                         "Vous pouvez me demander :\n"
-                        "1. **L'analyse protocolaire en 8 étapes** d'une action (ex: *'Analyse Sanofi (SAN.PA)'*, *'Screen LVMH'*)\n"
-                        "2. **D'ajouter une action au Google Sheet** (*'Ajoute Sanofi (SAN.PA) à ma watchlist'*)\n"
-                        "3. **De filtrer par éligibilité PEA ou Catégorie (Pharma, Tech, Luxe, etc.)**\n"
-                        "4. **Le point Macroéconomique Top-Down** (*'Quel est le régime macro ?'*)\n"
-                        "5. **Le dimensionnement de risque R-Max** pour votre portefeuille.\n\n"
-                        "Que souhaitez-vous faire ?"
+                        "1. **L'analyse protocolaire institutionnelle en 8 étapes** d'une action (ex: *'Analyse Sanofi (SAN.PA)'*, *'Screen LVMH'*)\n"
+                        "2. **Le Baromètre Macro Inter-marchés** (*'Quel est le régime macro ?'*)\n"
+                        "3. **D'ajouter une action à la Watchlist** (*'Ajoute Hermès (RMS.PA) à ma watchlist'*)\n"
+                        "4. **Le dimensionnement de position R-Max** et calcul de risque monétaire.\n\n"
+                        "Quelle action ou configuration souhaitez-vous analyser ?"
         })
         
     return jsonify({
