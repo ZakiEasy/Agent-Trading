@@ -482,8 +482,8 @@ class BacktestEngine:
                     exit_reason = "TIME_STOP (J+10)"
                     is_closed = True
 
-                # D. Activation du Breakeven pour les jours suivants si la clôture est > +0.80%
-                if not is_closed:
+                # D. Activation du Breakeven pour les jours suivants si la clôture est > +0.80% (Stratégie V3)
+                if self.strategy == "v3_institutional" and not is_closed:
                     if close >= entry_p * 1.008 and pos['stop_loss'] < entry_p:
                         pos['stop_loss'] = entry_p # Stop remonté au PRU pour la session suivante
                         pos['is_breakeven'] = True
@@ -513,7 +513,7 @@ class BacktestEngine:
 
             active_positions = positions_to_keep
 
-            # 2. Évaluation Complète du Baromètre Macroéconomique (5 Piliers : VIX, DXY, XLY/XLP, SPY, WTI)
+            # 2. Évaluation du Baromètre Macroéconomique (5 Piliers : VIX, DXY, XLY/XLP, SPY, WTI)
             macro_regime, r_max_rate, macro_score = self.macro_daily_regime.get(
                 date, ("RISK-ON", R_MAX_PCT_STANDARD, 1)
             )
@@ -525,11 +525,15 @@ class BacktestEngine:
                 if p['symbol'] in self.historical_data and date in self.historical_data[p['symbol']].index
             )
 
-            # Réserve de cash minimale (25%)
-            min_cash_required = current_portfolio_value * MIN_CASH_RESERVE_PCT
+            # Réserve de cash minimale (25% pour V3, 10% pour V2)
+            min_cash_pct = MIN_CASH_RESERVE_PCT if self.strategy == "v3_institutional" else 0.10
+            min_cash_required = current_portfolio_value * min_cash_pct
             available_cash_for_trades = max(0, current_cash - min_cash_required)
 
-            if macro_regime != "RISK-OFF" and len(active_positions) < MAX_SIMULTANEOUS_POSITIONS and available_cash_for_trades > 100:
+            is_v3 = (self.strategy == "v3_institutional")
+            can_trade_macro = (macro_regime != "RISK-OFF") if is_v3 else True
+
+            if can_trade_macro and len(active_positions) < MAX_SIMULTANEOUS_POSITIONS and available_cash_for_trades > 100:
                 active_symbols = [p['symbol'] for p in active_positions]
                 active_sectors = [p['category'] for p in active_positions]
 
@@ -539,10 +543,11 @@ class BacktestEngine:
                     if sym in active_symbols:
                         continue
 
-                    # Filtre Sharia
-                    sh_res = sharia_cache.get(sym, {})
-                    if sh_res.get("status") == "NON CONFORME":
-                        continue
+                    # Filtre Sharia AAOIFI (V3 uniquement)
+                    if is_v3:
+                        sh_res = sharia_cache.get(sym, {})
+                        if sh_res.get("status") == "NON CONFORME":
+                            continue
 
                     # Filtre Secteur (Max 2 positions par secteur)
                     cat_info = category_cache.get(sym, {})
@@ -569,42 +574,51 @@ class BacktestEngine:
                     turnover = float(row['SMA_20_Turnover']) if not pd.isna(row['SMA_20_Turnover']) else 10_000_000
                     wick_pct = float(row['Lower_Wick_Pct']) if not pd.isna(row['Lower_Wick_Pct']) else 0
 
-                    # 1. Filtre Tendance de fond : Cours > SMA 200 ou SMA 50
-                    if sma_200 > 0 and close < (sma_200 * 0.96): # Tolérance max 4% sous SMA200
-                        continue
-
-                    # 2. Filtre Liquidité : Turnover > 1 M€/$
-                    if turnover < MIN_AVG_DAILY_VOLUME_USD:
-                        continue
-
-                    # 3. Filtre Dip : Baisse de -3% à -8% sur 1, 2 ou 3 séances
                     r1 = float(row['Return_1d']) if not pd.isna(row['Return_1d']) else 0
                     r2 = float(row['Return_2d']) if not pd.isna(row['Return_2d']) else 0
                     r3 = float(row['Return_3d']) if not pd.isna(row['Return_3d']) else 0
-                    
                     min_ret = min(r1, r2, r3)
-                    if not (-MAX_DROP_PCT <= min_ret <= -MIN_DROP_PCT):
-                        continue
 
-                    # 4. Filtre Confluence : RSI < 45 OU mèche basse >= 0.7% (plus strict si VIX >= 22)
-                    min_wick_req = 0.9 if macro_regime == "NEUTRE" else 0.6
-                    max_rsi_req = 40 if macro_regime == "NEUTRE" else 45
-                    has_wick = wick_pct >= min_wick_req
-                    has_rsi_rebound = rsi <= max_rsi_req
-                    if not (has_wick or has_rsi_rebound):
-                        continue
+                    if is_v3:
+                        # V3 Institutional : 3 Moteurs (Trend SMA200 + Event -3%/-8% + Breakout Confirmation)
+                        # 1. Filtre Tendance de fond : Cours > SMA 200 ou SMA 50
+                        if sma_200 > 0 and close < (sma_200 * 0.96): # Tolérance max 4% sous SMA200
+                            continue
 
-                    # Support calculé
-                    support = float(row['Support_20d']) if not pd.isna(row['Support_20d']) else (close * 0.96)
-                    stop_loss = min(support * 0.99, close * 0.965) # Stop sous support avec buffer
-                    stop_dist_pct = (close - stop_loss) / close
+                        # 2. Filtre Liquidité : Turnover > 1 M€/$
+                        if turnover < MIN_AVG_DAILY_VOLUME_USD:
+                            continue
 
-                    # Score de confluence
-                    score = 6
-                    if close > sma_200: score += 1
-                    if rsi < 35: score += 1
-                    if has_wick: score += 1
-                    if min_ret <= -4.0: score += 1
+                        # 3. Filtre Dip : Baisse de -3% à -8% sur 1, 2 ou 3 séances
+                        if not (-MAX_DROP_PCT <= min_ret <= -MIN_DROP_PCT):
+                            continue
+
+                        # 4. Filtre Confluence : RSI < 45 OU mèche basse >= 0.6%
+                        min_wick_req = 0.9 if macro_regime == "NEUTRE" else 0.6
+                        max_rsi_req = 40 if macro_regime == "NEUTRE" else 45
+                        has_wick = wick_pct >= min_wick_req
+                        has_rsi_rebound = rsi <= max_rsi_req
+                        if not (has_wick or has_rsi_rebound):
+                            continue
+
+                        # Support calculé & Stop Loss
+                        support = float(row['Support_20d']) if not pd.isna(row['Support_20d']) else (close * 0.96)
+                        stop_loss = min(support * 0.99, close * 0.965)
+                        stop_dist_pct = (close - stop_loss) / close
+
+                        # Score de confluence
+                        score = 6
+                        if close > sma_200: score += 1
+                        if rsi < 35: score += 1
+                        if has_wick: score += 1
+                        if min_ret <= -4.0: score += 1
+                    else:
+                        # V2 Standard : Mean Reversion Simple (RSI < 40 ou repli ponctuel sans filtres macro ni MM200)
+                        if rsi > 38 and min_ret > -2.5:
+                            continue
+                        stop_loss = close * 0.965
+                        stop_dist_pct = 0.035
+                        score = 5 if rsi <= 30 else 3
 
                     candidates.append({
                         "symbol": sym,
@@ -617,7 +631,7 @@ class BacktestEngine:
                         "drop_pct": min_ret
                     })
 
-                # Trier les candidats par score décroissant et sélectionner les meilleurs
+                # Trier les candidats par score décroissant
                 candidates.sort(key=lambda x: x['score'], reverse=True)
 
                 for cand in candidates:
@@ -629,10 +643,16 @@ class BacktestEngine:
                     stop_loss = cand['stop_loss']
                     stop_dist = cand['stop_dist_pct']
 
-                    # Calcul dimensionnement R-Max
-                    r_max_amount = current_portfolio_value * r_max_rate
-                    max_nominal = current_portfolio_value * MAX_ALLOCATION_PER_LINE_PCT
-                    suggested_nominal = min(r_max_amount / max(stop_dist, 0.02), max_nominal)
+                    if is_v3:
+                        # V3 : Calcul dimensionnement R-Max exact (1% du capital max par trade)
+                        r_max_amount = current_portfolio_value * r_max_rate
+                        max_nominal = current_portfolio_value * MAX_ALLOCATION_PER_LINE_PCT
+                        suggested_nominal = min(r_max_amount / max(stop_dist, 0.02), max_nominal)
+                    else:
+                        # V2 : Allocation fixe par position (20% du capital)
+                        r_max_amount = current_portfolio_value * 0.02
+                        suggested_nominal = current_portfolio_value * 0.20
+
                     suggested_nominal = min(suggested_nominal, available_cash_for_trades)
 
                     shares = math.floor(suggested_nominal / close)
