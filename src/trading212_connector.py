@@ -129,6 +129,15 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
         
         if res.status_code == 200:
             cash_data = res.json()
+            formatted = {
+                "connected": True,
+                "free": float(cash_data.get("free", 0.0)),
+                "total": float(cash_data.get("total", 0.0)),
+                "invested": float(cash_data.get("invested", 0.0)),
+                "ppl": float(cash_data.get("ppl", 0.0)),
+                "currency": "EUR"
+            }
+            _T212_CACHE["cash"] = {"data": formatted, "ts": time.time()}
             return {
                 "connected": True,
                 "environment": env,
@@ -139,6 +148,19 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
             return {
                 "connected": False,
                 "error": f"Authentification refusée par Trading 212 (Code HTTP {res.status_code}). Vérifiez votre clé API.",
+                "environment": env
+            }
+        elif res.status_code == 429:
+            if _T212_CACHE["cash"]["data"]:
+                return {
+                    "connected": True,
+                    "environment": env,
+                    "message": "Connexion active (Rate limit 429 temporaire, données en cache)",
+                    "cash": _T212_CACHE["cash"]["data"]
+                }
+            return {
+                "connected": False,
+                "error": "Limite d'appels atteinte (HTTP 429). Réessayez dans quelques secondes.",
                 "environment": env
             }
         else:
@@ -190,6 +212,8 @@ def get_trading212_cash(force_refresh=False):
             }
             _T212_CACHE["cash"] = {"data": formatted, "ts": now}
             return formatted
+        elif res.status_code == 429 and _T212_CACHE["cash"]["data"]:
+            return _T212_CACHE["cash"]["data"]
         else:
             return {
                 "connected": False,
@@ -202,6 +226,8 @@ def get_trading212_cash(force_refresh=False):
             }
     except Exception as e:
         print(f"⚠️ Erreur récupération Cash Trading 212: {e}")
+        if _T212_CACHE["cash"]["data"]:
+            return _T212_CACHE["cash"]["data"]
         return {
             "connected": False,
             "error": str(e),
