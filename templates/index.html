@@ -958,7 +958,7 @@
                         <!-- Sélecteur de Stratégie V3 Institutionnel vs V2 Standard -->
                         <div class="filter-group" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem;">
                             <label style="color: #60a5fa; font-weight: 700;">🎯 Stratégie :</label>
-                            <select id="filter-strategy" class="filter-select" onchange="applyFilters()" style="color: #60a5fa; font-weight: 700;">
+                            <select id="filter-strategy" class="filter-select" onchange="onStrategyFilterChange()" style="color: #60a5fa; font-weight: 700;">
                                 <option value="ALL">🏛️ V3 Institutionnel (Confluence 3 Moteurs)</option>
                                 <option value="V2">📈 V2 Standard (Mean Reversion)</option>
                             </select>
@@ -1610,8 +1610,10 @@
                                 <option value="all">🌐 Tout l'historique</option>
                                 <option value="today">📅 Journée (Aujourd'hui)</option>
                                 <option value="week">📆 Semaine en cours</option>
-                                <option value="month">🗓️ Mois en cours</option>
-                                <option value="year">📊 Année en cours</option>
+                                <option value="month">🗓️ Mois en cours (Août 2026)</option>
+                                <option value="year">📊 Année en cours (2026)</option>
+                                <option value="last_month">⏪ Mois Précédent (Juillet 2026)</option>
+                                <option value="year_2025">📅 Année 2025</option>
                             </select>
                         </div>
 
@@ -3260,20 +3262,32 @@
             if (!datePart || datePart.length < 10) return false;
 
             const now = new Date();
-            const todayPart = now.toISOString().substring(0, 10);
+            const currentYear = now.getFullYear();
+            const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+            const currentDay = now.getDate().toString().padStart(2, '0');
+            const todayStr = `${currentYear}-${currentMonth}-${currentDay}`;
 
             if (period === 'today') {
-                return datePart === todayPart;
+                return datePart === todayStr;
             }
 
             if (period === 'month') {
-                const currentYearMonth = todayPart.substring(0, 7);
-                return datePart.startsWith(currentYearMonth);
+                return datePart.startsWith(`${currentYear}-${currentMonth}`);
             }
 
             if (period === 'year') {
-                const currentYear = todayPart.substring(0, 4);
-                return datePart.startsWith(currentYear);
+                return datePart.startsWith(`${currentYear}`);
+            }
+
+            if (period === 'last_month') {
+                const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lmYear = lastMonthDate.getFullYear();
+                const lmMonth = (lastMonthDate.getMonth() + 1).toString().padStart(2, '0');
+                return datePart.startsWith(`${lmYear}-${lmMonth}`);
+            }
+
+            if (period === 'year_2025') {
+                return datePart.startsWith('2025');
             }
 
             if (period === 'week') {
@@ -3296,8 +3310,9 @@
             return true;
         }
 
-        function updateJournalStatsFromTrades(trades) {
-            const total = trades.length;
+        function updateJournalStatsFromTrades(periodTrades, filteredTrades) {
+            // Stats globales pour la période
+            const totalPeriod = periodTrades.length;
             let pnlEur = 0;
             let pnlUsd = 0;
             let wins = 0;
@@ -3311,7 +3326,7 @@
                 'CTO Dollar': { pnl: 0, trades: 0, wins: 0, losses: 0 }
             };
 
-            trades.forEach(t => {
+            periodTrades.forEach(t => {
                 const pnl = Number(t.pnl_amount) || 0;
                 const isUsd = t.currency === 'USD' || (t.account && t.account.includes('Dollar'));
 
@@ -3341,7 +3356,7 @@
                 }
             });
 
-            const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : '0.0';
+            const winRate = totalPeriod > 0 ? ((wins / totalPeriod) * 100).toFixed(1) : '0.0';
             const profitFactor = sumLosses > 0 ? (sumGains / sumLosses).toFixed(2) : (sumGains > 0 ? '∞' : '0.00');
             const avgGain = wins > 0 ? (sumGains / wins).toFixed(2) : '0.00';
             const avgLoss = losses > 0 ? (sumLosses / losses).toFixed(2) : '0.00';
@@ -3374,7 +3389,7 @@
             const avgLossElem = document.getElementById('journal-avg-loss');
             if (avgLossElem) avgLossElem.textContent = `-${avgLoss} € (Ratio ${gainLossRatio})`;
 
-            // Account Breakdown Cards Update
+            // Account Breakdown Cards Update (Basées sur la période choisie)
             ['PEA', 'CTO Euro', 'CTO Dollar'].forEach(acc => {
                 const d = byAcc[acc];
                 const rate = d.trades > 0 ? ((d.wins / d.trades) * 100).toFixed(1) : '0.0';
@@ -3395,7 +3410,7 @@
             });
 
             const tradesBadge = document.getElementById('journal-trades-badge');
-            if (tradesBadge) tradesBadge.textContent = `${total} Trade(s) Clôturé(s)`;
+            if (tradesBadge) tradesBadge.textContent = `${totalPeriod} Trade(s) Clôturé(s)`;
         }
 
         async function loadJournalHistory(force = false) {
@@ -3434,10 +3449,13 @@
             const resFilter = document.getElementById('journal-result-filter')?.value || 'all';
             const periodFilter = document.getElementById('journal-period-filter')?.value || 'all';
 
-            filteredJournalTrades = (allJournalTrades || []).filter(t => {
-                // Period filter (calendaire)
-                if (!isTradeInPeriod(t.close_time || t.open_time, periodFilter)) return false;
+            // 1. Filtrage par PÉRIODE calendaire (Base pour la Synthèse de Rentabilité et les 3 Comptes)
+            const periodTrades = (allJournalTrades || []).filter(t => {
+                return isTradeInPeriod(t.close_time || t.open_time, periodFilter);
+            });
 
+            // 2. Filtrage secondaire par compte, résultat et texte (pour la table des trades)
+            filteredJournalTrades = periodTrades.filter(t => {
                 const sym = (t.symbol || '').toLowerCase();
                 const name = (t.name || '').toLowerCase();
                 if (query && !sym.includes(query) && !name.includes(query)) return false;
@@ -3456,10 +3474,10 @@
                 return true;
             });
 
-            // Dynamically update stats for filtered trades
-            updateJournalStatsFromTrades(filteredJournalTrades);
+            // 3. Mise à jour dynamique de la Synthèse de Rentabilité et des 3 Cartes de Compte
+            updateJournalStatsFromTrades(periodTrades, filteredJournalTrades);
 
-            // Sort by close date desc
+            // 4. Tri chronologique descendant
             filteredJournalTrades.sort((a, b) => (b.close_time || '').localeCompare(a.close_time || ''));
 
             journalCurrentPage = 1;
@@ -4240,6 +4258,7 @@
                 let opportunitiesCount = 0;
 
                 setScanStatus(`Scan (0/${tickers.length})...`, 'badge-warning');
+                const strategyMode = document.getElementById('filter-strategy') ? document.getElementById('filter-strategy').value : 'ALL';
 
                 // Étape 2 : Exécution séquentielle des lots rapides
                 for (let bIdx = 0; bIdx < batches.length; bIdx++) {
@@ -4249,7 +4268,7 @@
                     }
 
                     try {
-                        const batchRes = await fetch(`${API_URL}/scan/batch?symbols=${batchSymbols.join(',')}${forceRefresh ? '&force=true' : ''}`, {
+                        const batchRes = await fetch(`${API_URL}/scan/batch?symbols=${batchSymbols.join(',')}&strategy=${strategyMode}${forceRefresh ? '&force=true' : ''}`, {
                             signal: scanAbortController.signal
                         });
 
@@ -4306,6 +4325,10 @@
             }
         }
 
+        function onStrategyFilterChange() {
+            runWatchlistScan(false);
+        }
+
         async function runMarketScan(forceRefresh = false) {
             if (scanAbortController) {
                 scanAbortController.abort();
@@ -4335,13 +4358,14 @@
             currentScanResults = [];
             let completedCount = 0;
             let opportunitiesCount = 0;
+            const strategyMode = document.getElementById('filter-strategy') ? document.getElementById('filter-strategy').value : 'ALL';
 
             for (let bIdx = 0; bIdx < batches.length; bIdx++) {
                 const batchSymbols = batches[bIdx];
                 if (progressLabel) progressLabel.innerHTML = `🌐 Analyse Marché lot ${bIdx + 1}/${batches.length} : <span style="color:#fff; font-weight:bold;">${batchSymbols.join(', ')}</span>`;
 
                 try {
-                    const batchRes = await fetch(`${API_URL}/scan/batch?symbols=${batchSymbols.join(',')}${forceRefresh ? '&force=true' : ''}`, {
+                    const batchRes = await fetch(`${API_URL}/scan/batch?symbols=${batchSymbols.join(',')}&strategy=${strategyMode}${forceRefresh ? '&force=true' : ''}`, {
                         signal: scanAbortController.signal
                     });
                     if (batchRes.ok) {

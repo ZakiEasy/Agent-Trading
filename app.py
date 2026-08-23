@@ -23,6 +23,7 @@ from src.market_data import (
     get_company_name
 )
 from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
+from src.institutional_engine import generate_8_step_protocol_analysis
 from src.backtest_engine import BacktestEngine, CRISIS_PERIODS, run_all_crises_stress_test
 from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets, add_ticker_to_sheets
 from src.config import (
@@ -744,16 +745,19 @@ def get_watchlist_tickers():
 def scan_batch():
     """
     Scanne un sous-ensemble (lot de 6 à 10 actions) en parallèle ultra-rapide (1-3s).
-    Permet un affichage progressif en continu sur le frontend sans aucun risque de timeout 60s.
+    Supporte la stratégie V3 Institutionnelle (par défaut) et la stratégie V2 Standard.
     """
     try:
         force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+        strategy = request.args.get("strategy", "ALL").upper()
         symbols = []
         if request.method == "POST":
             data = request.json or {}
             symbols = data.get("symbols", [])
             if not force:
                 force = bool(data.get("force", False))
+            if "strategy" in data:
+                strategy = str(data.get("strategy", "ALL")).upper()
         else:
             symbols_param = request.args.get("symbols", "")
             if symbols_param:
@@ -767,70 +771,84 @@ def scan_batch():
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(symbols), 8)) as executor:
-            future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in symbols}
-            for future in concurrent.futures.as_completed(future_to_sym, timeout=20):
-                try:
-                    analysis = future.result()
-                    if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-                        continue
-                        
-                    symbol = analysis.get("symbol")
-                    tech = analysis.get("technical") or {}
-                    drop = analysis.get("drop") or {}
-                    sharia = analysis.get("sharia") or {}
-                    trade_plan = analysis.get("trade_plan") or {}
-                    risk_plan = analysis.get("step_7_risk_sizing") or {}
-                    macro_plan = analysis.get("step_2_macro") or {}
-                    fund = analysis.get("step_4_fundamentals") or {}
-                    sec_rel = analysis.get("sector_strength") or {}
+            if strategy == "V2":
+                future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in symbols}
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=20):
+                    try:
+                        analysis = future.result()
+                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                            continue
+                            
+                        symbol = analysis.get("symbol")
+                        tech = analysis.get("technical") or {}
+                        drop = analysis.get("drop") or {}
+                        sharia = analysis.get("sharia") or {}
+                        trade_plan = analysis.get("trade_plan") or {}
+                        risk_plan = analysis.get("step_7_risk_sizing") or {}
+                        macro_plan = analysis.get("step_2_macro") or {}
+                        fund = analysis.get("step_4_fundamentals") or {}
+                        sec_rel = analysis.get("sector_strength") or {}
 
-                    results.append({
-                        "symbol": symbol,
-                        "name": analysis.get("company_name", symbol),
-                        "category": analysis.get("category", "Autres"),
-                        "category_icon": analysis.get("category_icon", "📦"),
-                        "is_pea": analysis.get("is_pea", False),
-                        "account_type": analysis.get("account_type", "CTO (US)"),
-                        "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
-                        "price": tech.get("current_price", 0.0),
-                        "drop": drop.get("drop_pct", 0.0),
-                        "drop_nature": drop.get("nature", "N/A"),
-                        "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
-                        "has_min_liquidity": fund.get("has_min_liquidity", True),
-                        "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
-                        "sector_etf": sec_rel.get("sector_etf", "SPY"),
-                        "rsi": tech.get("rsi", 50.0),
-                        "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
-                        "confluence_score": analysis.get("confluence_score", 0),
-                        "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
-                        "currency": tech.get("currency", "USD")
-                    })
-                    
-                    if "ACHETER" in analysis.get("verdict", ""):
-                        signals_to_write.append({
-                            "date": now_str,
+                        results.append({
                             "symbol": symbol,
-                            "sharia_status": sharia.get("status"),
+                            "name": analysis.get("company_name", symbol),
                             "category": analysis.get("category", "Autres"),
+                            "category_icon": analysis.get("category_icon", "📦"),
+                            "is_pea": analysis.get("is_pea", False),
                             "account_type": analysis.get("account_type", "CTO (US)"),
-                            "macro_regime": macro_plan.get("regime", "N/A"),
-                            "current_price": tech.get("current_price", 0.0),
-                            "drop_pct": drop.get("drop_pct", 0.0),
-                            "support": tech.get("support", 0.0),
-                            "tp1_target": trade_plan.get("target_min", 0.0),
-                            "tp2_target": trade_plan.get("target_max", 0.0),
-                            "stop_loss": trade_plan.get("invalidation", 0.0),
-                            "r_max_amount": risk_plan.get("r_max_amount", 50.0),
-                            "suggested_nominal": risk_plan.get("suggested_nominal", 0.0),
+                            "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
+                            "price": tech.get("current_price", 0.0),
+                            "drop": drop.get("drop_pct", 0.0),
+                            "drop_nature": drop.get("nature", "N/A"),
+                            "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
+                            "has_min_liquidity": fund.get("has_min_liquidity", True),
+                            "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
+                            "sector_etf": sec_rel.get("sector_etf", "SPY"),
+                            "rsi": tech.get("rsi", 50.0),
+                            "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
                             "confluence_score": analysis.get("confluence_score", 0),
-                            "verdict": analysis.get("verdict", "ACHETER LE REBOND")
+                            "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                            "currency": tech.get("currency", "USD")
                         })
-                except Exception as fe:
-                    pass
-                    
-        if signals_to_write:
-            threading.Thread(target=write_signals_to_sheets, args=(signals_to_write,), daemon=True).start()
-            
+                    except Exception:
+                        pass
+            else:
+                # Stratégie V3 Institutionnelle (Par Défaut)
+                future_to_sym = {executor.submit(generate_8_step_protocol_analysis, sym, CAPITAL_REFERENCE_DEFAULT): sym for sym in symbols}
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=20):
+                    try:
+                        analysis = future.result()
+                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                            continue
+                            
+                        symbol = analysis.get("symbol")
+                        plan = analysis.get("pricing_plan") or {}
+                        sizing = analysis.get("sizing") or {}
+                        
+                        results.append({
+                            "symbol": symbol,
+                            "name": analysis.get("name", symbol),
+                            "category": analysis.get("category", "Autres"),
+                            "category_icon": analysis.get("category_icon", "📦"),
+                            "is_pea": analysis.get("is_pea", False),
+                            "account_type": analysis.get("account_type", "CTO (US)"),
+                            "sharia": analysis.get("sharia", "NON CONFORME"),
+                            "price": analysis.get("current_price", 0.0),
+                            "drop": analysis.get("drop", 0.0),
+                            "drop_nature": "SURRÉACTION CONJONCTURELLE" if analysis.get("pullback_valid") else "REPLI EN COURS",
+                            "avg_daily_volume": analysis.get("avg_daily_volume", 0.0),
+                            "has_min_liquidity": True,
+                            "sector_rel": "SURPERFORMANCE" if analysis.get("trend_following_valid") else "EN LIGNE",
+                            "sector_etf": "SPY",
+                            "rsi": analysis.get("rsi", 50.0),
+                            "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
+                            "confluence_score": analysis.get("confluence_score", 0),
+                            "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
+                            "currency": analysis.get("currency", "EUR")
+                        })
+                    except Exception:
+                        pass
+                        
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
         return safe_jsonify({"success": False, "error": str(e), "results": []}, 500)
@@ -839,6 +857,7 @@ def scan_batch():
 def scan_watchlist():
     try:
         force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+        strategy = request.args.get("strategy", "ALL").upper()
         watchlist = read_watchlist_from_sheets(force_refresh=force)
         if not watchlist:
             watchlist = DEFAULT_WATCHLIST
@@ -847,81 +866,77 @@ def scan_watchlist():
         signals_to_write = []
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Exécution parallèle accélérée avec timeout de sécurité de 25s pour garantir zéro erreur 502
-        analyses = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in watchlist}
-            try:
+            if strategy == "V2":
+                future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in watchlist}
                 for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
                     try:
-                        data = future.result()
-                        if data and isinstance(data, dict) and not data.get("error"):
-                            analyses.append(data)
-                    except Exception as fe:
+                        analysis = future.result()
+                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                            continue
+                        tech = analysis.get("technical") or {}
+                        drop = analysis.get("drop") or {}
+                        sharia = analysis.get("sharia") or {}
+                        fund = analysis.get("step_4_fundamentals") or {}
+                        sec_rel = analysis.get("sector_strength") or {}
+                        results.append({
+                            "symbol": analysis.get("symbol"),
+                            "name": analysis.get("company_name", analysis.get("symbol")),
+                            "category": analysis.get("category", "Autres"),
+                            "category_icon": analysis.get("category_icon", "📦"),
+                            "is_pea": analysis.get("is_pea", False),
+                            "account_type": analysis.get("account_type", "CTO (US)"),
+                            "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
+                            "price": tech.get("current_price", 0.0),
+                            "drop": drop.get("drop_pct", 0.0),
+                            "drop_nature": drop.get("nature", "N/A"),
+                            "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
+                            "has_min_liquidity": fund.get("has_min_liquidity", True),
+                            "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
+                            "sector_etf": sec_rel.get("sector_etf", "SPY"),
+                            "rsi": tech.get("rsi", 50.0),
+                            "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
+                            "confluence_score": analysis.get("confluence_score", 0),
+                            "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                            "currency": tech.get("currency", "USD")
+                        })
+                    except Exception:
                         pass
-            except concurrent.futures.TimeoutError:
-                print("Notice: Watchlist scan reached 25s timeout safeguard on Render. Returning all completed analyses.")
-            
-        for analysis in analyses:
-            if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-                continue
-                
-            symbol = analysis.get("symbol")
-            tech = analysis.get("technical") or {}
-            drop = analysis.get("drop") or {}
-            sharia = analysis.get("sharia") or {}
-            trade_plan = analysis.get("trade_plan") or {}
-            risk_plan = analysis.get("step_7_risk_sizing") or {}
-            macro_plan = analysis.get("step_2_macro") or {}
-            fund = analysis.get("step_4_fundamentals") or {}
-            sec_rel = analysis.get("sector_strength") or {}
-
-            results.append({
-                "symbol": symbol,
-                "name": analysis.get("company_name", symbol),
-                "category": analysis.get("category", "Autres"),
-                "category_icon": analysis.get("category_icon", "📦"),
-                "is_pea": analysis.get("is_pea", False),
-                "account_type": analysis.get("account_type", "CTO (US)"),
-                "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
-                "price": tech.get("current_price", 0.0),
-                "drop": drop.get("drop_pct", 0.0),
-                "drop_nature": drop.get("nature", "N/A"),
-                "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
-                "has_min_liquidity": fund.get("has_min_liquidity", True),
-                "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
-                "sector_etf": sec_rel.get("sector_etf", "SPY"),
-                "rsi": tech.get("rsi", 50.0),
-                "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
-                "confluence_score": analysis.get("confluence_score", 0),
-                "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
-                "currency": tech.get("currency", "USD")
-            })
-            
-            if "ACHETER" in analysis.get("verdict", ""):
-                signals_to_write.append({
-                    "date": now_str,
-                    "symbol": symbol,
-                    "sharia_status": sharia.get("status"),
-                    "category": analysis.get("category", "Autres"),
-                    "account_type": analysis.get("account_type", "CTO (US)"),
-                    "macro_regime": macro_plan.get("regime", "N/A"),
-                    "current_price": tech.get("current_price", 0.0),
-                    "drop_pct": drop.get("drop_pct", 0.0),
-                    "support": tech.get("support", 0.0),
-                    "tp1_target": trade_plan.get("target_min", 0.0),
-                    "tp2_target": trade_plan.get("target_max", 0.0),
-                    "stop_loss": trade_plan.get("invalidation", 0.0),
-                    "r_max_amount": risk_plan.get("r_max_amount", 50.0),
-                    "suggested_nominal": risk_plan.get("suggested_nominal", 0.0),
-                    "confluence_score": analysis.get("confluence_score", 0),
-                    "verdict": analysis.get("verdict", "ACHETER LE REBOND")
-                })
-                
-        if signals_to_write:
-            threading.Thread(target=write_signals_to_sheets, args=(signals_to_write,), daemon=True).start()
-            
+            else:
+                # Stratégie V3 Institutionnelle
+                future_to_sym = {executor.submit(generate_8_step_protocol_analysis, sym, CAPITAL_REFERENCE_DEFAULT): sym for sym in watchlist}
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
+                    try:
+                        analysis = future.result()
+                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                            continue
+                        results.append({
+                            "symbol": analysis.get("symbol"),
+                            "name": analysis.get("name", analysis.get("symbol")),
+                            "category": analysis.get("category", "Autres"),
+                            "category_icon": analysis.get("category_icon", "📦"),
+                            "is_pea": analysis.get("is_pea", False),
+                            "account_type": analysis.get("account_type", "CTO (US)"),
+                            "sharia": analysis.get("sharia", "NON CONFORME"),
+                            "price": analysis.get("current_price", 0.0),
+                            "drop": analysis.get("drop", 0.0),
+                            "drop_nature": "SURRÉACTION CONJONCTURELLE" if analysis.get("pullback_valid") else "REPLI EN COURS",
+                            "avg_daily_volume": analysis.get("avg_daily_volume", 0.0),
+                            "has_min_liquidity": True,
+                            "sector_rel": "SURPERFORMANCE" if analysis.get("trend_following_valid") else "EN LIGNE",
+                            "sector_etf": "SPY",
+                            "rsi": analysis.get("rsi", 50.0),
+                            "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
+                            "confluence_score": analysis.get("confluence_score", 0),
+                            "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
+                            "currency": analysis.get("currency", "EUR")
+                        })
+                    except Exception:
+                        pass
+                        
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
+    except Exception as e:
+        return safe_jsonify({"success": False, "error": str(e), "results": []}, 500)
     except Exception as e:
         return safe_jsonify({"success": False, "error": str(e), "results": []}, 500)
 
@@ -1003,9 +1018,13 @@ def scan_market():
 @app.route("/api/analyze/<ticker>")
 def analyze_ticker_endpoint(ticker):
     capital = request.args.get("capital", default=CAPITAL_REFERENCE_DEFAULT, type=float)
-    res = get_detailed_analysis(ticker, capital=capital)
-    if "error" in res:
-        return safe_jsonify({"success": False, "error": res["error"]}), 400
+    strategy = request.args.get("strategy", "ALL").upper()
+    if strategy == "V2":
+        res = get_detailed_analysis(ticker, capital=capital)
+    else:
+        res = generate_8_step_protocol_analysis(ticker, capital_total=capital)
+    if not res or "error" in res:
+        return safe_jsonify({"success": False, "error": (res or {}).get("error", "Analyse impossible")}), 400
     return safe_jsonify({"success": True, "data": res})
 
 @app.route("/api/macro")

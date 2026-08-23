@@ -24,6 +24,7 @@ from src.market_data import (
     get_ticker_data,
     get_ticker_info,
     check_sharia_compliance,
+    check_fundamental_quality,
     get_usd_to_eur_rate,
     COMPANY_NAMES
 )
@@ -350,6 +351,13 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
     company_name = info.get("shortName") or info.get("longName") or COMPANY_NAMES.get(sym, sym)
     market_cap = info.get("marketCap", 0)
 
+    fund_q = check_fundamental_quality(None, info=info, symbol=sym, hist=df)
+    category = fund_q.get("category", "Autres")
+    category_icon = fund_q.get("category_icon", "📦")
+    is_pea = fund_q.get("is_pea", False)
+    account_type = fund_q.get("account_type", "CTO (US)")
+    avg_daily_volume = fund_q.get("avg_daily_volume", 0.0)
+
     # 2. Macro Barometer
     macro = get_macro_sentiment_barometer()
     macro_regime = macro.get("regime", "NEUTRE")
@@ -538,8 +546,19 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
     return {
         "symbol": sym,
         "name": company_name,
+        "category": category,
+        "category_icon": category_icon,
+        "is_pea": is_pea,
+        "account_type": account_type,
+        "sharia": sharia_status,
         "currency": "USD" if is_usd else "EUR",
         "current_price": curr_price,
+        "price": curr_price,
+        "drop": pullback_pct,
+        "pullback_pct": pullback_pct,
+        "avg_daily_volume": avg_daily_volume,
+        "rsi": rsi_val,
+        "rsi_divergence": "HAUSSIÈRE" if has_rsi_div else "AUCUNE",
         "confluence_score": confluence_score,
         "verdict": verdict,
         "verdict_badge": verdict_badge,
