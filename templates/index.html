@@ -1008,9 +1008,10 @@
                             <label>⚖️ Verdict :</label>
                             <select id="filter-verdict" class="filter-select" onchange="applyFilters()">
                                 <option value="ALL">Tous les verdicts</option>
-                                <option value="ACHETER">🟢 Acheter Rebond</option>
-                                <option value="ATTENDRE">🟡 Attendre Repli</option>
-                                <option value="ÉVITER">🔴 Éviter</option>
+                                <option value="ACHAT">🟢 Achat Validé / Acheter</option>
+                                <option value="ATTENDRE">🟡 Attendre Breakout / Repli</option>
+                                <option value="ÉVITER">⚪ Éviter - Hors Critères</option>
+                                <option value="RISK_OFF">🔴 Conserver Liquidités (Risk-Off)</option>
                             </select>
                         </div>
 
@@ -1550,8 +1551,10 @@
                         <tbody>
                             <tr>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
-                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);" id="journal-total-pnl">+4 327,89 €</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="journal-total-pnl-usd">+476.29 $ (CTO US)</div>
+                                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                        <div style="font-size: 1.25rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);" id="journal-total-pnl">+4 327,89 €</div>
+                                        <div style="font-size: 1.25rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);" id="journal-total-pnl-usd">+476.29 $ <span style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted);">(CTO US)</span></div>
+                                    </div>
                                 </td>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
                                     <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #60a5fa;" id="journal-win-rate">83.1 %</div>
@@ -1562,8 +1565,10 @@
                                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Excellente espérance mathématique</div>
                                 </td>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
-                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);" id="journal-avg-gain">+16.65 €</div>
-                                    <div style="font-size: 0.8rem; color: var(--danger); margin-top: 0.25rem;" id="journal-avg-loss">-10.28 € (Ratio 1.62)</div>
+                                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                        <div style="font-size: 1.25rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);" id="journal-avg-gain">+16.65 €</div>
+                                        <div style="font-size: 1.25rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--danger);" id="journal-avg-loss">-10.28 € <span style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted);">(Ratio 1.62)</span></div>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -3371,7 +3376,8 @@
 
             const pnlUsdElem = document.getElementById('journal-total-pnl-usd');
             if (pnlUsdElem) {
-                pnlUsdElem.textContent = `${pnlUsd >= 0 ? '+' : ''}${pnlUsd.toFixed(2)} $ (CTO US)`;
+                pnlUsdElem.innerHTML = `${pnlUsd >= 0 ? '+' : ''}${pnlUsd.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} $ <span style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted);">(CTO US)</span>`;
+                pnlUsdElem.style.color = pnlUsd >= 0 ? 'var(--success)' : 'var(--danger)';
             }
 
             const winRateElem = document.getElementById('journal-win-rate');
@@ -3387,7 +3393,9 @@
             if (avgGainElem) avgGainElem.textContent = `+${avgGain} €`;
 
             const avgLossElem = document.getElementById('journal-avg-loss');
-            if (avgLossElem) avgLossElem.textContent = `-${avgLoss} € (Ratio ${gainLossRatio})`;
+            if (avgLossElem) {
+                avgLossElem.innerHTML = `-${avgLoss} € <span style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted);">(Ratio ${gainLossRatio})</span>`;
+            }
 
             // Account Breakdown Cards Update (Basées sur la période choisie)
             ['PEA', 'CTO Euro', 'CTO Dollar'].forEach(acc => {
@@ -4421,9 +4429,10 @@
                 if (shariaFilter === 'CONFORME' && r.sharia !== 'CONFORME') return false;
 
                 // 4. Filtre Verdict
-                if (verdictFilter === 'ACHETER' && !(r.verdict && r.verdict.includes('ACHETER'))) return false;
-                if (verdictFilter === 'ATTENDRE' && !(r.verdict && r.verdict.includes('ATTENDRE'))) return false;
-                if (verdictFilter === 'ÉVITER' && !(r.verdict && (r.verdict.includes('ÉVITER') || r.verdict.includes('GEL')))) return false;
+                if (verdictFilter === 'ACHAT' && !(r.verdict && (r.verdict.includes('ACHAT') || r.verdict.includes('ACHETER')))) return false;
+                if (verdictFilter === 'ATTENDRE' && !(r.verdict && (r.verdict.includes('ATTENDRE') || r.verdict.includes('BREAKOUT')))) return false;
+                if (verdictFilter === 'ÉVITER' && !(r.verdict && (r.verdict.includes('ÉVITER') || r.verdict.includes('HORS')))) return false;
+                if (verdictFilter === 'RISK_OFF' && !(r.verdict && (r.verdict.includes('RISK-OFF') || r.verdict.includes('LIQUIDITÉS') || r.verdict.includes('GEL')))) return false;
 
                 // 5. Recherche textuelle
                 if (searchText) {
@@ -4468,9 +4477,17 @@
                 tr.onclick = () => showTickerDetail(r.symbol);
 
                 const symChar = r.currency === "EUR" ? "€" : "$";
-                const isBuy = r.verdict && r.verdict.includes("ACHETER");
-                const isWait = r.verdict && r.verdict.includes("ATTENDRE");
-                const vBadge = isBuy ? 'badge-success' : isWait ? 'badge-warning' : 'badge-danger';
+                
+                let vBadge = 'badge-neutral';
+                if (r.verdict && (r.verdict.includes("ACHAT") || r.verdict.includes("ACHETER"))) {
+                    vBadge = 'badge-success';
+                } else if (r.verdict && (r.verdict.includes("ATTENDRE") || r.verdict.includes("BREAKOUT"))) {
+                    vBadge = 'badge-warning';
+                } else if (r.verdict && (r.verdict.includes("RISK-OFF") || r.verdict.includes("SHARIA") || r.verdict.includes("GEL"))) {
+                    vBadge = 'badge-danger';
+                } else {
+                    vBadge = 'badge-neutral';
+                }
                 
                 const score = r.confluence_score || 0;
                 const scoreClass = score >= 7 ? 'score-high' : score >= 4 ? 'score-med' : 'score-low';
@@ -4484,6 +4501,8 @@
                 const volM = r.avg_daily_volume ? (r.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar : '-';
                 const volColor = (r.avg_daily_volume && r.avg_daily_volume < 1e6) ? 'var(--danger)' : 'var(--text-main)';
 
+                const actionHtml = r.action_plan ? `<div style="font-size: 0.72rem; color: ${vBadge === 'badge-warning' ? '#fbbf24' : vBadge === 'badge-success' ? '#34d399' : 'var(--text-muted)'}; margin-top: 0.25rem; font-weight: 600; line-height: 1.2;">${r.action_plan}</div>` : '';
+
                 tr.innerHTML = `
                     <td><strong>${r.symbol}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${r.name || ''}</span></td>
                     <td>${accountBadge}</td>
@@ -4495,7 +4514,7 @@
                     <td>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
                     <td>${r.rsi_divergence && r.rsi_divergence.includes('HAUSSIÈRE') ? '<span class="badge badge-primary">OUI 🔥</span>' : '<span style="color:var(--text-muted);">-</span>'}</td>
                     <td><span class="score-pill ${scoreClass}">${score}/10</span></td>
-                    <td><span class="badge ${vBadge}">${r.verdict}</span></td>
+                    <td><span class="badge ${vBadge}">${r.verdict}</span>${actionHtml}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -4778,17 +4797,26 @@
                     const pricing = d.pricing_plan || {};
                     const sizing = d.sizing || {};
 
+                    const actionBannerHtml = d.action_plan ? `
+                        <div style="margin-top: 0.6rem; padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border-left: 3px solid ${d.verdict_badge === 'badge-success' ? '#10b981' : d.verdict_badge === 'badge-warning' ? '#f59e0b' : '#64748b'}; font-size: 0.82rem; font-weight: 600; color: #f8fafc;">
+                            🎯 Action Recommandée : <span style="color: ${d.verdict_badge === 'badge-success' ? '#34d399' : d.verdict_badge === 'badge-warning' ? '#fbbf24' : '#cbd5e1'}; font-weight: 700;">${d.action_plan}</span>
+                        </div>
+                    ` : '';
+
                     container.innerHTML = `
-                        <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                                    <span style="font-size: 1.3rem; font-weight: 800;">${d.symbol}</span>
-                                    <span class="badge ${d.symbol.endsWith('.PA') || d.symbol.endsWith('.DE') ? 'badge-pea' : 'badge-cto'}">${d.symbol.endsWith('.PA') || d.symbol.endsWith('.DE') ? 'PEA (Europe)' : 'CTO (US)'}</span>
-                                    <span class="badge-cat">🏛️ Stratégie Institutionnelle V3</span>
+                        <div style="margin-bottom: 1.25rem; background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                        <span style="font-size: 1.3rem; font-weight: 800;">${d.symbol}</span>
+                                        <span class="badge ${d.symbol.endsWith('.PA') || d.symbol.endsWith('.DE') ? 'badge-pea' : 'badge-cto'}">${d.symbol.endsWith('.PA') || d.symbol.endsWith('.DE') ? 'PEA (Europe)' : 'CTO (US)'}</span>
+                                        <span class="badge-cat">🏛️ Stratégie Institutionnelle V3</span>
+                                    </div>
+                                    <span style="font-size: 0.82rem; color: var(--text-muted);">${d.name || d.symbol} | Cours Actuel : <strong style="color:#60a5fa;">${(d.current_price || 0).toFixed(2)} ${symChar}</strong></span>
                                 </div>
-                                <span style="font-size: 0.82rem; color: var(--text-muted);">${d.name || d.symbol} | Cours Actuel : <strong style="color:#60a5fa;">${(d.current_price || 0).toFixed(2)} ${symChar}</strong></span>
+                                <span class="badge ${d.verdict_badge || 'badge-neutral'}" style="font-size: 0.95rem; padding: 0.45rem 0.9rem;">${d.verdict}</span>
                             </div>
-                            <span class="badge ${d.verdict_badge || 'badge-neutral'}" style="font-size: 0.95rem; padding: 0.45rem 0.9rem;">${d.verdict}</span>
+                            ${actionBannerHtml}
                         </div>
 
                         <div class="report-section">

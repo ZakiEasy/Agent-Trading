@@ -417,6 +417,11 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
     # 7. Dimensionnement R-Max
     sizing = compute_institutional_rmax_sizing(cap, entry_price, stop_loss, take_profit)
 
+    # Calcul du seuil de déclenchement du breakout (résistance court terme)
+    recent_high = float(df['High'].tail(5).max()) if df is not None and not df.empty and 'High' in df.columns else (curr_price * 1.015)
+    breakout_trigger = round(max(curr_price * 1.008, recent_high), 2)
+    sym_currency = "€" if (is_pea or sym.endswith(".PA")) else "$"
+
     # 8. Score de Confluence & Verdict Final
     score = 0
     if is_sharia: score += 2.5
@@ -432,23 +437,40 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
     if not is_sharia:
         verdict = "ÉVITER - HORS CRITÈRES SHARIA"
         verdict_badge = "badge-danger"
-        verdict_action = "Activité ou ratios financiers non conformes aux normes AAOIFI. Analyse stoppée."
+        verdict_action = f"Activité ou ratios financiers non conformes aux normes AAOIFI ({', '.join(sharia_reasons[:2])})."
+        action_plan = "🚫 Exclusion — Achat interdit selon les critères éthiques AAOIFI"
+        alert_price = None
     elif macro_regime == "RISK-OFF":
         verdict = "CONSERVER LIQUIDITÉS (RISK-OFF)"
         verdict_badge = "badge-danger"
-        verdict_action = "Régime de marché défavorable (VIX élevé). Gel des nouveaux achats pour préserver le capital."
+        verdict_action = f"Régime macroéconomique défavorable (VIX : {macro['vix']['value']}). Gel des nouveaux achats."
+        action_plan = "🛡️ Gel des achats — Conserver 100% de liquidités cash"
+        alert_price = None
     elif confluence_score >= 7.5 and has_breakout and trend_following_valid:
         verdict = "ACHAT VALIDÉ"
         verdict_badge = "badge-success"
-        verdict_action = f"Confluence institutionnelle atteinte ({confluence_score}/10). Entrée tactique autorisée vers TP +{dist_tp_pct}%."
+        verdict_action = f"Confluence institutionnelle maximale ({confluence_score}/10). Entrée tactique autorisée."
+        action_plan = f"🎯 Acheter à ~{curr_price:.2f} {sym_currency} | SL: {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)"
+        alert_price = curr_price
     elif trend_following_valid and pullback_valid:
         verdict = "ATTENDRE LE BREAKOUT H1"
         verdict_badge = "badge-warning"
-        verdict_action = "Configuration solide en tendance saine. Attendre la cassure de compression pour exécuter."
+        verdict_action = f"Action saine sur support. Attendre la confirmation de retournement haussier (Breakout H1) pour valider l'entrée."
+        action_plan = f"🔔 Placer une alerte au dépassement de {breakout_trigger:.2f} {sym_currency} (Breakout H1)"
+        alert_price = breakout_trigger
     else:
         verdict = "ÉVITER - HORS CRITÈRES"
         verdict_badge = "badge-neutral"
-        verdict_action = "Critères de tendance, repli ou confluence technique insuffisants."
+        if not trend_following_valid:
+            verdict_action = f"Cours ({curr_price:.2f} {sym_currency}) sous la MM200 ({mm200:.2f} {sym_currency}) : tendance baissière de fond."
+            action_plan = "🛑 Ne pas entrer — Tendance de fond baissière sous MM200"
+        elif not pullback_valid:
+            verdict_action = f"Repli hors zone ({pullback_pct:.1f}% vs cible -2.5% à -8.0%) ou surchauffe."
+            action_plan = "🛑 Ne pas entrer — Repli non qualifié (hors zone -2.5% à -8%)"
+        else:
+            verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou absence de catalyseur technique."
+            action_plan = "🛑 Ne pas entrer — Score de confluence insuffisant"
+        alert_price = None
 
     # Construction du Protocole en 8 Étapes
     protocol_steps = [
@@ -538,7 +560,8 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
             "items": [
                 f"**Score de Confluence :** `{confluence_score} / 10`",
                 f"**Avis Décisionnel :** `[{verdict}]`",
-                f"**Synthèse Opérationnelle :** {verdict_action}"
+                f"**Synthèse Opérationnelle :** {verdict_action}",
+                f"**Action Immédiate :** `{action_plan}`"
             ]
         }
     ]
@@ -563,6 +586,9 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
         "verdict": verdict,
         "verdict_badge": verdict_badge,
         "verdict_action": verdict_action,
+        "action_plan": action_plan,
+        "alert_price": alert_price,
+        "breakout_trigger": breakout_trigger,
         "macro_regime": macro_regime,
         "is_sharia": is_sharia,
         "trend_following_valid": trend_following_valid,

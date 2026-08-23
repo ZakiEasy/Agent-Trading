@@ -171,15 +171,16 @@ class BacktestEngine:
         self.macro_daily_regime = {}
 
         # Résolution des périodes historiques prédéfinies
+        VALID_YF_PERIODS = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
         if self.period in HISTORICAL_PERIODS_1999_2026:
             c_info = HISTORICAL_PERIODS_1999_2026[self.period]
             self.start_date = c_info['start']
             self.end_date = c_info['end']
             self.fetch_period = "max"
-        elif self.period in ["max", "5y", "10y", "20y", "25y", "all_cycles"]:
-            self.fetch_period = "max"
-        else:
+        elif self.period in VALID_YF_PERIODS and not self.start_date:
             self.fetch_period = self.period
+        else:
+            self.fetch_period = "max"
 
     def fetch_historical_universe(self, force_refresh=False):
         """
@@ -188,7 +189,7 @@ class BacktestEngine:
         """
         macro_series = ["^VIX", "SPY", "DX-Y.NYB", "CL=F", "^TNX", "XLY", "XLP"]
         all_tickers = list(set(self.symbols + list(SECTOR_ETFS.values()) + macro_series))
-        p_name = "max" if self.fetch_period == "max" or self.start_date else self.period
+        p_name = self.fetch_period if (self.fetch_period in ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"] and not self.start_date) else "max"
         print(f"📥 Téléchargement / Chargement historique pour {len(all_tickers)} actifs (période: {p_name})...")
         
         for ticker in all_tickers:
@@ -375,7 +376,7 @@ class BacktestEngine:
             self.fetch_historical_universe()
 
         if not self.historical_data:
-            return {"error": "Aucune donnée historique disponible pour le backtest."}
+            return {"success": False, "error": "Aucune donnée historique disponible pour le backtest."}
 
         if not self.macro_daily_regime:
             self._precompute_macro_regimes()

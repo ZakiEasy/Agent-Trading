@@ -1115,64 +1115,72 @@ def backtest_run_endpoint():
     """
     Exécute le backtest historique complet de la stratégie sur la Watchlist et le Market Pool.
     """
-    if request.method == "POST":
-        data = request.json or {}
-    else:
-        data = request.args.to_dict()
+    try:
+        if request.method == "POST":
+            data = request.json or {}
+        else:
+            data = request.args.to_dict()
 
-    period = str(data.get("period", "2y"))
-    start_date = data.get("start_date")
-    end_date = data.get("end_date")
-    capital = float(data.get("capital", 5000.0))
-    tp1_pct = float(data.get("tp1_pct", 1.25))
-    tp2_pct = float(data.get("tp2_pct", 2.25))
-    max_holding_days = int(data.get("max_holding_days", 10))
-    universe_type = str(data.get("universe", "all"))
-    strategy = str(data.get("strategy", "v3_institutional"))
+        period = str(data.get("period", "2y"))
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        capital = float(data.get("capital", 5000.0))
+        tp1_pct = float(data.get("tp1_pct", 1.25))
+        tp2_pct = float(data.get("tp2_pct", 2.25))
+        max_holding_days = int(data.get("max_holding_days", 10))
+        universe_type = str(data.get("universe", "all"))
+        strategy = str(data.get("strategy", "v3_institutional"))
 
-    if universe_type == "watchlist":
-        symbols = DEFAULT_WATCHLIST
-    else:
-        symbols = list(set(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL))
+        if universe_type == "watchlist":
+            symbols = DEFAULT_WATCHLIST
+        else:
+            symbols = list(set(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL))
 
-    engine = BacktestEngine(
-        symbols=symbols,
-        period=period,
-        start_date=start_date,
-        end_date=end_date,
-        initial_capital=capital,
-        tp1_pct=tp1_pct,
-        tp2_pct=tp2_pct,
-        max_holding_days=max_holding_days,
-        strategy=strategy
-    )
-    results = engine.run_simulation()
-    return safe_jsonify(results)
+        engine = BacktestEngine(
+            symbols=symbols,
+            period=period,
+            start_date=start_date,
+            end_date=end_date,
+            initial_capital=capital,
+            tp1_pct=tp1_pct,
+            tp2_pct=tp2_pct,
+            max_holding_days=max_holding_days,
+            strategy=strategy
+        )
+        results = engine.run_simulation()
+        return safe_jsonify(results)
+    except Exception as e:
+        logger.error(f"Erreur backtest run: {e}")
+        return safe_jsonify({"success": False, "error": f"Erreur serveur backtest: {str(e)}"})
 
 @app.route("/api/backtest/crises", methods=["GET", "POST"])
 def backtest_crises_endpoint():
     """
     Exécute le stress-test comparatif sur toutes les périodes historiques (1999 à 2026).
     """
-    if request.method == "POST":
-        data = request.json or {}
-    else:
-        data = request.args.to_dict()
+    try:
+        if request.method == "POST":
+            data = request.json or {}
+        else:
+            data = request.args.to_dict()
 
-    capital = float(data.get("capital", 5000.0))
-    tp1_pct = float(data.get("tp1_pct", 1.25))
-    tp2_pct = float(data.get("tp2_pct", 2.25))
-    max_holding_days = int(data.get("max_holding_days", 10))
-    strategy = str(data.get("strategy", "v3_institutional"))
+        capital = float(data.get("capital", 5000.0))
+        tp1_pct = float(data.get("tp1_pct", 1.25))
+        tp2_pct = float(data.get("tp2_pct", 2.25))
+        max_holding_days = int(data.get("max_holding_days", 10))
+        strategy = str(data.get("strategy", "v3_institutional"))
 
-    results = run_all_crises_stress_test(
-        initial_capital=capital,
-        tp1_pct=tp1_pct,
-        tp2_pct=tp2_pct,
-        max_holding_days=max_holding_days,
-        strategy=strategy
-    )
-    return safe_jsonify({"success": True, "crises": results})
+        results = run_all_crises_stress_test(
+            initial_capital=capital,
+            tp1_pct=tp1_pct,
+            tp2_pct=tp2_pct,
+            max_holding_days=max_holding_days,
+            strategy=strategy
+        )
+        return safe_jsonify({"success": True, "crises": results})
+    except Exception as e:
+        logger.error(f"Erreur benchmark crises: {e}")
+        return safe_jsonify({"success": False, "error": f"Erreur serveur crises: {str(e)}"})
 
 def lookup_ticker_by_name(query):
     query = query.strip()
