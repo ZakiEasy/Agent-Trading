@@ -258,11 +258,19 @@ def detect_technical_breakout(df):
     # Cassure de compression récente (le prix clôture au-dessus du plus haut des 3 dernières séances de repli)
     prev_3_high = float(high.iloc[-4:-1].max()) if len(high) >= 4 else curr_price
     is_price_breakout = curr_price >= prev_3_high and float(close.iloc[-1]) > float(close.iloc[-2])
-
-    # Rebond support
+    # Rebond support : proche du creux local 10j (< 2.5%) ou proche d'un niveau Fibonacci (< 2.5%)
+    recent_low_10 = float(low.iloc[-10:].min()) if len(low) >= 10 else curr_price * 0.97
     dist_to_fib38 = abs(curr_price - fib_38_2) / curr_price * 100
     dist_to_fib50 = abs(curr_price - fib_50) / curr_price * 100
-    is_on_support = dist_to_fib38 < 3.5 or dist_to_fib50 < 3.5 or curr_price > fib_61_8
+    dist_to_low10 = abs(curr_price - recent_low_10) / curr_price * 100
+
+    is_on_support = dist_to_low10 < 2.5 or dist_to_fib38 < 2.5 or dist_to_fib50 < 2.5
+
+    # Support tactique immédiat (sous le cours actuel)
+    support_candidates = [recent_low_10]
+    if fib_38_2 < curr_price and dist_to_fib38 < 5.0: support_candidates.append(fib_38_2)
+    if fib_50 < curr_price and dist_to_fib50 < 5.0: support_candidates.append(fib_50)
+    support_level = round(max(support_candidates), 2)
 
     has_breakout = is_price_breakout and is_on_support
 
@@ -278,7 +286,7 @@ def detect_technical_breakout(df):
     return {
         "has_breakout": has_breakout,
         "is_on_support": is_on_support,
-        "support_level": round(fib_50 if dist_to_fib50 < dist_to_fib38 else fib_38_2, 2),
+        "support_level": support_level,
         "fib_38_2": round(fib_38_2, 2),
         "fib_50": round(fib_50, 2),
         "volume_surge": has_vol_surge,
@@ -297,99 +305,103 @@ def compute_institutional_rmax_sizing(capital_total, entry_price, stop_price, ta
     cap = float(capital_total or REFERENCE_CAPITAL)
     entry = float(entry_price or 1.0)
     stop = float(stop_price or (entry * 0.97))
-    tp = float(target_price or (entry * 1.0225))
+    tp = float(target_price or (entry * 1.045))
 
-    r_max_eur = cap * 0.01  # 1.0% du capital
-    dist_stop_pct = max(0.5, ((entry - stop) / entry) * 100) if entry > 0 else 3.0
-    dist_stop_decimal = dist_stop_pct / 100.0
+    dist_to_stop_pct = max(0.01, (entry - stop) / entry)
+    dist_to_tp_pct = max(0.01, (tp - entry) / entry)
 
-    max_capital_cap = cap * 0.25  # 25% max
-    calc_size_by_risk = r_max_eur / dist_stop_decimal if dist_stop_decimal > 0 else max_capital_cap
-    suggested_allocation_eur = min(calc_size_by_risk, max_capital_cap)
+    r_max_allowed = cap * R_MAX_PCT_STANDARD
+    raw_position_size = r_max_allowed / dist_to_stop_pct
+    max_position_size = cap * MAX_ALLOCATION_PER_LINE_PCT
+    suggested_allocation = min(raw_position_size, max_position_size)
 
-    shares_count = math.floor(suggested_allocation_eur / entry) if entry > 0 else 0
-    actual_nominal_eur = shares_count * entry if shares_count > 0 else suggested_allocation_eur
-    actual_risk_eur = actual_nominal_eur * dist_stop_decimal
+    suggested_shares = int(suggested_allocation // entry) if entry > 0 else 0
+    actual_nominal = suggested_shares * entry
+    actual_risk = suggested_shares * (entry - stop)
+    potential_gain = suggested_shares * (tp - entry)
 
-    target_gain_pct = ((tp - entry) / entry * 100) if entry > 0 else 2.25
-    target_gain_eur = actual_nominal_eur * (target_gain_pct / 100.0)
-    rr_ratio = (target_gain_pct / dist_stop_pct) if dist_stop_pct > 0 else 1.5
+    rr_ratio = (dist_to_tp_pct / dist_to_stop_pct) if dist_to_stop_pct > 0 else 1.5
 
     return {
         "capital_total": round(cap, 2),
-        "r_max_allowed_eur": round(r_max_eur, 2),
-        "max_position_allowed_eur": round(max_capital_cap, 2),
-        "cash_reserve_required_eur": round(cap * 0.25, 2),
         "entry_price": round(entry, 2),
         "stop_loss": round(stop, 2),
         "take_profit": round(tp, 2),
-        "dist_to_stop_pct": round(dist_stop_pct, 2),
-        "dist_to_tp_pct": round(target_gain_pct, 2),
-        "suggested_allocation_eur": round(actual_nominal_eur, 2),
-        "suggested_shares": int(shares_count),
-        "risk_monetary_eur": round(actual_risk_eur, 2),
-        "potential_gain_eur": round(target_gain_eur, 2),
+        "dist_to_stop_pct": round(dist_to_stop_pct * 100, 2),
+        "dist_to_tp_pct": round(dist_to_tp_pct * 100, 2),
+        "r_max_allowed_eur": round(r_max_allowed, 2),
+        "suggested_shares": suggested_shares,
+        "suggested_allocation_eur": round(actual_nominal, 2),
+        "max_position_allowed_eur": round(max_position_size, 2),
+        "risk_monetary_eur": round(actual_risk, 2),
+        "potential_gain_eur": round(potential_gain, 2),
         "risk_reward_ratio": round(rr_ratio, 2),
-        "is_within_risk_limit": actual_risk_eur <= (r_max_eur * 1.05)
+        "is_within_risk_limit": actual_risk <= r_max_allowed * 1.05,
+        "cash_reserve_required_eur": round(cap * MIN_CASH_RESERVE_PCT, 2)
     }
 
 
-def generate_8_step_protocol_analysis(ticker, capital_total=None):
+def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=False):
     """
-    Génère l'analyse protocolaire institutionnelle en 8 étapes pour une action donnée.
-    Format rigoureux conforme aux exigences institutionnelles.
+    Génère l'analyse protocolaire en 8 étapes pour un titre donné :
+    1. Conformité Sharia (AAOIFI)
+    2. Macro & Confluence de Tendance (Trend Following)
+    3. Catalyseur & Qualification du Repli (Event-Driven)
+    4. Fondamentaux & Solidité Financière
+    5. Timing & Confirmation (Breakout Trading)
+    6. Plan de Trade Swing Tactique (TP / SL)
+    7. Dimensionnement & Risque (R-Max)
+    8. Verdict Final & Score de Confluence
     """
-    sym = ticker.upper().strip()
+    sym = sym.strip().upper()
     cap = float(capital_total or REFERENCE_CAPITAL)
-    fx = get_usd_to_eur_rate()
-    is_usd = not sym.endswith(".PA") and not sym.endswith(".DE") and not sym.endswith(".AS") and not sym.endswith(".L")
-    rate_to_eur = fx if is_usd else 1.0
-
-    # 1. Données Ticker & Historique
+    
     info = get_ticker_info(sym) or {}
     df = get_ticker_data(sym, period="1y", interval="1d")
     company_name = info.get("shortName") or info.get("longName") or COMPANY_NAMES.get(sym, sym)
-    market_cap = info.get("marketCap", 0)
+    market_cap = float(info.get("marketCap") or 0.0)
 
-    fund_q = check_fundamental_quality(None, info=info, symbol=sym, hist=df)
-    category = fund_q.get("category", "Autres")
-    category_icon = fund_q.get("category_icon", "📦")
-    is_pea = fund_q.get("is_pea", False)
-    account_type = fund_q.get("account_type", "CTO (US)")
-    avg_daily_volume = fund_q.get("avg_daily_volume", 0.0)
-
-    # 2. Macro Barometer
-    macro = get_macro_sentiment_barometer()
-    macro_regime = macro.get("regime", "NEUTRE")
-
-    # 3. Sharia Compliance (Filtre Obligatoire 1)
+    # 1. Conformité Sharia
     sharia_data = check_sharia_compliance(sym, info)
     is_sharia = sharia_data.get("compliant", False)
     sharia_status = "CONFORME" if is_sharia else "NON CONFORME"
     sharia_reasons = sharia_data.get("reasons", ["Conformité financière validée"])
 
-    # 4. Trend Following & Event-Driven (Filtre Obligatoire 2)
-    curr_price = float(info.get("regularMarketPrice") or (df["Close"].iloc[-1] if df is not None and not df.empty else 100.0))
-    mm200 = 0.0
-    mm50 = 0.0
+    # Métadonnées & Catégories pour la Watchlist
+    fund_qual = check_fundamental_quality(None, info=info, symbol=sym, hist=df)
+    category = fund_qual.get("category", "Actions & Secteurs")
+    category_icon = fund_qual.get("category_icon", "📦")
+    is_pea = fund_qual.get("is_pea", False)
+    account_type = fund_qual.get("account_type", "CTO (US)")
+    avg_daily_volume = fund_qual.get("avg_daily_volume", 0.0)
+    is_usd = not is_pea
+
+    curr_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or (df["Close"].iloc[-1] if df is not None and not df.empty else 100.0))
+
+    # 2. Macro Baromètre
+    macro = get_macro_sentiment_barometer()
+    macro_regime = macro.get("regime", "NEUTRE")
+
+    # 3. Trend Following (Filtre Obligatoire 1)
+    mm200 = curr_price
+    mm50 = curr_price
     trend_following_valid = False
-    pullback_pct = 0.0
-    pullback_days = 5
     pullback_valid = False
-    pullback_type = "SURRÉACTION CONJONCTURELLE"
+    pullback_pct = 0.0
+    pullback_type = "NORMAL"
 
     if df is not None and len(df) >= 200:
         mm200 = float(df["Close"].rolling(200).mean().iloc[-1])
         mm50 = float(df["Close"].rolling(50).mean().iloc[-1])
         trend_following_valid = curr_price >= mm200
-        
+
         # Calcul du repli récent (sur 10 séances)
         peak_10 = float(df["High"].iloc[-10:].max())
         if peak_10 > 0:
             pullback_pct = ((curr_price - peak_10) / peak_10) * 100
             pullback_valid = (-8.0 <= pullback_pct <= -2.5)
 
-    # Prochains Earnings
+    # 4. Prochains Earnings
     earnings_date_str = "Fenêtre > 10j (Aucun risque binaire immédiat)"
     no_earnings_10d = True
     try:
@@ -405,12 +417,16 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
     rsi_val, has_rsi_div, rsi_desc = calculate_rsi_and_divergences(df["Close"] if df is not None else pd.Series([50]))
     breakout_info = detect_technical_breakout(df)
     has_breakout = breakout_info["has_breakout"]
-    support_lvl = breakout_info["support_level"] if breakout_info["support_level"] > 0 else (curr_price * 0.98)
+    support_lvl = breakout_info["support_level"] if (0 < breakout_info["support_level"] < curr_price) else (curr_price * 0.975)
 
-    # 6. Plan de Trade Swing Tactique
+    # 6. Plan de Trade Swing Tactique (Horizon 5 à 10 jours ouvrés)
     entry_price = curr_price
-    stop_loss = round(min(support_lvl * 0.985, curr_price * 0.97), 2)
-    take_profit = round(max(curr_price * 1.0225, curr_price + (curr_price - stop_loss) * 1.5), 2)
+    # Stop-Loss tactique sous le support, strictement borné entre 2.5% et 3.5%
+    raw_sl = min(support_lvl * 0.995, curr_price * 0.97)
+    stop_loss = round(max(curr_price * 0.965, min(curr_price * 0.975, raw_sl)), 2)
+
+    # Take-Profit : Ratio 1:1.5 (gain attendu +3.75% à +5.0% max)
+    take_profit = round(curr_price + (curr_price - stop_loss) * 1.5, 2)
     dist_stop_pct = round(((entry_price - stop_loss) / entry_price) * 100, 2)
     dist_tp_pct = round(((take_profit - entry_price) / entry_price) * 100, 2)
 
@@ -426,8 +442,8 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
     score = 0
     if is_sharia: score += 2.5
     if trend_following_valid: score += 2.0
-    if pullback_valid: score += 2.0
-    if breakout_info["is_on_support"]: score += 1.5
+    if pullback_valid: score += 2.5
+    if breakout_info["is_on_support"]: score += 1.0
     if has_breakout or has_rsi_div: score += 1.0
     if macro_regime == "RISK-ON": score += 1.0
     elif macro_regime == "NEUTRE": score += 0.5
@@ -446,30 +462,43 @@ def generate_8_step_protocol_analysis(ticker, capital_total=None):
         verdict_action = f"Régime macroéconomique défavorable (VIX : {macro['vix']['value']}). Gel des nouveaux achats."
         action_plan = "🛡️ Gel des achats — Conserver 100% de liquidités cash"
         alert_price = None
-    elif confluence_score >= 7.5 and has_breakout and trend_following_valid:
+    elif not trend_following_valid:
+        verdict = "ÉVITER - HORS CRITÈRES"
+        verdict_badge = "badge-neutral"
+        verdict_action = f"Cours ({curr_price:.2f} {sym_currency}) sous la MM200 ({mm200:.2f} {sym_currency}) : tendance baissière de fond."
+        action_plan = "🛑 Ne pas entrer — Tendance de fond baissière sous MM200"
+        alert_price = None
+    elif pullback_pct > -2.0:
+        # Pas de repli (cours proche des sommets)
+        verdict = "ÉVITER - HORS CRITÈRES"
+        verdict_badge = "badge-neutral"
+        verdict_action = f"Cours proche des sommets récents (repli de {pullback_pct:.1f}% insuffisant). Attendre un repli sain de -2.5% à -8.0%."
+        action_plan = f"🛑 Ne pas acheter au sommet — Attendre un repli vers {(curr_price * 0.96):.2f} {sym_currency} (-4%)"
+        alert_price = None
+    elif pullback_pct < -8.0:
+        # Chute excessive (risque de problème structurel)
+        verdict = "ÉVITER - HORS CRITÈRES"
+        verdict_badge = "badge-neutral"
+        verdict_action = f"Chute trop brutale ({pullback_pct:.1f}% > -8.0%). Risque de dégradation fondamentale ou couteau qui tombe."
+        action_plan = "🛑 Ne pas entrer — Chute excessive > -8%"
+        alert_price = None
+    elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
         verdict = "ACHAT VALIDÉ"
         verdict_badge = "badge-success"
-        verdict_action = f"Confluence institutionnelle maximale ({confluence_score}/10). Entrée tactique autorisée."
+        verdict_action = f"Confluence institutionnelle validée ({confluence_score}/10). Entrée tactique autorisée sur rebond de repli."
         action_plan = f"🎯 Acheter à ~{curr_price:.2f} {sym_currency} | SL: {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)"
         alert_price = curr_price
     elif trend_following_valid and pullback_valid:
         verdict = "ATTENDRE LE BREAKOUT H1"
         verdict_badge = "badge-warning"
-        verdict_action = f"Action saine sur support. Attendre la confirmation de retournement haussier (Breakout H1) pour valider l'entrée."
+        verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support en tendance haussière. Attendre la cassure de retournement H1."
         action_plan = f"🔔 Placer une alerte au dépassement de {breakout_trigger:.2f} {sym_currency} (Breakout H1)"
         alert_price = breakout_trigger
     else:
         verdict = "ÉVITER - HORS CRITÈRES"
         verdict_badge = "badge-neutral"
-        if not trend_following_valid:
-            verdict_action = f"Cours ({curr_price:.2f} {sym_currency}) sous la MM200 ({mm200:.2f} {sym_currency}) : tendance baissière de fond."
-            action_plan = "🛑 Ne pas entrer — Tendance de fond baissière sous MM200"
-        elif not pullback_valid:
-            verdict_action = f"Repli hors zone ({pullback_pct:.1f}% vs cible -2.5% à -8.0%) ou surchauffe."
-            action_plan = "🛑 Ne pas entrer — Repli non qualifié (hors zone -2.5% à -8%)"
-        else:
-            verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou absence de catalyseur technique."
-            action_plan = "🛑 Ne pas entrer — Score de confluence insuffisant"
+        verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou absence de catalyseur technique."
+        action_plan = "🛑 Ne pas entrer — Confluence insuffisante"
         alert_price = None
 
     # Construction du Protocole en 8 Étapes
