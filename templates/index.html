@@ -239,15 +239,23 @@
             color: var(--text-muted);
         }
 
-        /* Two-Column Grid for Dashboard */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1.55fr 1.45fr;
-            gap: 1.5rem;
-            align-items: start;
+        /* Fullwidth Layout for Dashboard */
+        .dashboard-fullwidth {
             width: 100%;
             max-width: 100%;
             box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .dashboard-grid {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
 
         .left-col, .right-col {
@@ -255,26 +263,6 @@
             max-width: 100%;
             width: 100%;
             box-sizing: border-box;
-        }
-
-        #ticker-detail-card {
-            max-width: 100%;
-            width: 100%;
-            box-sizing: border-box;
-            overflow-x: auto;
-        }
-
-        #ticker-detail-content {
-            max-width: 100%;
-            width: 100%;
-            box-sizing: border-box;
-            overflow-x: auto;
-        }
-
-        @media (max-width: 1100px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
         }
 
         /* Buttons & Inputs */
@@ -540,48 +528,84 @@
             transition: width 0.3s ease;
         }
 
-        /* Stock Detail Fullscreen / Dedicated Page Mode */
-        #ticker-detail-card.fullscreen-detail {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            z-index: 99999 !important;
-            margin: 0 !important;
-            border-radius: 0 !important;
-            padding: 1.5rem 3rem 3rem 3rem !important;
-            background: rgba(15, 23, 42, 0.98) !important;
-            backdrop-filter: blur(30px) !important;
-            overflow-y: auto !important;
-            box-shadow: none !important;
-            border: none !important;
+        /* Stock Detail Overhead Popin Modal */
+        .popin-detail-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 1.25rem;
+            box-sizing: border-box;
         }
 
-        #ticker-detail-card.fullscreen-detail .card-header {
+        .popin-detail-overlay.active {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .popin-detail-box {
+            background: #0b1329;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            border-radius: 14px;
+            width: 98%;
+            max-width: 1440px;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+            overflow: hidden;
+            animation: popinScale 0.2s ease;
+        }
+
+        @keyframes popinScale {
+            from { transform: scale(0.97); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .popin-detail-header {
             position: sticky;
             top: 0;
-            background: rgba(15, 23, 42, 0.96);
-            padding: 0.75rem 0;
+            background: rgba(15, 23, 42, 0.98);
+            padding: 1rem 1.5rem;
             z-index: 100;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
         }
 
-        #ticker-detail-card.fullscreen-detail #tv-chart-container {
-            height: 520px !important;
-            min-height: 520px !important;
+        .popin-detail-body {
+            overflow-y: auto;
+            padding: 1.5rem;
+            flex: 1;
+            box-sizing: border-box;
         }
 
-        #ticker-detail-card.fullscreen-detail #tradingview_chart {
-            height: 520px !important;
-            min-height: 520px !important;
-        }
-
-        #ticker-detail-card.fullscreen-detail #ticker-detail-content {
-            max-width: 1400px;
-            margin: 0 auto;
+        #tv-chart-container {
+            height: 440px !important;
+            min-height: 440px !important;
             width: 100%;
+        }
+
+        #tradingview_chart {
+            height: 440px !important;
+            min-height: 440px !important;
+            width: 100%;
+        }
+
+        #ticker-detail-content {
+            width: 100%;
+            margin-top: 1rem;
         }
 
         /* Modal Popup */
@@ -897,200 +921,197 @@
                 </div>
             </div>
 
-            <!-- DASHBOARD TWO-COLUMN GRID -->
-            <div class="dashboard-grid">
+            <!-- DASHBOARD FULLWIDTH CONTAINER -->
+            <div class="dashboard-fullwidth">
                 
-                <!-- Left Column: Scans & Results Table -->
-                <div class="left-col">
-                    <!-- Control Panel -->
-                    <div class="glass-card" style="padding: 1.25rem;">
-                        <div class="card-header" style="margin-bottom: 1rem;">
-                            <h2 class="card-title">🔍 Moteur de Scan & Screening Quantitatif</h2>
-                            <button class="btn btn-success" onclick="openAddStockModal()">
-                                ➕ Ajouter une action au Google Sheet
-                            </button>
-                        </div>
-                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                            <button class="btn" onclick="runWatchlistScan()">
-                                🚀 Scanner la Watchlist
-                            </button>
-                            <button class="btn btn-secondary" onclick="runMarketScan()">
-                                🌐 Scanner le Marché Élargi
-                            </button>
-                            <div class="input-group" style="margin-left: auto; min-width: 240px;">
-                                <input type="text" id="ticker-input" class="text-input" placeholder="Ex: SAN.PA, MC.PA, AAPL">
-                                <button class="btn" onclick="analyzeSingleTicker()">Analyser</button>
-                            </div>
-                        </div>
+                <!-- Control Panel -->
+                <div class="glass-card" style="padding: 1.25rem;">
+                    <div class="card-header" style="margin-bottom: 1rem;">
+                        <h2 class="card-title">🔍 Moteur de Scan & Screening Quantitatif</h2>
+                        <button class="btn btn-success" onclick="openAddStockModal()">
+                            ➕ Ajouter une action au Google Sheet
+                        </button>
                     </div>
-
-                    <!-- Scan Results Table with Filter Toolbar -->
-                    <div class="glass-card">
-                        <div class="card-header" style="margin-bottom: 0.75rem;">
-                            <h2 class="card-title" id="results-table-title">📊 Résultats du Scan</h2>
-                            <span id="scan-status" class="badge badge-neutral">Prêt</span>
-                        </div>
-
-                        <!-- Interactive Filter Toolbar (Catégories, PEA, Sharia, Verdict, Recherche) -->
-                        <div class="filter-toolbar">
-                            <!-- Sélecteur de Stratégie V3 Institutionnel vs V2 Standard -->
-                            <div class="filter-group" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem;">
-                                <label style="color: #60a5fa; font-weight: 700;">🎯 Stratégie :</label>
-                                <select id="filter-strategy" class="filter-select" onchange="applyFilters()" style="color: #60a5fa; font-weight: 700;">
-                                    <option value="ALL">🏛️ V3 Institutionnel (Confluence 3 Moteurs)</option>
-                                    <option value="V2">📈 V2 Standard (Mean Reversion)</option>
-                                </select>
-                            </div>
-
-                            <!-- Filtre Compte / PEA -->
-                            <div class="filter-group">
-                                <label>💳 Compte :</label>
-                                <select id="filter-account" class="filter-select" onchange="applyFilters()">
-                                    <option value="ALL">Tous les comptes</option>
-                                    <option value="PEA">🇫🇷 Éligible PEA (Europe)</option>
-                                    <option value="CTO">🇺🇸 Marchés US (CTO)</option>
-                                </select>
-                            </div>
-
-                            <!-- Filtre Catégorie / Secteur -->
-                            <div class="filter-group">
-                                <label>🏷️ Catégorie :</label>
-                                <select id="filter-category" class="filter-select" onchange="applyFilters()">
-                                    <option value="ALL">Toutes les catégories</option>
-                                    <option value="Hyperscalers & Géants Cloud/IA">☁️ Hyperscalers & Géants Cloud/IA</option>
-                                    <option value="Éditeurs de Logiciels & SaaS Enterprise">💻 Éditeurs de Logiciels & SaaS</option>
-                                    <option value="Semi-conducteurs & Équipements">⚡ Semi-conducteurs & Équipements</option>
-                                    <option value="Mémoire & Stockage de Données">💾 Mémoire & Stockage de Données</option>
-                                    <option value="Luxe & Cosmétique Prestige">💎 Luxe & Cosmétique Prestige</option>
-                                    <option value="Consommation Mondiale & E-Commerce">🛒 Consommation & E-Commerce</option>
-                                    <option value="Industrie, Défense & Aéro">🏭 Industrie, Défense & Aéro</option>
-                                    <option value="Santé & Pharmacie">💊 Santé & Pharmacie</option>
-                                    <option value="Énergie & Transition">🔋 Énergie & Transition</option>
-                                    <option value="Matériaux & Chimie">🧪 Matériaux & Chimie</option>
-                                    <option value="ETFs & Indices Factoriels">📊 ETFs & Indices Factoriels</option>
-                                    <option value="Autres">📦 Autres</option>
-                                </select>
-                            </div>
-
-                            <!-- Filtre Sharia -->
-                            <div class="filter-group">
-                                <label>🕌 Sharia :</label>
-                                <select id="filter-sharia" class="filter-select" onchange="applyFilters()">
-                                    <option value="ALL">Tous statuts</option>
-                                    <option value="CONFORME">Conforme uniquement</option>
-                                </select>
-                            </div>
-
-                            <!-- Filtre Verdict -->
-                            <div class="filter-group">
-                                <label>⚖️ Verdict :</label>
-                                <select id="filter-verdict" class="filter-select" onchange="applyFilters()">
-                                    <option value="ALL">Tous les verdicts</option>
-                                    <option value="ACHETER">🟢 Acheter Rebond</option>
-                                    <option value="ATTENDRE">🟡 Attendre Repli</option>
-                                    <option value="ÉVITER">🔴 Éviter</option>
-                                </select>
-                            </div>
-
-                            <!-- Champ de recherche instantanée -->
-                            <div class="filter-group" style="flex: 1; min-width: 160px;">
-                                <input type="text" id="filter-search" class="filter-search" placeholder="🔍 Filtrer par nom ou ticker..." oninput="applyFilters()">
-                            </div>
-
-                            <!-- Badge compteur de résultats -->
-                            <div class="filter-count-badge" id="filter-count-badge">0 action(s)</div>
-                        </div>
-
-                        <!-- Live Scan Progress Bar (Batch Streaming) -->
-                        <div id="scan-progress-box" style="display: none; margin: 0.5rem 0 1rem 0; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 0.4rem;">
-                                <span id="scan-progress-label" style="color: #60a5fa; font-weight: bold;">🔍 Scan progressif par lots en cours...</span>
-                                <span id="scan-progress-pct" style="color: var(--text-muted); font-weight: 600;">0 / 45 (0%)</span>
-                            </div>
-                            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
-                                <div id="scan-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 0.3s ease;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Table -->
-                        <div class="table-container">
-                            <table id="scan-results-table">
-                                <thead>
-                                    <tr>
-                                        <th onclick="sortBy('symbol')" style="cursor: pointer; user-select: none;">Ticker ↕</th>
-                                        <th onclick="sortBy('is_pea')" style="cursor: pointer; user-select: none;">Compte ↕</th>
-                                        <th onclick="sortBy('category')" style="cursor: pointer; user-select: none;">Catégorie & ETF ↕</th>
-                                        <th onclick="sortBy('sharia')" style="cursor: pointer; user-select: none;">Sharia ↕</th>
-                                        <th onclick="sortBy('price')" style="cursor: pointer; user-select: none;">Cours ↕</th>
-                                        <th onclick="sortBy('drop')" style="cursor: pointer; user-select: none;">Dip (%) ↕</th>
-                                        <th onclick="sortBy('avg_daily_volume')" style="cursor: pointer; user-select: none;">Vol/j (€/$) ↕</th>
-                                        <th onclick="sortBy('rsi')" style="cursor: pointer; user-select: none;">RSI ↕</th>
-                                        <th style="user-select: none;">Divergence</th>
-                                        <th onclick="sortBy('confluence_score')" style="cursor: pointer; user-select: none;">Score ↕</th>
-                                        <th onclick="sortBy('verdict')" style="cursor: pointer; user-select: none;">Verdict ↕</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
-                                            Aucun scan lancé. Cliquez sur <strong>"Scanner la Watchlist"</strong> ou saisissez un ticker pour lancer le protocole en 8 étapes.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <button class="btn" onclick="runWatchlistScan()">
+                            🚀 Scanner la Watchlist
+                        </button>
+                        <button class="btn btn-secondary" onclick="runMarketScan()">
+                            🌐 Scanner le Marché Élargi
+                        </button>
+                        <div class="input-group" style="margin-left: auto; min-width: 240px;">
+                            <input type="text" id="ticker-input" class="text-input" placeholder="Ex: SAN.PA, MC.PA, AAPL">
+                            <button class="btn" onclick="analyzeSingleTicker()">Analyser</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Column: 8-Step Report Card & Commodities -->
-                <div class="right-col">
-                    
-                    <!-- 8-Step Detailed Analysis Card -->
-                    <div class="glass-card" id="ticker-detail-card" style="display: none;">
-                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <h2 class="card-title" id="detail-card-title">📋 Rapport Protocolaire</h2>
-                                <span id="detail-score-pill" class="score-pill score-high">--/10</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <button id="btn-toggle-fullscreen" class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.8rem; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd;" onclick="toggleDetailFullscreen()" title="Basculer en mode plein écran / pleine page">
-                                    ⛶ Plein Écran
-                                </button>
-                                <button class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;" onclick="closeDetailCard()" title="Fermer le rapport">
-                                    ✕ Fermer
-                                </button>
-                            </div>
+                <!-- Scan Results Table with Filter Toolbar (Pleine Largeur) -->
+                <div class="glass-card">
+                    <div class="card-header" style="margin-bottom: 0.75rem;">
+                        <h2 class="card-title" id="results-table-title">📊 Résultats du Scan</h2>
+                        <span id="scan-status" class="badge badge-neutral">Prêt</span>
+                    </div>
+
+                    <!-- Interactive Filter Toolbar (Catégories, PEA, Sharia, Verdict, Recherche) -->
+                    <div class="filter-toolbar">
+                        <!-- Sélecteur de Stratégie V3 Institutionnel vs V2 Standard -->
+                        <div class="filter-group" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem;">
+                            <label style="color: #60a5fa; font-weight: 700;">🎯 Stratégie :</label>
+                            <select id="filter-strategy" class="filter-select" onchange="applyFilters()" style="color: #60a5fa; font-weight: 700;">
+                                <option value="ALL">🏛️ V3 Institutionnel (Confluence 3 Moteurs)</option>
+                                <option value="V2">📈 V2 Standard (Mean Reversion)</option>
+                            </select>
                         </div>
-                        
+
+                        <!-- Filtre Compte / PEA -->
+                        <div class="filter-group">
+                            <label>💳 Compte :</label>
+                            <select id="filter-account" class="filter-select" onchange="applyFilters()">
+                                <option value="ALL">Tous les comptes</option>
+                                <option value="PEA">🇫🇷 Éligible PEA (Europe)</option>
+                                <option value="CTO">🇺🇸 Marchés US (CTO)</option>
+                            </select>
+                        </div>
+
+                        <!-- Filtre Catégorie / Secteur -->
+                        <div class="filter-group">
+                            <label>🏷️ Catégorie :</label>
+                            <select id="filter-category" class="filter-select" onchange="applyFilters()">
+                                <option value="ALL">Toutes les catégories</option>
+                                <option value="Hyperscalers & Géants Cloud/IA">☁️ Hyperscalers & Géants Cloud/IA</option>
+                                <option value="Éditeurs de Logiciels & SaaS Enterprise">💻 Éditeurs de Logiciels & SaaS</option>
+                                <option value="Semi-conducteurs & Équipements">⚡ Semi-conducteurs & Équipements</option>
+                                <option value="Mémoire & Stockage de Données">💾 Mémoire & Stockage de Données</option>
+                                <option value="Luxe & Cosmétique Prestige">💎 Luxe & Cosmétique Prestige</option>
+                                <option value="Consommation Mondiale & E-Commerce">🛒 Consommation & E-Commerce</option>
+                                <option value="Industrie, Défense & Aéro">🏭 Industrie, Défense & Aéro</option>
+                                <option value="Santé & Pharmacie">💊 Santé & Pharmacie</option>
+                                <option value="Énergie & Transition">🔋 Énergie & Transition</option>
+                                <option value="Matériaux & Chimie">🧪 Matériaux & Chimie</option>
+                                <option value="ETFs & Indices Factoriels">📊 ETFs & Indices Factoriels</option>
+                                <option value="Autres">📦 Autres</option>
+                            </select>
+                        </div>
+
+                        <!-- Filtre Sharia -->
+                        <div class="filter-group">
+                            <label>🕌 Sharia :</label>
+                            <select id="filter-sharia" class="filter-select" onchange="applyFilters()">
+                                <option value="ALL">Tous statuts</option>
+                                <option value="CONFORME">Conforme uniquement</option>
+                            </select>
+                        </div>
+
+                        <!-- Filtre Verdict -->
+                        <div class="filter-group">
+                            <label>⚖️ Verdict :</label>
+                            <select id="filter-verdict" class="filter-select" onchange="applyFilters()">
+                                <option value="ALL">Tous les verdicts</option>
+                                <option value="ACHETER">🟢 Acheter Rebond</option>
+                                <option value="ATTENDRE">🟡 Attendre Repli</option>
+                                <option value="ÉVITER">🔴 Éviter</option>
+                            </select>
+                        </div>
+
+                        <!-- Champ de recherche instantanée -->
+                        <div class="filter-group" style="flex: 1; min-width: 160px;">
+                            <input type="text" id="filter-search" class="filter-search" placeholder="🔍 Filtrer par nom ou ticker..." oninput="applyFilters()">
+                        </div>
+
+                        <!-- Badge compteur de résultats -->
+                        <div class="filter-count-badge" id="filter-count-badge">0 action(s)</div>
+                    </div>
+
+                    <!-- Live Scan Progress Bar (Batch Streaming) -->
+                    <div id="scan-progress-box" style="display: none; margin: 0.5rem 0 1rem 0; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span id="scan-progress-label" style="color: #60a5fa; font-weight: bold;">🔍 Scan progressif par lots en cours...</span>
+                            <span id="scan-progress-pct" style="color: var(--text-muted); font-weight: 600;">0 / 45 (0%)</span>
+                        </div>
+                        <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
+                            <div id="scan-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Table (Pleine Largeur) -->
+                    <div class="table-container">
+                        <table id="scan-results-table">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortBy('symbol')" style="cursor: pointer; user-select: none;">Ticker ↕</th>
+                                    <th onclick="sortBy('is_pea')" style="cursor: pointer; user-select: none;">Compte ↕</th>
+                                    <th onclick="sortBy('category')" style="cursor: pointer; user-select: none;">Catégorie & ETF ↕</th>
+                                    <th onclick="sortBy('sharia')" style="cursor: pointer; user-select: none;">Sharia ↕</th>
+                                    <th onclick="sortBy('price')" style="cursor: pointer; user-select: none;">Cours ↕</th>
+                                    <th onclick="sortBy('drop')" style="cursor: pointer; user-select: none;">Dip (%) ↕</th>
+                                    <th onclick="sortBy('avg_daily_volume')" style="cursor: pointer; user-select: none;">Vol/j (€/$) ↕</th>
+                                    <th onclick="sortBy('rsi')" style="cursor: pointer; user-select: none;">RSI ↕</th>
+                                    <th style="user-select: none;">Divergence</th>
+                                    <th onclick="sortBy('confluence_score')" style="cursor: pointer; user-select: none;">Score ↕</th>
+                                    <th onclick="sortBy('verdict')" style="cursor: pointer; user-select: none;">Verdict ↕</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                        Aucun scan lancé. Cliquez sur <strong>"Scanner la Watchlist"</strong> ou saisissez un ticker pour lancer le protocole en 8 étapes.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Macro Rules & Commodities Card (Pleine Largeur en Bas) -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🛒 Matières Premières & Garde-fous de Discipline</h2>
+                    </div>
+                    <div class="macro-list" id="macro-commodities-list">
+                        <p style="color: var(--text-muted); font-size: 0.85rem;">Chargement des cours...</p>
+                    </div>
+                    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05);">
+                        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--warning); margin-bottom: 0.5rem;">⚠️ Garde-fous de Discipline v2.0</h4>
+                        <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.1rem; line-height: 1.6;" id="macro-rules-list">
+                            <li><strong>Blackout Macro :</strong> Pas d'ouverture si CPI, réunion FED/BCE ou NFP sous 24-48h.</li>
+                            <li><strong>Circuit Breaker :</strong> Perte &gt; -3% en 1 semaine glissante ➔ Gel 48h + R-Max réduit à 0,5%.</li>
+                            <li><strong>Corrélation :</strong> Maximum 2 positions simultanées par secteur industriel.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div> <!-- closes dashboard-fullwidth -->
+
+            <!-- POPIN MODAL OVERLAY : DETAIL DU TITRE & RAPPORT EN 8 ÉTAPES (PLEINE LARGEUR) -->
+            <div id="ticker-detail-overlay" class="popin-detail-overlay" onclick="handleDetailOverlayClick(event)">
+                <div class="popin-detail-box" id="ticker-detail-card" data-current-symbol="">
+                    
+                    <!-- Popin Header -->
+                    <div class="popin-detail-header">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <h2 class="card-title" id="detail-card-title" style="margin: 0; font-size: 1.15rem; color: #60a5fa;">📋 Rapport Protocolaire</h2>
+                            <span id="detail-score-pill" class="score-pill score-high">--/10</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button class="btn btn-secondary" onclick="closeDetailCard()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; font-weight: 700; border-color: rgba(255,255,255,0.25);" title="Fermer le rapport (Échap)">
+                                ✕ Fermer
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Popin Body -->
+                    <div class="popin-detail-body">
                         <!-- TradingView Interactive Widget Container -->
-                        <div id="tv-chart-container" style="display: none; padding: 0.25rem; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.25);"></div>
+                        <div id="tv-chart-container" style="display: none; padding: 0.25rem; margin-bottom: 1.25rem; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);"></div>
                         
                         <!-- Dynamic 8-Step Content Container -->
                         <div id="ticker-detail-content">
                             <!-- Populated dynamically via JS -->
                         </div>
                     </div>
-
-                    <!-- Macro Rules & Commodities Card -->
-                    <div class="glass-card">
-                        <div class="card-header">
-                            <h2 class="card-title">🛒 Matières Premières & Garde-fous</h2>
-                        </div>
-                        <div class="macro-list" id="macro-commodities-list">
-                            <p style="color: var(--text-muted); font-size: 0.85rem;">Chargement des cours...</p>
-                        </div>
-                        <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05);">
-                            <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--warning); margin-bottom: 0.5rem;">⚠️ Garde-fous de Discipline v2.0</h4>
-                            <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.1rem; line-height: 1.6;" id="macro-rules-list">
-                                <li><strong>Blackout Macro :</strong> Pas d'ouverture si CPI, réunion FED/BCE ou NFP sous 24-48h.</li>
-                                <li><strong>Circuit Breaker :</strong> Perte &gt; -3% en 1 semaine glissante ➔ Gel 48h + R-Max réduit à 0,5%.</li>
-                                <li><strong>Corrélation :</strong> Maximum 2 positions simultanées par secteur industriel.</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                </div> <!-- closes right-col -->
-            </div> <!-- closes dashboard-grid -->
+                </div> <!-- closes ticker-detail-card -->
+            </div> <!-- closes ticker-detail-overlay -->
         </div> <!-- closes dashboard-tab -->
 
         <!-- ================================================================= -->
@@ -1165,156 +1186,178 @@
                 </div>
             </div>
 
-            <!-- MONTHLY ROTATION BREAKDOWN CARD (ROTATION DU MOIS PAR ACTION, MONTANT ET TRANSACTIONS) -->
-            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+            <!-- MONTHLY ROTATION BREAKDOWN CARD (PLIABLE) -->
+            <div class="glass-card" id="monthly-rotation-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid var(--card-border);">
+                <!-- Collapsible Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.1rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); cursor: pointer;" onclick="toggleCardCollapse('monthly-rotation-card')">
                     <div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.3rem;">🔄</span>
-                            <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;" id="monthly-rot-title">
+                            <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0;" id="monthly-rot-title">
                                 Rotation du Mois en Cours : Analyse Détaillée par Action
                             </h3>
                         </div>
-                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
                             Volume cumulé des flux d'achats et de ventes, nombre de transactions et rentabilité réalisée par titre.
                         </p>
                     </div>
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;" onclick="event.stopPropagation()">
                         <input type="text" id="rot-search-input" class="filter-search" style="height: 32px; font-size: 0.8rem; width: 180px;" placeholder="🔍 Filtrer une action..." oninput="filterMonthlyRotationTable()">
                         <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="loadMonthlyRotation(true)">
                             🔄 Actualiser
                         </button>
+                        <button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; font-weight: 700;" onclick="toggleCardCollapse('monthly-rotation-card')" title="Réduire / Développer">
+                            <span id="monthly-rotation-card-icon">▲</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Rotation Summary KPI mini-grid -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Volume Total Négocié</div>
-                        <div style="font-size: 1.15rem; font-weight: 800; color: #60a5fa;" id="rot-kpi-total">-- €</div>
+                <!-- Collapsible Body -->
+                <div id="monthly-rotation-card-body" style="padding: 1.25rem; transition: all 0.3s ease;">
+                    <!-- Rotation Summary KPI mini-grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Volume Total Négocié</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: #60a5fa;" id="rot-kpi-total">-- €</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Total Achats Investis</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: #10b981;" id="rot-kpi-purchases">-- €</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Total Ventes Dénouées</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: #f59e0b;" id="rot-kpi-sales">-- €</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Transactions Réalisées</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: #a78bfa;" id="rot-kpi-trades">0 tx</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Titres Traités</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: #38bdf8;" id="rot-kpi-stocks">0 actions</div>
+                        </div>
                     </div>
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Total Achats Investis</div>
-                        <div style="font-size: 1.15rem; font-weight: 800; color: #10b981;" id="rot-kpi-purchases">-- €</div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Total Ventes Dénouées</div>
-                        <div style="font-size: 1.15rem; font-weight: 800; color: #f59e0b;" id="rot-kpi-sales">-- €</div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Transactions Réalisées</div>
-                        <div style="font-size: 1.15rem; font-weight: 800; color: #a78bfa;" id="rot-kpi-trades">0 tx</div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.65rem; text-align: center;">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Titres Traités</div>
-                        <div style="font-size: 1.15rem; font-weight: 800; color: #38bdf8;" id="rot-kpi-stocks">0 actions</div>
-                    </div>
-                </div>
 
-                <!-- Rotation Details Table -->
-                <div class="table-container" style="max-height: 420px; overflow-y: auto;">
-                    <table id="monthly-rotation-table" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th>Action & Société</th>
-                                <th>Catégorie Sectorielle</th>
-                                <th style="text-align: right;">Achats (Nb / Montant)</th>
-                                <th style="text-align: right;">Ventes (Nb / Montant)</th>
-                                <th style="text-align: center;">Total Tx</th>
-                                <th style="text-align: right;">Volume Roté (€)</th>
-                                <th style="text-align: center; width: 140px;">Part Rotation (%)</th>
-                                <th style="text-align: right;">P&L Réalisé (€)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Chargement de la rotation mensuelle...</td></tr>
-                        </tbody>
-                    </table>
+                    <!-- Rotation Details Table -->
+                    <div class="table-container" style="max-height: 420px; overflow-y: auto;">
+                        <table id="monthly-rotation-table" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>Action & Société</th>
+                                    <th>Catégorie Sectorielle</th>
+                                    <th style="text-align: right;">Achats (Nb / Montant)</th>
+                                    <th style="text-align: right;">Ventes (Nb / Montant)</th>
+                                    <th style="text-align: center;">Total Tx</th>
+                                    <th style="text-align: right;">Volume Roté (€)</th>
+                                    <th style="text-align: center; width: 140px;">Part Rotation (%)</th>
+                                    <th style="text-align: right;">P&L Réalisé (€)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Chargement de la rotation mensuelle...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- ANTI-FIFO ARBITRAGE OPPORTUNITIES BANNER -->
-            <div id="anti-fifo-banner" class="glass-card" style="display: none; margin-bottom: 1.5rem; padding: 1.25rem; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <!-- ANTI-FIFO ARBITRAGE OPPORTUNITIES BANNER (PLIABLE) -->
+            <div id="anti-fifo-banner" class="glass-card" style="display: none; margin-bottom: 1.5rem; padding: 0; overflow: hidden; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
+                <!-- Collapsible Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; cursor: pointer; border-bottom: 1px solid rgba(245, 158, 11, 0.15);" onclick="toggleCardCollapse('anti-fifo-banner')">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <span style="font-size: 1.3rem;">💡</span>
                         <strong style="font-size: 0.95rem; color: #fbbf24;">Opportunités Stratégiques Anti-FIFO (Multi-Broker)</strong>
+                        <span class="badge badge-warning" id="anti-fifo-count" style="margin-left: 0.5rem;">0 Alerte(s)</span>
                     </div>
-                    <span class="badge badge-warning" id="anti-fifo-count">0 Alerte(s)</span>
+                    <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; font-weight: 700; background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); color: #fbbf24;" onclick="event.stopPropagation(); toggleCardCollapse('anti-fifo-banner')" title="Réduire / Développer">
+                        <span id="anti-fifo-banner-icon">▲</span>
+                    </button>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
-                    Des titres sont actuellement en moins-value sur votre courtier principal (XTB). Pour moyenner ou saisir un rebond court terme sans être bloqué par la contrainte fiscale/courtage FIFO (qui vendrait le 1er lot plus cher), <strong>achetez le 2ème lot sur Trading 212</strong> pour dénouer immédiatement au TP1 (+1.25%).
-                </p>
-                <div id="anti-fifo-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+                <!-- Collapsible Body -->
+                <div id="anti-fifo-banner-body" style="padding: 1.25rem; transition: all 0.3s ease;">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                        Des titres sont actuellement en moins-value sur votre courtier principal (XTB). Pour moyenner ou saisir un rebond court terme sans être bloqué par la contrainte fiscale/courtage FIFO (qui vendrait le 1er lot plus cher), <strong>achetez le 2ème lot sur Trading 212</strong> pour dénouer immédiatement au TP1 (+1.25%).
+                    </p>
+                    <div id="anti-fifo-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+                </div>
             </div>
 
-            <!-- Positions Actions & Filter Bar -->
-            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <!-- SUIVI DES POSITIONS ACTIVES CARD (PLIABLE) -->
+            <div class="glass-card" id="active-positions-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid var(--card-border);">
+                <!-- Collapsible Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.1rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); cursor: pointer;" onclick="toggleCardCollapse('active-positions-card')">
                     <div>
-                        <h2 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">💼 Suivi des Positions Actives (Flux Live Multi-Broker)</h2>
-                        <p style="font-size: 0.8rem; color: var(--text-muted);">Surveillance continue XTB & Trading 212, objectifs TP1/TP2 et Stop-Loss.</p>
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <span style="font-size: 1.25rem;">💼</span>
+                            <h2 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0;">Suivi des Positions Actives (Flux Live Multi-Broker)</h2>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">Surveillance continue XTB & Trading 212, objectifs TP1/TP2 et Stop-Loss.</p>
                     </div>
-                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                        <button class="btn btn-primary" onclick="openAddPositionModal()">
+                    <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;" onclick="event.stopPropagation()">
+                        <button class="btn btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="openAddPositionModal()">
                             ➕ Ajouter une Position
                         </button>
-                        <button class="btn btn-secondary" onclick="openUploadCsvModal()">
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="openUploadCsvModal()">
                             📂 Importer Fichier
                         </button>
-                        <button class="btn btn-secondary" onclick="openTrading212ConfigModal()">
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="openTrading212ConfigModal()">
                             ⚙️ Configurer Trading 212
                         </button>
-                        <button class="btn btn-secondary" onclick="loadLivePortfolio()">
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="loadLivePortfolio()">
                             🔄 Actualiser les Cours
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.7rem; font-size: 0.8rem; font-weight: 700;" onclick="toggleCardCollapse('active-positions-card')" title="Réduire / Développer">
+                            <span id="active-positions-card-icon">▲</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Filter Row -->
-                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05);">
-                    <input type="text" id="pos-search-input" class="text-input" placeholder="🔍 Filtrer par Ticker ou Société..." style="width: 220px; font-size: 0.85rem;" oninput="applyPositionFilters()">
-                    
-                    <select id="pos-broker-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyPositionFilters()">
-                        <option value="all">Tous les courtiers (XTB & Trading 212)</option>
-                        <option value="XTB">🔵 XTB uniquement</option>
-                        <option value="Trading 212">🟠 Trading 212 uniquement</option>
-                    </select>
+                <!-- Collapsible Body -->
+                <div id="active-positions-card-body" style="padding: 1.25rem; transition: all 0.3s ease;">
+                    <!-- Filter Row -->
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem;">
+                        <input type="text" id="pos-search-input" class="text-input" placeholder="🔍 Filtrer par Ticker ou Société..." style="width: 220px; font-size: 0.85rem;" oninput="applyPositionFilters()">
+                        
+                        <select id="pos-broker-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyPositionFilters()">
+                            <option value="all">Tous les courtiers (XTB & Trading 212)</option>
+                            <option value="XTB">🔵 XTB uniquement</option>
+                            <option value="Trading 212">🟠 Trading 212 uniquement</option>
+                        </select>
 
-                    <select id="pos-status-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyPositionFilters()">
-                        <option value="all">Tous les statuts</option>
-                        <option value="profit">En gain latent 🟢</option>
-                        <option value="loss">En perte latente 🔴</option>
-                        <option value="alert">Alertes TP / SL 🔔</option>
-                    </select>
-                </div>
-            </div>
+                        <select id="pos-status-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyPositionFilters()">
+                            <option value="all">Tous les statuts</option>
+                            <option value="profit">En gain latent 🟢</option>
+                            <option value="loss">En perte latente 🔴</option>
+                            <option value="alert">Alertes TP / SL 🔔</option>
+                        </select>
+                    </div>
 
-            <!-- Active Positions Table -->
-            <div class="glass-card">
-                <div style="overflow-x: auto;">
-                    <table class="data-table" id="portfolio-table">
-                        <thead>
-                            <tr>
-                                <th>Ticker & Société</th>
-                                <th>Courtier & Compte</th>
-                                <th>Date & Durée</th>
-                                <th>PRU & Quantité</th>
-                                <th>Cours Actuel</th>
-                                <th>P&L Latent</th>
-                                <th style="min-width: 180px;">Progression Cibles</th>
-                                <th>Statut & Diagnostic</th>
-                                <th style="text-align: right;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="portfolio-table-body">
-                            <tr>
-                                <td colspan="9" style="text-align:center; color:var(--text-muted); padding:3rem;">
-                                    Chargement des positions en direct...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <!-- Active Positions Table -->
+                    <div class="table-container" style="margin: 0; overflow-x: auto;">
+                        <table class="data-table" id="portfolio-table">
+                            <thead>
+                                <tr>
+                                    <th>Ticker & Société</th>
+                                    <th>Courtier & Compte</th>
+                                    <th>Date & Durée</th>
+                                    <th>PRU & Quantité</th>
+                                    <th>Cours Actuel</th>
+                                    <th>P&L Latent</th>
+                                    <th style="min-width: 180px;">Progression Cibles</th>
+                                    <th>Statut & Diagnostic</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="portfolio-table-body">
+                                <tr>
+                                    <td colspan="9" style="text-align:center; color:var(--text-muted); padding:3rem;">
+                                        Chargement des positions en direct...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -1486,27 +1529,45 @@
         <!-- ================================================================= -->
         <div id="journal-tab" class="tab-content">
             
-            <!-- Performance Summary KPIs Grid -->
-            <div class="metrics-grid" style="margin-bottom: 1.5rem;">
-                <div class="metric-card">
-                    <div class="metric-title">💰 P&L Total Réalisé (EUR / USD)</div>
-                    <div class="metric-value" id="journal-total-pnl" style="color: var(--success);">+4 327.89 €</div>
-                    <div class="metric-subtitle" id="journal-total-pnl-usd">+476.29 $ (CTO US)</div>
+            <!-- Journal Top Summary Table -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid var(--card-border);">
+                <div style="padding: 0.85rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="font-size: 0.95rem; font-weight: 700; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                        <span>📈</span> Synthèse de Rentabilité du Journal de Trading
+                    </h3>
+                    <span class="badge badge-primary" id="journal-trades-badge" style="font-size: 0.75rem;">397 Trades Clôturés</span>
                 </div>
-                <div class="metric-card">
-                    <div class="metric-title">🎯 Taux de Réussite (Win Rate)</div>
-                    <div class="metric-value" id="journal-win-rate" style="color: #60a5fa;">83.1 %</div>
-                    <div class="metric-subtitle" id="journal-win-loss-count">330 Gagnants / 67 Perdants</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">⚖️ Profit Factor (Gains / Pertes)</div>
-                    <div class="metric-value" id="journal-profit-factor" style="color: #a78bfa;">7.97</div>
-                    <div class="metric-subtitle">Excellente espérance mathématique</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">📈 Gain Moyen vs Perte Moyenne</div>
-                    <div class="metric-value" id="journal-avg-gain" style="font-size: 1.35rem;">+16.65 €</div>
-                    <div class="metric-subtitle" id="journal-avg-loss" style="color: var(--danger);">-10.28 € (Ratio 1.62)</div>
+                <div class="table-container" style="margin: 0; overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="background: rgba(255,255,255,0.015); border-bottom: 1px solid var(--card-border);">
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">💰 P&L Total Réalisé (EUR / USD)</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">🎯 Taux de Réussite (Win Rate)</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">⚖️ Profit Factor (Gains / Pertes)</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📈 Gain Moyen vs Perte Moyenne</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);" id="journal-total-pnl">+4 327,89 €</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="journal-total-pnl-usd">+476.29 $ (CTO US)</div>
+                                </td>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #60a5fa;" id="journal-win-rate">83.1 %</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="journal-win-loss-count">330 Gagnants / 67 Perdants</div>
+                                </td>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #a78bfa;" id="journal-profit-factor">7.97</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Excellente espérance mathématique</div>
+                                </td>
+                                <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
+                                    <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);" id="journal-avg-gain">+16.65 €</div>
+                                    <div style="font-size: 0.8rem; color: var(--danger); margin-top: 0.25rem;" id="journal-avg-loss">-10.28 € (Ratio 1.62)</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1542,7 +1603,19 @@
             <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-                        <input type="text" id="journal-search-input" class="text-input" placeholder="🔍 Filtrer par Ticker ou Société..." style="width: 220px; font-size: 0.85rem;" oninput="applyJournalFilters()">
+                        <!-- Filtre Période Calendaire -->
+                        <div style="display: flex; align-items: center; gap: 0.4rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem;">
+                            <label style="font-size: 0.85rem; color: #60a5fa; font-weight: 700;">📅 Période :</label>
+                            <select id="journal-period-filter" class="filter-select" style="color: #60a5fa; font-weight: 700; background: transparent; border: none;" onchange="applyJournalFilters()">
+                                <option value="all">🌐 Tout l'historique</option>
+                                <option value="today">📅 Journée (Aujourd'hui)</option>
+                                <option value="week">📆 Semaine en cours</option>
+                                <option value="month">🗓️ Mois en cours</option>
+                                <option value="year">📊 Année en cours</option>
+                            </select>
+                        </div>
+
+                        <input type="text" id="journal-search-input" class="text-input" placeholder="🔍 Filtrer par Ticker ou Société..." style="width: 200px; font-size: 0.85rem;" oninput="applyJournalFilters()">
                         
                         <select id="journal-account-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyJournalFilters()">
                             <option value="all">Tous les comptes</option>
@@ -3157,12 +3230,173 @@
         window.importAllHistory = syncAllHistoryFiles;
 
         // ---------------------------------------------------------------------
+        // CARD COLLAPSE UTILITY (PLIABLE / DÉPLIABLE)
+        // ---------------------------------------------------------------------
+        function toggleCardCollapse(cardId) {
+            const body = document.getElementById(`${cardId}-body`);
+            const icon = document.getElementById(`${cardId}-icon`);
+            if (!body) return;
+
+            const isHidden = body.style.display === 'none';
+            body.style.display = isHidden ? 'block' : 'none';
+            if (icon) {
+                icon.textContent = isHidden ? '▲' : '▼';
+            }
+        }
+
+        // ---------------------------------------------------------------------
         // TRADING JOURNAL & PERFORMANCE ANALYTICS
         // ---------------------------------------------------------------------
         let allJournalTrades = [];
         let filteredJournalTrades = [];
         let journalCurrentPage = 1;
         const JOURNAL_PAGE_SIZE = 50;
+
+        function isTradeInPeriod(closeTimeStr, period) {
+            if (period === 'all' || !period) return true;
+            if (!closeTimeStr) return false;
+
+            const datePart = String(closeTimeStr).trim().substring(0, 10);
+            if (!datePart || datePart.length < 10) return false;
+
+            const now = new Date();
+            const todayPart = now.toISOString().substring(0, 10);
+
+            if (period === 'today') {
+                return datePart === todayPart;
+            }
+
+            if (period === 'month') {
+                const currentYearMonth = todayPart.substring(0, 7);
+                return datePart.startsWith(currentYearMonth);
+            }
+
+            if (period === 'year') {
+                const currentYear = todayPart.substring(0, 4);
+                return datePart.startsWith(currentYear);
+            }
+
+            if (period === 'week') {
+                const tradeDate = new Date(datePart);
+                if (isNaN(tradeDate.getTime())) return false;
+
+                const d = new Date(now);
+                const day = d.getDay();
+                const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
+                const monday = new Date(d.setDate(diffToMonday));
+                monday.setHours(0, 0, 0, 0);
+
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                sunday.setHours(23, 59, 59, 999);
+
+                return tradeDate >= monday && tradeDate <= sunday;
+            }
+
+            return true;
+        }
+
+        function updateJournalStatsFromTrades(trades) {
+            const total = trades.length;
+            let pnlEur = 0;
+            let pnlUsd = 0;
+            let wins = 0;
+            let losses = 0;
+            let sumGains = 0;
+            let sumLosses = 0;
+
+            const byAcc = {
+                'PEA': { pnl: 0, trades: 0, wins: 0, losses: 0 },
+                'CTO Euro': { pnl: 0, trades: 0, wins: 0, losses: 0 },
+                'CTO Dollar': { pnl: 0, trades: 0, wins: 0, losses: 0 }
+            };
+
+            trades.forEach(t => {
+                const pnl = Number(t.pnl_amount) || 0;
+                const isUsd = t.currency === 'USD' || (t.account && t.account.includes('Dollar'));
+
+                if (isUsd) {
+                    pnlUsd += pnl;
+                } else {
+                    pnlEur += pnl;
+                }
+
+                if (pnl >= 0) {
+                    wins++;
+                    sumGains += pnl;
+                } else {
+                    losses++;
+                    sumLosses += Math.abs(pnl);
+                }
+
+                let accKey = 'CTO Euro';
+                if (t.account && t.account.includes('PEA')) accKey = 'PEA';
+                else if (t.account && t.account.includes('Dollar')) accKey = 'CTO Dollar';
+
+                if (byAcc[accKey]) {
+                    byAcc[accKey].trades++;
+                    byAcc[accKey].pnl += pnl;
+                    if (pnl >= 0) byAcc[accKey].wins++;
+                    else byAcc[accKey].losses++;
+                }
+            });
+
+            const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : '0.0';
+            const profitFactor = sumLosses > 0 ? (sumGains / sumLosses).toFixed(2) : (sumGains > 0 ? '∞' : '0.00');
+            const avgGain = wins > 0 ? (sumGains / wins).toFixed(2) : '0.00';
+            const avgLoss = losses > 0 ? (sumLosses / losses).toFixed(2) : '0.00';
+            const gainLossRatio = Number(avgLoss) > 0 ? (Number(avgGain) / Number(avgLoss)).toFixed(2) : '0.00';
+
+            // Top Summary Table Update
+            const pnlEurElem = document.getElementById('journal-total-pnl');
+            if (pnlEurElem) {
+                pnlEurElem.textContent = `${pnlEur >= 0 ? '+' : ''}${pnlEur.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €`;
+                pnlEurElem.style.color = pnlEur >= 0 ? 'var(--success)' : 'var(--danger)';
+            }
+
+            const pnlUsdElem = document.getElementById('journal-total-pnl-usd');
+            if (pnlUsdElem) {
+                pnlUsdElem.textContent = `${pnlUsd >= 0 ? '+' : ''}${pnlUsd.toFixed(2)} $ (CTO US)`;
+            }
+
+            const winRateElem = document.getElementById('journal-win-rate');
+            if (winRateElem) winRateElem.textContent = `${winRate} %`;
+
+            const winLossElem = document.getElementById('journal-win-loss-count');
+            if (winLossElem) winLossElem.textContent = `${wins} Gagnants / ${losses} Perdants`;
+
+            const profitFactorElem = document.getElementById('journal-profit-factor');
+            if (profitFactorElem) profitFactorElem.textContent = `${profitFactor}`;
+
+            const avgGainElem = document.getElementById('journal-avg-gain');
+            if (avgGainElem) avgGainElem.textContent = `+${avgGain} €`;
+
+            const avgLossElem = document.getElementById('journal-avg-loss');
+            if (avgLossElem) avgLossElem.textContent = `-${avgLoss} € (Ratio ${gainLossRatio})`;
+
+            // Account Breakdown Cards Update
+            ['PEA', 'CTO Euro', 'CTO Dollar'].forEach(acc => {
+                const d = byAcc[acc];
+                const rate = d.trades > 0 ? ((d.wins / d.trades) * 100).toFixed(1) : '0.0';
+                const prefix = acc === 'PEA' ? 'pea' : (acc === 'CTO Euro' ? 'eur' : 'usd');
+                const sym = acc === 'CTO Dollar' ? '$' : '€';
+
+                const rateElem = document.getElementById(`journal-${prefix}-rate`);
+                if (rateElem) rateElem.textContent = `${rate}% Win Rate`;
+
+                const pnlElem = document.getElementById(`journal-${prefix}-pnl`);
+                if (pnlElem) {
+                    pnlElem.textContent = `${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} ${sym}`;
+                    pnlElem.style.color = d.pnl >= 0 ? 'var(--success)' : 'var(--danger)';
+                }
+
+                const countElem = document.getElementById(`journal-${prefix}-count`);
+                if (countElem) countElem.textContent = `${d.trades} trades clôturés (${d.wins} gagnants / ${d.losses} perdants)`;
+            });
+
+            const tradesBadge = document.getElementById('journal-trades-badge');
+            if (tradesBadge) tradesBadge.textContent = `${total} Trade(s) Clôturé(s)`;
+        }
 
         async function loadJournalHistory(force = false) {
             const now = Date.now();
@@ -3186,61 +3420,6 @@
 
         function renderJournalAll(payload) {
             allJournalTrades = payload.trades || [];
-            const stats = payload.stats || {};
-
-            // Update Performance KPIs
-            const pnlEurElem = document.getElementById('journal-total-pnl');
-            if (pnlEurElem) {
-                pnlEurElem.textContent = `${stats.total_pnl_eur >= 0 ? '+' : ''}${(Number(stats.total_pnl_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-                pnlEurElem.style.color = stats.total_pnl_eur >= 0 ? 'var(--success)' : 'var(--danger)';
-            }
-
-            const pnlUsdElem = document.getElementById('journal-total-pnl-usd');
-            if (pnlUsdElem) {
-                pnlUsdElem.textContent = `${stats.total_pnl_usd >= 0 ? '+' : ''}${(Number(stats.total_pnl_usd) || 0).toFixed(2)} $ (CTO US)`;
-            }
-
-            const winRateElem = document.getElementById('journal-win-rate');
-            if (winRateElem) winRateElem.textContent = `${stats.win_rate || 0} %`;
-
-            const winLossElem = document.getElementById('journal-win-loss-count');
-            if (winLossElem) winLossElem.textContent = `${stats.winning_trades || 0} Gagnants / ${stats.losing_trades || 0} Perdants`;
-
-            const profitFactorElem = document.getElementById('journal-profit-factor');
-            if (profitFactorElem) profitFactorElem.textContent = `${stats.profit_factor || 0}`;
-
-            const avgGainElem = document.getElementById('journal-avg-gain');
-            if (avgGainElem) avgGainElem.textContent = `+${stats.avg_gain || 0} €`;
-
-            const avgLossElem = document.getElementById('journal-avg-loss');
-            if (avgLossElem) avgLossElem.textContent = `-${stats.avg_loss || 0} € (Ratio ${stats.gain_loss_ratio || 0})`;
-
-            // Update Account Breakdown
-            const byAcc = stats.by_account || {};
-            if (byAcc['PEA']) {
-                const peaRate = document.getElementById('journal-pea-rate');
-                if (peaRate) peaRate.textContent = `${byAcc['PEA'].win_rate}% Win Rate`;
-                const peaPnl = document.getElementById('journal-pea-pnl');
-                if (peaPnl) peaPnl.textContent = `${byAcc['PEA'].pnl >= 0 ? '+' : ''}${(Number(byAcc['PEA'].pnl) || 0).toFixed(2)} €`;
-                const peaCount = document.getElementById('journal-pea-count');
-                if (peaCount) peaCount.textContent = `${byAcc['PEA'].trades} trades clôturés (${byAcc['PEA'].wins} gagnants / ${byAcc['PEA'].trades - byAcc['PEA'].wins} perdants)`;
-            }
-            if (byAcc['CTO Euro']) {
-                const eurRate = document.getElementById('journal-eur-rate');
-                if (eurRate) eurRate.textContent = `${byAcc['CTO Euro'].win_rate}% Win Rate`;
-                const eurPnl = document.getElementById('journal-eur-pnl');
-                if (eurPnl) eurPnl.textContent = `${byAcc['CTO Euro'].pnl >= 0 ? '+' : ''}${(Number(byAcc['CTO Euro'].pnl) || 0).toFixed(2)} €`;
-                const eurCount = document.getElementById('journal-eur-count');
-                if (eurCount) eurCount.textContent = `${byAcc['CTO Euro'].trades} trades clôturés (${byAcc['CTO Euro'].wins} gagnants / ${byAcc['CTO Euro'].trades - byAcc['CTO Euro'].wins} perdants)`;
-            }
-            if (byAcc['CTO Dollar']) {
-                const usdRate = document.getElementById('journal-usd-rate');
-                if (usdRate) usdRate.textContent = `${byAcc['CTO Dollar'].win_rate}% Win Rate`;
-                const usdPnl = document.getElementById('journal-usd-pnl');
-                if (usdPnl) usdPnl.textContent = `${byAcc['CTO Dollar'].pnl >= 0 ? '+' : ''}${(Number(byAcc['CTO Dollar'].pnl) || 0).toFixed(2)} $`;
-                const usdCount = document.getElementById('journal-usd-count');
-                if (usdCount) usdCount.textContent = `${byAcc['CTO Dollar'].trades} trades clôturés (${byAcc['CTO Dollar'].wins} gagnants / ${byAcc['CTO Dollar'].trades - byAcc['CTO Dollar'].wins} perdants)`;
-            }
 
             // Nav Badge
             const navJournal = document.getElementById('nav-journal-count');
@@ -3253,8 +3432,12 @@
             const query = (document.getElementById('journal-search-input')?.value || '').trim().toLowerCase();
             const accFilter = document.getElementById('journal-account-filter')?.value || 'all';
             const resFilter = document.getElementById('journal-result-filter')?.value || 'all';
+            const periodFilter = document.getElementById('journal-period-filter')?.value || 'all';
 
             filteredJournalTrades = (allJournalTrades || []).filter(t => {
+                // Period filter (calendaire)
+                if (!isTradeInPeriod(t.close_time || t.open_time, periodFilter)) return false;
+
                 const sym = (t.symbol || '').toLowerCase();
                 const name = (t.name || '').toLowerCase();
                 if (query && !sym.includes(query) && !name.includes(query)) return false;
@@ -3272,6 +3455,9 @@
 
                 return true;
             });
+
+            // Dynamically update stats for filtered trades
+            updateJournalStatsFromTrades(filteredJournalTrades);
 
             // Sort by close date desc
             filteredJournalTrades.sort((a, b) => (b.close_time || '').localeCompare(a.close_time || ''));
@@ -4460,13 +4646,12 @@
         }
 
         // ---------------------------------------------------------------------
-        // 8-STEP PROTOCOL ANALYSIS CARD & TRADINGVIEW (WITH FULLSCREEN MODE)
+        // 8-STEP PROTOCOL ANALYSIS CARD & TRADINGVIEW (OVERHEAD POPIN MODAL)
         // ---------------------------------------------------------------------
         function renderTradingViewWidget(symbol) {
             const container = document.getElementById('tv-chart-container');
-            const card = document.getElementById('ticker-detail-card');
-            const isFullscreen = card && card.classList.contains('fullscreen-detail');
-            const chartHeight = isFullscreen ? '500px' : '330px';
+            if (!container) return;
+            const chartHeight = '440px';
 
             container.style.display = 'block';
             container.innerHTML = `<div id="tradingview_chart" style="height: ${chartHeight}; width: 100%;"></div>`;
@@ -4501,18 +4686,22 @@
         }
 
         async function showTickerDetail(symbol) {
+            const overlay = document.getElementById('ticker-detail-overlay');
             const container = document.getElementById('ticker-detail-content');
             const card = document.getElementById('ticker-detail-card');
             
-            card.setAttribute('data-current-symbol', symbol);
+            if (card) card.setAttribute('data-current-symbol', symbol);
             document.getElementById('detail-card-title').textContent = `📋 Rapport Protocolaire : ${symbol}`;
             container.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">Chargement du protocole en 8 étapes...</p>';
-            document.getElementById('tv-chart-container').style.display = 'none';
-            card.style.display = 'block';
+            
+            const chartCont = document.getElementById('tv-chart-container');
+            if (chartCont) chartCont.style.display = 'none';
 
-            // Scroll to detail card smoothly if not fullscreen
-            if (!card.classList.contains('fullscreen-detail')) {
-                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Affichage en Popin Overhead pleine largeur
+            if (overlay) {
+                overlay.style.display = 'flex';
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
             }
 
             try {
@@ -4733,42 +4922,26 @@
             }
         }
 
-        function toggleDetailFullscreen() {
-            const card = document.getElementById('ticker-detail-card');
-            const btn = document.getElementById('btn-toggle-fullscreen');
-            if (!card) return;
-
-            const isFullscreen = card.classList.toggle('fullscreen-detail');
-            if (btn) {
-                btn.innerHTML = isFullscreen ? '🗗 Réduire' : '⛶ Plein Écran';
-                btn.title = isFullscreen ? 'Quitter le mode plein écran (Échap)' : 'Basculer en mode plein écran / pleine page';
-            }
-
-            // Adjust chart size if active
-            const currentSymbol = card.getAttribute('data-current-symbol');
-            if (currentSymbol && document.getElementById('tv-chart-container').style.display !== 'none') {
-                renderTradingViewWidget(currentSymbol);
-            }
-        }
-
         function closeDetailCard() {
-            const card = document.getElementById('ticker-detail-card');
-            if (!card) return;
-            card.style.display = 'none';
-            if (card.classList.contains('fullscreen-detail')) {
-                card.classList.remove('fullscreen-detail');
-                const btn = document.getElementById('btn-toggle-fullscreen');
-                if (btn) btn.innerHTML = '⛶ Plein Écran';
+            const overlay = document.getElementById('ticker-detail-overlay');
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.style.display = 'none';
+            }
+            document.body.style.overflow = 'auto';
+        }
+
+        function handleDetailOverlayClick(event) {
+            if (event.target === document.getElementById('ticker-detail-overlay')) {
+                closeDetailCard();
             }
         }
 
-        // Global Escape key listener to exit fullscreen mode
+        // Global Escape key listener to close popins and modals
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const card = document.getElementById('ticker-detail-card');
-                if (card && card.classList.contains('fullscreen-detail')) {
-                    toggleDetailFullscreen();
-                }
+                closeDetailCard();
+                closeV2V3ComparisonModal();
             }
         });
 
