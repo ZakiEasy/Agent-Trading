@@ -419,24 +419,14 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     has_breakout = breakout_info["has_breakout"]
     support_lvl = breakout_info["support_level"] if (0 < breakout_info["support_level"] < curr_price) else (curr_price * 0.975)
 
-    # 6. Plan de Trade Swing Tactique (Horizon 5 à 10 jours ouvrés)
-    entry_price = curr_price
-    # Stop-Loss tactique sous le support, strictement borné entre 2.5% et 3.5%
-    raw_sl = min(support_lvl * 0.995, curr_price * 0.97)
-    stop_loss = round(max(curr_price * 0.965, min(curr_price * 0.975, raw_sl)), 2)
-
-    # Take-Profit : Ratio 1:1.5 (gain attendu +3.75% à +5.0% max)
-    take_profit = round(curr_price + (curr_price - stop_loss) * 1.5, 2)
-    dist_stop_pct = round(((entry_price - stop_loss) / entry_price) * 100, 2)
-    dist_tp_pct = round(((take_profit - entry_price) / entry_price) * 100, 2)
-
-    # 7. Dimensionnement R-Max
-    sizing = compute_institutional_rmax_sizing(cap, entry_price, stop_loss, take_profit)
-
-    # Calcul du seuil de déclenchement du breakout (résistance court terme)
-    recent_high = float(df['High'].tail(5).max()) if df is not None and not df.empty and 'High' in df.columns else (curr_price * 1.015)
-    breakout_trigger = round(max(curr_price * 1.008, recent_high), 2)
     sym_currency = "€" if (is_pea or sym.endswith(".PA")) else "$"
+
+    # Seuil de déclenchement du Breakout H1 (résistance immédiate de compression)
+    # On cherche la borne haute de la consolidation (séance précédente ou cassure de compression +0.6% à +1.2%)
+    prev_high = float(df['High'].iloc[-2]) if (df is not None and len(df) >= 2) else (curr_price * 1.008)
+    breakout_trigger = round(max(curr_price * 1.006, min(curr_price * 1.015, prev_high)), 2)
+    if breakout_trigger <= curr_price:
+        breakout_trigger = round(curr_price * 1.008, 2)
 
     # 8. Score de Confluence & Verdict Final
     score = 0
@@ -456,42 +446,53 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         verdict_action = f"Activité ou ratios financiers non conformes aux normes AAOIFI ({', '.join(sharia_reasons[:2])})."
         action_plan = "🚫 Exclusion — Achat interdit selon les critères éthiques AAOIFI"
         alert_price = None
+        entry_price = curr_price
+        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
     elif macro_regime == "RISK-OFF":
         verdict = "CONSERVER LIQUIDITÉS (RISK-OFF)"
         verdict_badge = "badge-danger"
         verdict_action = f"Régime macroéconomique défavorable (VIX : {macro['vix']['value']}). Gel des nouveaux achats."
         action_plan = "🛡️ Gel des achats — Conserver 100% de liquidités cash"
         alert_price = None
+        entry_price = curr_price
+        entry_label = f"Gel des achats (~{curr_price:.2f} {sym_currency})"
     elif not trend_following_valid:
         verdict = "ÉVITER - HORS CRITÈRES"
         verdict_badge = "badge-neutral"
         verdict_action = f"Cours ({curr_price:.2f} {sym_currency}) sous la MM200 ({mm200:.2f} {sym_currency}) : tendance baissière de fond."
         action_plan = "🛑 Ne pas entrer — Tendance de fond baissière sous MM200"
         alert_price = None
+        entry_price = curr_price
+        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
     elif pullback_pct > -2.0:
-        # Pas de repli (cours proche des sommets)
         verdict = "ÉVITER - HORS CRITÈRES"
         verdict_badge = "badge-neutral"
         verdict_action = f"Cours proche des sommets récents (repli de {pullback_pct:.1f}% insuffisant). Attendre un repli sain de -2.5% à -8.0%."
         action_plan = f"🛑 Ne pas acheter au sommet — Attendre un repli vers {(curr_price * 0.96):.2f} {sym_currency} (-4%)"
         alert_price = None
+        entry_price = curr_price
+        entry_label = f"Attendre repli (~{curr_price:.2f} {sym_currency})"
     elif pullback_pct < -8.0:
-        # Chute excessive (risque de problème structurel)
         verdict = "ÉVITER - HORS CRITÈRES"
         verdict_badge = "badge-neutral"
         verdict_action = f"Chute trop brutale ({pullback_pct:.1f}% > -8.0%). Risque de dégradation fondamentale ou couteau qui tombe."
         action_plan = "🛑 Ne pas entrer — Chute excessive > -8%"
         alert_price = None
+        entry_price = curr_price
+        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
     elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
         verdict = "ACHAT VALIDÉ"
         verdict_badge = "badge-success"
         verdict_action = f"Confluence institutionnelle validée ({confluence_score}/10). Entrée tactique autorisée sur rebond de repli."
-        action_plan = f"🎯 Acheter à ~{curr_price:.2f} {sym_currency} | SL: {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)"
+        entry_price = curr_price
+        entry_label = f"Achat immédiat au marché (~{entry_price:.2f} {sym_currency})"
         alert_price = curr_price
     elif trend_following_valid and pullback_valid:
         verdict = "ATTENDRE LE BREAKOUT H1"
         verdict_badge = "badge-warning"
         verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support en tendance haussière. Attendre la cassure de retournement H1."
+        entry_price = breakout_trigger
+        entry_label = f"{entry_price:.2f} {sym_currency} (Achat sur cassure H1 confirmée)"
         action_plan = f"🔔 Placer une alerte au dépassement de {breakout_trigger:.2f} {sym_currency} (Breakout H1)"
         alert_price = breakout_trigger
     else:
@@ -500,6 +501,25 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou absence de catalyseur technique."
         action_plan = "🛑 Ne pas entrer — Confluence insuffisante"
         alert_price = None
+        entry_price = curr_price
+        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
+
+    # 6. Plan de Trade Swing Tactique (Calculé sur entry_price)
+    # Stop-Loss tactique sous le support, strictement borné entre 2.0% et 3.5% du prix d'entrée
+    raw_sl = min(support_lvl * 0.997, entry_price * 0.97)
+    stop_loss = round(max(entry_price * 0.965, min(entry_price * 0.98, raw_sl)), 2)
+
+    # Take-Profit : Ratio 1:1.50 par rapport au risque (retour vers sommets récents)
+    take_profit = round(entry_price + (entry_price - stop_loss) * 1.5, 2)
+    dist_stop_pct = round(((entry_price - stop_loss) / entry_price) * 100, 2)
+    dist_tp_pct = round(((take_profit - entry_price) / entry_price) * 100, 2)
+
+    # 7. Dimensionnement R-Max
+    sizing = compute_institutional_rmax_sizing(cap, entry_price, stop_loss, take_profit)
+
+    # Compléter action_plan si ACHAT VALIDÉ
+    if verdict == "ACHAT VALIDÉ":
+        action_plan = f"🎯 Acheter à ~{entry_price:.2f} {sym_currency} | SL: {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)"
 
     # Construction du Protocole en 8 Étapes
     protocol_steps = [
@@ -552,8 +572,8 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "status": "Breakout Confirmé" if has_breakout else "Test Support",
             "badge": "badge-success" if has_breakout else "badge-warning",
             "items": [
-                f"**Support Majeur :** {support_lvl:.2f} (Zone Fibonacci 38.2% / 50%)",
-                f"**Structure de Cassure :** {breakout_info['breakout_desc']}",
+                f"**Support Majeur :** {support_lvl:.2f} {sym_currency} (Zone de convergence Fibonacci)",
+                f"**Structure de Cassure :** {'Breakout H1 confirmé avec flux acheteur' if has_breakout else f'Attente de la cassure de la résistance H1 à {breakout_trigger:.2f} {sym_currency}'}",
                 f"**Momentum & RSI (14) :** {rsi_desc}"
             ]
         },
@@ -563,9 +583,9 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "status": f"TP +{dist_tp_pct}% / SL -{dist_stop_pct}%",
             "badge": "badge-primary",
             "items": [
-                f"**Zone d'Entrée :** {entry_price:.2f} €/$",
-                f"**Take Profit (+1.5% à +3.0%) :** {take_profit:.2f} €/$ (+{dist_tp_pct}%)",
-                f"**Stop-Loss d'Invalidation :** {stop_loss:.2f} €/$ (-{dist_stop_pct}%)",
+                f"**Zone d'Entrée :** {entry_label}",
+                f"**Take Profit (+{dist_tp_pct}%) :** {take_profit:.2f} {sym_currency} (Ratio R:R 1:1.50 vers sommets récents)",
+                f"**Stop-Loss d'Invalidation (-{dist_stop_pct}%) :** {stop_loss:.2f} {sym_currency} (Placé sous le support technique)",
                 f"**Horizon Estimé :** ~5 à 10 jours ouvrés"
             ]
         },
@@ -576,9 +596,9 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "badge": "badge-success" if sizing['is_within_risk_limit'] else "badge-warning",
             "items": [
                 f"**Capital Portefeuille :** {sizing['capital_total']:,.2f} € (Cash / Au comptant)",
-                f"**Allocation Suggérée :** {sizing['suggested_allocation_eur']:,.2f} € ({sizing['suggested_shares']} actions)",
-                f"**Risque Monétaire Engagé (R) :** {sizing['risk_monetary_eur']:,.2f} € (Bloqué à 1.0% max)",
-                f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f}"
+                f"**Allocation Suggérée :** {sizing['suggested_allocation_eur']:,.2f} € ({sizing['suggested_shares']} actions à {entry_price:.2f} {sym_currency})",
+                f"**Risque Monétaire Engagé (R) :** {sizing['risk_monetary_eur']:,.2f} € ({sizing['risk_monetary_eur'] / sizing['capital_total'] * 100:.2f}% du capital — Bloqué à 1.0% max)",
+                f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Gain potentiel : +{sizing['potential_gain_eur']:,.2f} €)"
             ]
         },
         {
@@ -625,16 +645,17 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         "has_breakout": has_breakout,
         "pricing_plan": {
             "entry": entry_price,
-            "tp": take_profit,
             "sl": stop_loss,
-            "dist_tp_pct": dist_tp_pct,
+            "tp": take_profit,
             "dist_stop_pct": dist_stop_pct,
+            "dist_tp_pct": dist_tp_pct,
             "horizon_days": "5-10j"
         },
         "sizing": sizing,
         "steps": protocol_steps,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
+
 
 def scan_watchlist_institutional(tickers=None, capital_total=None, max_workers=6):
     """
