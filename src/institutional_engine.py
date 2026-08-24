@@ -304,8 +304,8 @@ def compute_institutional_rmax_sizing(capital_total, entry_price, stop_price, ta
     """
     cap = float(capital_total or REFERENCE_CAPITAL)
     entry = float(entry_price or 1.0)
-    stop = float(stop_price or (entry * 0.97))
-    tp = float(target_price or (entry * 1.045))
+    stop = float(stop_price or (entry * 0.986))
+    tp = float(target_price or (entry * 1.020))
 
     dist_to_stop_pct = max(0.01, (entry - stop) / entry)
     dist_to_tp_pct = max(0.01, (tp - entry) / entry)
@@ -504,13 +504,14 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         entry_price = curr_price
         entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
 
-    # 6. Plan de Trade Swing Tactique (Calculé sur entry_price)
-    # Stop-Loss tactique sous le support, strictement borné entre 2.0% et 3.5% du prix d'entrée
-    raw_sl = min(support_lvl * 0.997, entry_price * 0.97)
-    stop_loss = round(max(entry_price * 0.965, min(entry_price * 0.98, raw_sl)), 2)
+    # 6. Plan de Trade Swing Tactique (Cible de sortie rapide +1.5% à +2.0%)
+    # Take-Profit : Cible de sortie rapide fixée à +2.0% (ou TP1 +1.5% / TP2 +2.0%)
+    take_profit = round(entry_price * 1.020, 2)
 
-    # Take-Profit : Ratio 1:1.50 par rapport au risque (retour vers sommets récents)
-    take_profit = round(entry_price + (entry_price - stop_loss) * 1.5, 2)
+    # Stop-Loss tactique : sous le micro-support, borné entre -1.25% et -1.50% (pour préserver un ratio R:R de 1:1.33 à 1:1.50)
+    raw_sl = min(support_lvl * 0.998, entry_price * 0.986)
+    stop_loss = round(max(entry_price * 0.985, min(entry_price * 0.987, raw_sl)), 2)
+
     dist_stop_pct = round(((entry_price - stop_loss) / entry_price) * 100, 2)
     dist_tp_pct = round(((take_profit - entry_price) / entry_price) * 100, 2)
 
@@ -584,9 +585,9 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "badge": "badge-primary",
             "items": [
                 f"**Zone d'Entrée :** {entry_label}",
-                f"**Take Profit (+{dist_tp_pct}%) :** {take_profit:.2f} {sym_currency} (Ratio R:R 1:1.50 vers sommets récents)",
-                f"**Stop-Loss d'Invalidation (-{dist_stop_pct}%) :** {stop_loss:.2f} {sym_currency} (Placé sous le support technique)",
-                f"**Horizon Estimé :** ~5 à 10 jours ouvrés"
+                f"**Take Profit (+1.5% à +2.0%) :** {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)",
+                f"**Stop-Loss d'Invalidation (-1.3% à -1.5%) :** {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%)",
+                f"**Horizon Estimé :** ~3 à 5 jours ouvrés (Rebond tactique court terme)"
             ]
         },
         {
