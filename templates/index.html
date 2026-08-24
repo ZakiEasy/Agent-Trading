@@ -2470,45 +2470,62 @@
     </div>
 
     <!-- ===================================================================== -->
-    <!-- MODAL : IMPORTER RAPPORT (EXCEL .XLSX / CSV XTB) -->
+    <!-- MODAL : IMPORTER RAPPORTS MULTIPLES (EXCEL .XLSX / CSV XTB - PEA, EURO, US) -->
     <!-- ===================================================================== -->
     <div class="modal-overlay" id="upload-csv-modal">
-        <div class="modal-box">
+        <div class="modal-box" style="max-width: 680px;">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📂 Importer un Rapport XTB / Courtier (Excel ou CSV)</h3>
+                <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📂 Importer des Fichiers d'Historique Multiples (PEA, Euro, US)</h3>
                 <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeUploadCsvModal()">✕</button>
             </div>
             <div class="modal-body">
-                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    Sélectionnez un fichier exporté depuis <strong>XTB</strong> (format <code>.xlsx</code> ou <code>.csv</code>) ou votre courtier. Les positions fermées seront ajoutées au <strong>Journal de Trading</strong> et les positions ouvertes au <strong>Suivi Live</strong>.
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.45;">
+                    Sélectionnez ou déposez <strong>un ou plusieurs fichiers</strong> exportés depuis <strong>XTB</strong> (format <code>.xlsx</code> ou <code>.csv</code>).
+                    Le système auto-détecte automatiquement le <strong>compte</strong> (PEA, CTO Euro, CTO US) et les <strong>données</strong> (Ordres, Positions ouvertes/fermées, Trésorerie).
                 </p>
 
                 <div class="form-group" style="margin-bottom: 1rem;">
-                    <label>Compte Associé</label>
-                    <select id="csv-account-select">
-                        <option value="auto">Auto-détection (via nom de fichier ou contenu)</option>
-                        <option value="PEA">🇫🇷 Compte PEA (Europe)</option>
-                        <option value="CTO Euro">💶 Compte Euro (CTO)</option>
-                        <option value="CTO Dollar">🇺🇸 Compte Dollar (CTO US)</option>
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.35rem; display: block;">Compte de Destination</label>
+                    <select id="csv-account-select" style="width: 100%; padding: 0.5rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: #fff;">
+                        <option value="auto">✨ Auto-détection intelligente (selon le nom et le contenu de chaque fichier)</option>
+                        <option value="PEA">🇫🇷 Forcer Compte PEA (Europe)</option>
+                        <option value="CTO Euro">💶 Forcer Compte Euro (CTO)</option>
+                        <option value="CTO Dollar">🇺🇸 Forcer Compte Dollar (CTO US)</option>
                     </select>
                 </div>
 
-                <div style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 1.75rem; text-align: center; margin-bottom: 1rem; background: rgba(0,0,0,0.2);">
-                    <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📊</div>
-                    <input type="file" id="csv-file-input" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display: none;" onchange="onCsvFileSelected()">
+                <div id="drop-zone" style="border: 2px dashed rgba(59, 130, 246, 0.4); border-radius: 8px; padding: 1.5rem; text-align: center; margin-bottom: 1rem; background: rgba(59, 130, 246, 0.03); transition: all 0.2s;" ondragover="event.preventDefault(); this.style.borderColor='#60a5fa'; this.style.background='rgba(59,130,246,0.08)';" ondragleave="this.style.borderColor='rgba(59, 130, 246, 0.4)'; this.style.background='rgba(59,130,246,0.03)';" ondrop="handleFilesDrop(event)">
+                    <div style="font-size: 2.2rem; margin-bottom: 0.35rem;">📊 📁</div>
+                    <input type="file" id="csv-file-input" multiple accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display: none;" onchange="onCsvFilesSelected()">
                     <button class="btn btn-primary" onclick="document.getElementById('csv-file-input').click()">
-                        Choisir un fichier (.xlsx ou .csv)
+                        Parcourir et Choisir des Fichiers (.xlsx ou .csv)
                     </button>
-                    <div id="csv-file-name" style="margin-top: 0.75rem; font-size: 0.85rem; color: #60a5fa;">Aucun fichier sélectionné</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem;">
+                        Glissez-déposez plusieurs fichiers ici ou cliquez pour en sélectionner plusieurs (sélection multiple supportée)
+                    </div>
                 </div>
 
-                <div id="csv-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+                <!-- Liste des fichiers sélectionnés avec détection dynamique -->
+                <div id="selected-files-container" style="display: none; margin-bottom: 1rem; max-height: 200px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 0.5rem; background: rgba(0,0,0,0.2);">
+                    <div style="font-size: 0.8rem; font-weight: 700; color: #93c5fd; margin-bottom: 0.4rem; display: flex; justify-content: space-between;">
+                        <span>📋 Fichiers prêts à être importés (<span id="selected-files-count">0</span>)</span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); cursor: pointer;" onclick="clearSelectedFiles()">Effacer tout 🗑️</span>
+                    </div>
+                    <div id="selected-files-list" style="display: flex; flex-direction: column; gap: 0.35rem;"></div>
+                </div>
+
+                <div id="csv-feedback" style="display: none; padding: 0.75rem; border-radius: 6px; font-size: 0.82rem; margin-top: 0.5rem;"></div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeUploadCsvModal()">Annuler</button>
-                <button class="btn btn-success" id="btn-submit-upload-csv" onclick="submitUploadCsv()" disabled>
-                    📥 Lancer l'Importation
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn btn-secondary" style="font-size: 0.8rem;" onclick="syncAllHistoryFiles()">
+                    ⚡ Synchroniser Dossier Local /historique
                 </button>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="closeUploadCsvModal()">Annuler</button>
+                    <button class="btn btn-success" id="btn-submit-upload-csv" onclick="submitUploadCsv()" disabled>
+                        📥 Lancer l'Importation
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -4049,12 +4066,15 @@
         }
 
         // ---------------------------------------------------------------------
-        // UPLOAD CSV MODAL
+        // UPLOAD MULTI-FICHIERS CSV / XLSX MODAL
         // ---------------------------------------------------------------------
+        let selectedUploadFiles = [];
+
         function openUploadCsvModal() {
             document.getElementById('upload-csv-modal').classList.add('active');
+            selectedUploadFiles = [];
             document.getElementById('csv-file-input').value = '';
-            document.getElementById('csv-file-name').textContent = 'Aucun fichier sélectionné';
+            renderSelectedFilesList();
             document.getElementById('btn-submit-upload-csv').disabled = true;
             document.getElementById('csv-feedback').style.display = 'none';
         }
@@ -4063,33 +4083,115 @@
             document.getElementById('upload-csv-modal').classList.remove('active');
         }
 
-        function onCsvFileSelected() {
-            const input = document.getElementById('csv-file-input');
-            const btn = document.getElementById('btn-submit-upload-csv');
-            const nameElem = document.getElementById('csv-file-name');
-
-            if (input.files && input.files[0]) {
-                nameElem.textContent = `📄 ${input.files[0].name} (${(input.files[0].size / 1024).toFixed(1)} KB)`;
-                btn.disabled = false;
-            } else {
-                nameElem.textContent = 'Aucun fichier sélectionné';
-                btn.disabled = true;
+        function handleFilesDrop(e) {
+            e.preventDefault();
+            const zone = document.getElementById('drop-zone');
+            if (zone) {
+                zone.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+                zone.style.background = 'rgba(59,130,246,0.03)';
+            }
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                addFilesToUploadList(Array.from(e.dataTransfer.files));
             }
         }
 
-        async function submitUploadCsv() {
+        function onCsvFilesSelected() {
             const input = document.getElementById('csv-file-input');
-            if (!input.files || !input.files[0]) return;
+            if (input.files && input.files.length > 0) {
+                addFilesToUploadList(Array.from(input.files));
+            }
+        }
+
+        function addFilesToUploadList(newFiles) {
+            for (const f of newFiles) {
+                if (!selectedUploadFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+                    selectedUploadFiles.push(f);
+                }
+            }
+            renderSelectedFilesList();
+        }
+
+        function removeSelectedFile(index) {
+            selectedUploadFiles.splice(index, 1);
+            renderSelectedFilesList();
+        }
+
+        function clearSelectedFiles() {
+            selectedUploadFiles = [];
+            document.getElementById('csv-file-input').value = '';
+            renderSelectedFilesList();
+        }
+
+        function renderSelectedFilesList() {
+            const container = document.getElementById('selected-files-container');
+            const listElem = document.getElementById('selected-files-list');
+            const countElem = document.getElementById('selected-files-count');
+            const btn = document.getElementById('btn-submit-upload-csv');
+
+            if (!selectedUploadFiles || selectedUploadFiles.length === 0) {
+                container.style.display = 'none';
+                btn.disabled = true;
+                btn.textContent = "📥 Lancer l'Importation";
+                return;
+            }
+
+            container.style.display = 'block';
+            countElem.textContent = selectedUploadFiles.length;
+            btn.disabled = false;
+            btn.textContent = `📥 Importer ${selectedUploadFiles.length} fichier(s)`;
+
+            listElem.innerHTML = selectedUploadFiles.map((f, idx) => {
+                const fnameUpper = f.name.toUpperCase();
+                
+                let accBadge = '<span class="badge badge-success" style="font-size:0.65rem;">💶 CTO Euro</span>';
+                if (fnameUpper.includes('PEA')) {
+                    accBadge = '<span class="badge badge-pea" style="font-size:0.65rem;">🇫🇷 PEA</span>';
+                } else if (fnameUpper.includes('USD') || fnameUpper.includes('DOLLAR') || fnameUpper.includes('US')) {
+                    accBadge = '<span class="badge badge-cto" style="font-size:0.65rem;">🇺🇸 CTO US</span>';
+                }
+
+                let typeBadge = '<span class="badge badge-neutral" style="font-size:0.65rem;">📊 Rapport</span>';
+                if (fnameUpper.includes('ORDRE')) {
+                    typeBadge = '<span class="badge badge-primary" style="font-size:0.65rem;">📋 Ordres</span>';
+                } else if (fnameUpper.includes('TRESO') || fnameUpper.includes('CASH')) {
+                    typeBadge = '<span class="badge badge-warning" style="font-size:0.65rem;">💰 Trésorerie</span>';
+                } else if (fnameUpper.includes('POSITION')) {
+                    typeBadge = '<span class="badge badge-success" style="font-size:0.65rem;">📈 Positions</span>';
+                }
+
+                const sizeKb = (f.size / 1024).toFixed(1);
+
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.35rem 0.6rem; border-radius: 4px; font-size: 0.78rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;">
+                            <span>📄</span>
+                            <span style="color: #f1f5f9; font-weight: 500;">${f.name}</span>
+                            <span style="color: var(--text-muted); font-size: 0.7rem;">(${sizeKb} KB)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                            ${accBadge}
+                            ${typeBadge}
+                            <button type="button" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 0 0.2rem; font-size: 0.85rem;" onclick="removeSelectedFile(${idx})" title="Supprimer">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function submitUploadCsv() {
+            if (!selectedUploadFiles || selectedUploadFiles.length === 0) return;
 
             const btn = document.getElementById('btn-submit-upload-csv');
             btn.disabled = true;
-            btn.textContent = "⏳ Importation en cours...";
+            btn.textContent = `⏳ Importation de ${selectedUploadFiles.length} fichier(s)...`;
 
             const accountSelect = document.getElementById('csv-account-select');
             const accountVal = accountSelect ? accountSelect.value : 'auto';
 
             const formData = new FormData();
-            formData.append('file', input.files[0]);
+            for (const f of selectedUploadFiles) {
+                formData.append('files', f);
+            }
             if (accountVal !== 'auto') {
                 formData.append('account', accountVal);
             }
@@ -4101,21 +4203,29 @@
                 });
                 const payload = await res.json();
                 if (payload.success) {
-                    showCsvFeedback(`✅ ${payload.message}`, "var(--success)");
+                    let detailsHtml = `<div>✅ <strong>${payload.message}</strong></div>`;
+                    if (payload.by_account) {
+                        detailsHtml += `<div style="margin-top:0.4rem; font-size:0.75rem; color:#cbd5e1; display:flex; gap:0.8rem; flex-wrap:wrap;">`;
+                        for (const [acc, counts] of Object.entries(payload.by_account)) {
+                            detailsHtml += `<span>• <strong>${acc}</strong> : ${counts.closed} clos, ${counts.open} ouverts, ${counts.cash} trésorerie</span>`;
+                        }
+                        detailsHtml += `</div>`;
+                    }
+                    showCsvFeedback(detailsHtml, "var(--success)");
                     setTimeout(() => {
                         closeUploadCsvModal();
-                        loadLivePortfolio();
-                        loadJournalHistory();
-                    }, 1200);
+                        loadLivePortfolio(true);
+                        loadJournalHistory(true);
+                    }, 1800);
                 } else {
                     showCsvFeedback(`❌ ${payload.error || 'Erreur lors de l\'import.'}`, "var(--danger)");
                 }
             } catch (e) {
                 console.error(e);
-                showCsvFeedback("Erreur de connexion lors de l'envoi du fichier.", "var(--danger)");
+                showCsvFeedback("Erreur de connexion lors de l'envoi des fichiers.", "var(--danger)");
             } finally {
                 btn.disabled = false;
-                btn.textContent = "📥 Lancer l'Importation";
+                btn.textContent = `📥 Importer ${selectedUploadFiles.length} fichier(s)`;
             }
         }
 
@@ -4125,7 +4235,7 @@
             fb.style.background = 'rgba(0,0,0,0.4)';
             fb.style.border = `1px solid ${color}`;
             fb.style.color = color;
-            fb.textContent = msg;
+            fb.innerHTML = msg;
         }
 
         // ---------------------------------------------------------------------

@@ -558,77 +558,150 @@ def add_portfolio_position():
 
 @app.route("/api/portfolio/upload_report", methods=["POST"])
 @app.route("/api/portfolio/upload_csv", methods=["POST"])
+@app.route("/api/portfolio/upload_multiple_reports", methods=["POST"])
 def upload_portfolio_report():
     """
-    Importe un fichier Excel (.xlsx) ou CSV de rapport XTB / courtier.
-    Auto-détecte les positions fermées, les positions ouvertes et les opérations de trésorerie.
+    Importe un ou plusieurs fichiers Excel (.xlsx, .xls) ou CSV de rapport XTB / courtier.
+    Auto-détecte pour chaque fichier :
+      - Le compte (PEA, CTO Euro, CTO Dollar/US)
+      - Les positions fermées (Journal de Trading)
+      - Les positions ouvertes (Suivi Live)
+      - Les opérations de trésorerie (Cash)
     """
-    file = request.files.get("file")
-    if not file:
+    files = request.files.getlist("files")
+    if not files:
+        single_file = request.files.get("file")
+        if single_file:
+            files = [single_file]
+
+    if not files:
         return jsonify({"success": False, "error": "Aucun fichier fourni."}), 400
-        
-    filename = file.filename or ""
-    content = file.read()
-    
-    closed_imported = 0
-    open_imported = 0
-    cash_imported = 0
-    msg = ""
 
-    if filename.lower().endswith(".xlsx") or filename.lower().endswith(".xls"):
-        parsed = parse_xtb_excel_file(content, default_account=request.form.get("account"))
-        closed_trades = parsed.get("closed_positions", [])
-        open_positions = parsed.get("open_positions", [])
-        cash_ops = parsed.get("cash_operations", [])
+    default_acc_override = request.form.get("account")
+    if default_acc_override == "auto":
+        default_acc_override = None
 
-        if closed_trades:
-            existing_journal = read_journal_from_sheets()
-            existing_ids = {t.get("id") for t in existing_journal if t.get("id")}
-            new_closed = [t for t in closed_trades if t.get("id") not in existing_ids]
-            
-            combined_journal = existing_journal + new_closed
-            batch_import_journal_to_sheets(combined_journal)
-            closed_imported = len(new_closed)
+    seen_closed_ids = set()
+    seen_open_ids = set()
+    seen_cash_ids = set()
+    files_processed = 0
+    by_account = {
+        "PEA": {"closed": 0, "open": 0, "cash": 0},
+        "CTO Euro": {"closed": 0, "open": 0, "cash": 0},
+        "CTO Dollar": {"closed": 0, "open": 0, "cash": 0}
+    }
 
-        if open_positions:
-            agg_open = aggregate_open_positions(open_positions)
-            for pos in agg_open:
-                add_position_to_sheets(pos)
-            open_imported = len(agg_open)
+    # Charger l'existant pour déduplication
+    existing_journal = read_journal_from_sheets() or []
+    for t in existing_journal:
+        if t.get("id"):
+            seen_closed_ids.add(t["id"])
 
-        if cash_ops:
-            existing_cash = read_treasury_from_sheets()
-            existing_cash_ids = {c.get("id") for c in existing_cash if c.get("id")}
-            new_cash = [c for c in cash_ops if c.get("id") not in existing_cash_ids]
-            combined_cash = existing_cash + new_cash
-            batch_import_treasury_to_sheets(combined_cash)
-            cash_imported = len(new_cash)
+    existing_open = read_positions_from_sheets() or []
+    for o in existing_open:
+        if o.get("id"):
+            seen_open_ids.add(o["id"])
 
-        msg = f"Rapport Excel traité : {closed_imported} trade(s) archivé(s), {open_imported} position(s) active(s), {cash_imported} opération(s) de trésorerie synchronisée(s) !"
-    else:
-        positions = parse_broker_csv(content)
-        if not positions:
-            return jsonify({"success": False, "error": "Aucune position valide trouvée dans le fichier CSV."}), 400
-            
-        for pos in positions:
-            success, _ = add_position_to_sheets(pos)
-            if success:
-                open_imported += 1
-        msg = f"{open_imported} position(s) active(s) importée(s) depuis le CSV !"
+    existing_cash = read_treasury_from_sheets() or []
+    for c in existing_cash:
+        if c.get("id"):
+            seen_cash_ids.add(c["id"])
+
+    new_closed_list = []
+    new_open_list = []
+    new_cash_list = []
+
+    for file_item in files:
+        if not file_item or not file_item.filename:
+            continue
+        fname = file_item.filename
+        content = file_item.read()
+        if not content:
+            continue
+
+        files_processed += 1
+        detected_acc = default_acc_override
+        if not detected_acc:
+            fname_upper = fname.upper()
+            if "PEA" in fname_upper:
+                detected_acc = "PEA"
+            elif "USD" in fname_upper or "DOLLAR" in fname_upper or "US" in fname_upper:
+                detected_acc = "CTO Dollar"
+            else:
+                detected_acc = "CTO Euro"
+
+        if fname.lower().endswith(".xlsx") or fname.lower().endswith(".xls"):
+            parsed = parse_xtb_excel_file(content, default_account=detected_acc)
+            for t in parsed.get("closed_positions", []):
+                tid = t.get("id")
+                if tid and tid not in seen_closed_ids:
+                    seen_closed_ids.add(tid)
+                    new_closed_list.append(t)
+                    acc_key = t.get("account", "CTO Euro")
+                    if acc_key not in by_account:
+                        by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
+                    by_account[acc_key]["closed"] += 1
+
+            for o in parsed.get("open_positions", []):
+                oid = o.get("id")
+                if oid and oid not in seen_open_ids:
+                    seen_open_ids.add(oid)
+                    new_open_list.append(o)
+                    acc_key = o.get("account", "CTO Euro")
+                    if acc_key not in by_account:
+                        by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
+                    by_account[acc_key]["open"] += 1
+
+            for c in parsed.get("cash_operations", []):
+                cid = c.get("id")
+                if cid and cid not in seen_cash_ids:
+                    seen_cash_ids.add(cid)
+                    new_cash_list.append(c)
+                    acc_key = c.get("account", "CTO Euro")
+                    if acc_key not in by_account:
+                        by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
+                    by_account[acc_key]["cash"] += 1
+        else:
+            positions = parse_broker_csv(content)
+            for pos in positions:
+                pid = pos.get("id")
+                if pid and pid not in seen_open_ids:
+                    seen_open_ids.add(pid)
+                    new_open_list.append(pos)
+                    acc_key = pos.get("account", "CTO Euro")
+                    if acc_key not in by_account:
+                        by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
+                    by_account[acc_key]["open"] += 1
+
+    if new_closed_list:
+        combined_journal = existing_journal + new_closed_list
+        batch_import_journal_to_sheets(combined_journal)
+
+    if new_open_list:
+        agg_open = aggregate_open_positions(existing_open + new_open_list)
+        batch_import_positions_to_sheets(agg_open)
+
+    if new_cash_list:
+        combined_cash = existing_cash + new_cash_list
+        batch_import_treasury_to_sheets(combined_cash)
+
+    msg = f"{files_processed} fichier(s) traité(s) avec succès : {len(new_closed_list)} nouveau(x) trade(s) dans le Journal, {len(new_open_list)} position(s) active(s), {len(new_cash_list)} opération(s) de trésorerie."
 
     return jsonify({
         "success": True,
         "message": msg,
-        "closed_imported": closed_imported,
-        "open_imported": open_imported,
-        "cash_imported": cash_imported
+        "files_count": files_processed,
+        "closed_imported": len(new_closed_list),
+        "open_imported": len(new_open_list),
+        "cash_imported": len(new_cash_list),
+        "by_account": by_account
     })
 
 @app.route("/api/portfolio/import_all_history", methods=["POST"])
 def import_all_history_files():
     """
     Importe automatiquement tous les fichiers d'historique XTB (positions fermées, ouvertes et trésorerie)
-    présents dans le dossier /historique.
+    présents dans le dossier /historique (hors sous-dossier /old).
     """
     import os
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -636,8 +709,12 @@ def import_all_history_files():
     
     files_to_scan = []
     for root, _, files in os.walk(hist_dir):
+        # Exclure le sous-dossier old pour ne traiter que les données fraîches
+        parts = [p.lower() for p in root.split(os.sep)]
+        if "old" in parts:
+            continue
         for f in files:
-            if f.lower().endswith(".xlsx") and not f.startswith("~$"):
+            if f.lower().endswith(".xlsx") and not f.startswith("~$") and not f.startswith("."):
                 files_to_scan.append(os.path.join(root, f))
 
     all_closed = []
@@ -647,11 +724,9 @@ def import_all_history_files():
     seen_open_ids = set()
     seen_cash_ids = set()
 
-    # Prioriser les fichiers complets
-    files_to_scan.sort(key=lambda x: ("tresorerie" not in x.lower() and "position fermee" not in x.lower(), x))
-
     for fpath in files_to_scan:
-        acc = "PEA" if "PEA" in fpath else "CTO Dollar" if "USD" in fpath else "CTO Euro"
+        fname = os.path.basename(fpath).upper()
+        acc = "PEA" if "PEA" in fname else "CTO Dollar" if ("USD" in fname or "DOLLAR" in fname) else "CTO Euro"
         parsed = parse_xtb_excel_file(fpath, default_account=acc)
         
         for t in parsed.get("closed_positions", []):
@@ -684,7 +759,8 @@ def import_all_history_files():
 
     return jsonify({
         "success": True,
-        "message": f"Synchronisation historique réussie ! {len(all_closed)} trades dans le Journal, {len(agg_open)} positions actives, {len(all_cash)} opérations de trésorerie.",
+        "message": f"Synchronisation historique réussie ({len(files_to_scan)} fichiers analysés) ! {len(all_closed)} trades dans le Journal, {len(agg_open)} positions actives, {len(all_cash)} opérations de trésorerie.",
+        "files_count": len(files_to_scan),
         "closed_count": len(all_closed),
         "open_count": len(agg_open),
         "cash_count": len(all_cash),
