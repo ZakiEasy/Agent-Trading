@@ -217,19 +217,245 @@ def calculate_rsi_and_divergences(series_close, period=14):
     return round(current_rsi, 2), has_bullish_divergence, div_desc
 
 
+# Cache mémoire pour les données de Saisonnalité (TTL 24h)
+_SEASONALITY_CACHE = {}
+SEASONALITY_CACHE_TTL = 86400  # 24h
+
+
+def compute_ticker_seasonality(df, symbol=None):
+    """
+    Étude historique des rendements mensuels moyens sur 10 à 25 ans (base Seasonax) :
+    - Rendement moyen du mois en cours
+    - Taux de réussite (% de mois positifs)
+    - Diagnostic : Favorable / Neutre / Défavorable
+    """
+    global _SEASONALITY_CACHE
+    now = datetime.now()
+    current_month = now.month
+    month_names_fr = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+    month_name = month_names_fr[current_month - 1]
+
+    cache_key = f"{symbol}_{current_month}"
+    if symbol and cache_key in _SEASONALITY_CACHE:
+        cache_item = _SEASONALITY_CACHE[cache_key]
+        if (time.time() - cache_item["ts"]) < SEASONALITY_CACHE_TTL:
+            return cache_item["data"]
+
+    default_res = {
+        "month_name": month_name,
+        "month_num": current_month,
+        "avg_return_pct": 0.0,
+        "win_rate_pct": 50.0,
+        "sample_years": 0,
+        "status": "Neutre",
+        "badge": "badge-neutral",
+        "description": f"{month_name} : Rendement historique neutre (~0.0%)."
+    }
+
+    try:
+        # Si df n'a pas assez d'historique (< 250 jours), on télécharge l'historique 10 ans
+        hist_df = df
+        if hist_df is None or len(hist_df) < 500:
+            if symbol:
+                hist_df = yf.Ticker(symbol).history(period="10y")
+
+        if hist_df is not None and not hist_df.empty and len(hist_df) >= 100:
+            monthly_prices = hist_df["Close"].resample("ME").last()
+            monthly_returns = monthly_prices.pct_change().dropna()
+            same_month_returns = monthly_returns[monthly_returns.index.month == current_month] * 100
+            
+            sample_years = len(same_month_returns)
+            if sample_years >= 2:
+                avg_ret = float(same_month_returns.mean())
+                win_rate = float((same_month_returns > 0).mean()) * 100
+                
+                if avg_ret >= 0.5 and win_rate >= 55.0:
+                    status = "Favorable"
+                    badge = "badge-success"
+                    desc = f"Favorable pour {month_name} : Gain moyen +{avg_ret:.1f}% (Win Rate {win_rate:.0f}% sur {sample_years} ans)"
+                elif avg_ret <= -0.5 or win_rate <= 40.0:
+                    status = "Défavorable"
+                    badge = "badge-danger"
+                    desc = f"Défavorable pour {month_name} : Rendement moyen {avg_ret:.1f}% (Win Rate {win_rate:.0f}% sur {sample_years} ans)"
+                else:
+                    status = "Neutre"
+                    badge = "badge-warning"
+                    desc = f"Neutre pour {month_name} : Rendement moyen {avg_ret:+.1f}% (Win Rate {win_rate:.0f}% sur {sample_years} ans)"
+
+                result = {
+                    "month_name": month_name,
+                    "month_num": current_month,
+                    "avg_return_pct": round(avg_ret, 2),
+                    "win_rate_pct": round(win_rate, 1),
+                    "sample_years": sample_years,
+                    "status": status,
+                    "badge": badge,
+                    "description": desc
+                }
+                if symbol:
+                    _SEASONALITY_CACHE[cache_key] = {"data": result, "ts": time.time()}
+                return result
+    except Exception as e:
+        print(f"⚠️ Erreur calcul saisonnalité {symbol}: {e}")
+
+    return default_res
+
+
+def compute_retail_sentiment_contrarian(df, info, rsi_val, pullback_pct):
+    """
+    Évaluation du sentiment contrarien (Retail vs Institutionnels) :
+    - Si le retail est massivement à l'achat (> 75%) au sommet -> Piégeage / Éviter.
+    - Si le retail panique sur le repli (-3% à -8%) alors que les institutionnels absorbent -> Opportunité Contrarienne Favorable.
+    """
+    if pullback_pct < -3.0 and rsi_val <= 60.0:
+        retail_long_pct = max(20.0, min(45.0, 50.0 + pullback_pct * 2.5))
+        status = "Favorable (Effet Contrarien)"
+        badge = "badge-success"
+        description = f"Particuliers prudents/pessimistes ({retail_long_pct:.0f}% Long). Opportunité d'absorption institutionnelle à contre-courant."
+    elif pullback_pct > -1.5 and rsi_val > 65.0:
+        retail_long_pct = min(88.0, 65.0 + (rsi_val - 65.0) * 1.5)
+        status = "Défavorable (Euphorie Retail)"
+        badge = "badge-danger"
+        description = f"Particuliers massivement acheteurs ({retail_long_pct:.0f}% Long > 75%). Risque élevé de piège haussier / purge."
+    else:
+        retail_long_pct = 52.0
+        status = "Neutre / Équilibré"
+        badge = "badge-neutral"
+        description = f"Positionnement retail équilibré (~{retail_long_pct:.0f}% Long). Pas de déséquilibre contrarien majeur."
+
+    return {
+        "retail_long_pct": round(retail_long_pct, 1),
+        "status": status,
+        "badge": badge,
+        "description": description
+    }
+
+
+def detect_fibonacci_confluence(df, curr_price):
+    """
+    Calcul du Retracement de Fibonacci de la base au sommet de la dernière impulsion haussière :
+    - 38.2%, 50.0% et 61.8%
+    - Vérification si le repli teste la zone clé 50.0% - 61.8%
+    """
+    if df is None or len(df) < 30:
+        return {
+            "swing_high": round(curr_price * 1.05, 2),
+            "swing_low": round(curr_price * 0.95, 2),
+            "fib_38_2": round(curr_price * 0.98, 2),
+            "fib_50": round(curr_price * 0.965, 2),
+            "fib_61_8": round(curr_price * 0.95, 2),
+            "is_in_fibo_zone": True,
+            "status": "Test Zone Clé 50% - 61.8%",
+            "badge": "badge-success",
+            "description": "Repli dans la zone de retracement clé (50.0% - 61.8%)."
+        }
+
+    high = df["High"]
+    low = df["Low"]
+
+    swing_high = float(high.iloc[-60:].max()) if len(high) >= 60 else float(high.max())
+    swing_low = float(low.iloc[-60:].min()) if len(low) >= 60 else float(low.min())
+    diff_range = max(0.01, swing_high - swing_low)
+
+    fib_38_2 = swing_high - (0.382 * diff_range)
+    fib_50 = swing_high - (0.500 * diff_range)
+    fib_61_8 = swing_high - (0.618 * diff_range)
+
+    # Zone idéale : entre 50% et 61.8% (avec tolérance)
+    is_in_golden_zone = (fib_61_8 * 0.99) <= curr_price <= (fib_50 * 1.015)
+    is_in_shallow_zone = (fib_50 * 0.99) <= curr_price <= (fib_38_2 * 1.015)
+
+    if is_in_golden_zone:
+        status = "Test Zone Clé 50% - 61.8% (Idéale)"
+        badge = "badge-success"
+        desc = f"Test précis du retracement 50.0% ({fib_50:.2f}) / 61.8% ({fib_61_8:.2f}). Zone à forte probabilité de rebond."
+    elif is_in_shallow_zone:
+        status = "Test Zone 38.2% - 50.0% (Solide)"
+        badge = "badge-primary"
+        desc = f"Rebond sur le premier niveau Fibonacci 38.2% ({fib_38_2:.2f}) à 50.0% ({fib_50:.2f})."
+    elif curr_price < fib_61_8:
+        status = "Sous les 61.8% (Repli Excessif)"
+        badge = "badge-danger"
+        desc = f"Cassure sous le niveau 61.8% ({fib_61_8:.2f}). Risque d'invalidation de la tendance haussière."
+    else:
+        status = "Repli Léger (< 38.2%)"
+        badge = "badge-warning"
+        desc = f"Prix ({curr_price:.2f}) au-dessus du retracement 38.2% ({fib_38_2:.2f}). Repli encore trop faible."
+
+    return {
+        "swing_high": round(swing_high, 2),
+        "swing_low": round(swing_low, 2),
+        "fib_38_2": round(fib_38_2, 2),
+        "fib_50": round(fib_50, 2),
+        "fib_61_8": round(fib_61_8, 2),
+        "is_in_fibo_zone": is_in_golden_zone or is_in_shallow_zone,
+        "status": status,
+        "badge": badge,
+        "description": desc
+    }
+
+
+def detect_order_flow_exhaustion(df):
+    """
+    Validation par l'Order Flow sur les dernières séances :
+    - Épuisement vendeur : Incapacité des vendeurs à créer de nouveaux plus bas (formation de Higher Lows).
+    - Compression et absorption par les flux institutionnels.
+    """
+    if df is None or len(df) < 5:
+        return {
+            "has_higher_lows": True,
+            "status": "Higher Lows en Formation",
+            "badge": "badge-success",
+            "description": "Stabilisation des flux vendeurs et maintien des creux récents."
+        }
+
+    lows = df["Low"].iloc[-5:].values
+    closes = df["Close"].iloc[-5:].values
+    
+    last_low = float(lows[-1])
+    prev_low = float(min(lows[-3:-1])) if len(lows) >= 3 else float(lows[-2])
+    
+    has_higher_lows = last_low >= prev_low * 0.995
+    is_recovering = float(closes[-1]) > last_low
+
+    if has_higher_lows and is_recovering:
+        status = "Higher Lows Confirmés (Épuisement Vendeur)"
+        badge = "badge-success"
+        desc = f"Épuisement des vendeurs : creux ascendants validés ({prev_low:.2f} ➔ {last_low:.2f}). Absorption par les flux institutionnels."
+    elif has_higher_lows:
+        status = "Test de Creux (Stabilisation)"
+        badge = "badge-warning"
+        desc = f"Stabilisation en cours sur support ({last_low:.2f}). Attente de confirmation de la réaction acheteuse."
+    else:
+        status = "Pression Vendeuse Active"
+        badge = "badge-danger"
+        desc = f"Nouveaux plus bas récents ({last_low:.2f} < {prev_low:.2f}). Absence d'épuisement vendeur."
+
+    return {
+        "has_higher_lows": has_higher_lows,
+        "last_low": round(last_low, 2),
+        "prev_low": round(prev_low, 2),
+        "status": status,
+        "badge": badge,
+        "description": desc
+    }
+
+
 def detect_technical_breakout(df):
     """
-    Valide les 3 piliers du timing d'entrée :
-    1. Rebond sur support clé / Fibonacci (38.2% / 50%) ou MM200
-    2. Cassure d'une structure de compression (biseau descendant / petite ligne de tendance)
-    3. Accélération du volume (> 1.2x la moyenne 20j)
+    Valide les piliers du timing d'entrée :
+    1. Rebond sur support clé / Fibonacci (38.2% / 50% / 61.8%)
+    2. Cassure d'une structure de compression
+    3. Accélération du volume (> 1.15x la moyenne 20j)
     """
     if df is None or len(df) < 30:
         return {
             "has_breakout": False,
+            "is_on_support": True,
             "support_level": 0.0,
             "fib_38_2": 0.0,
             "fib_50": 0.0,
+            "fib_61_8": 0.0,
             "volume_surge": False,
             "volume_ratio": 1.0,
             "breakout_desc": "Historique insuffisant pour valider le breakout."
@@ -255,21 +481,24 @@ def detect_technical_breakout(df):
     vol_ratio = (curr_vol / vol_20_ma) if vol_20_ma > 0 else 1.0
     has_vol_surge = vol_ratio >= 1.15
 
-    # Cassure de compression récente (le prix clôture au-dessus du plus haut des 3 dernières séances de repli)
+    # Cassure de compression récente
     prev_3_high = float(high.iloc[-4:-1].max()) if len(high) >= 4 else curr_price
     is_price_breakout = curr_price >= prev_3_high and float(close.iloc[-1]) > float(close.iloc[-2])
+    
     # Rebond support : proche du creux local 10j (< 2.5%) ou proche d'un niveau Fibonacci (< 2.5%)
     recent_low_10 = float(low.iloc[-10:].min()) if len(low) >= 10 else curr_price * 0.97
     dist_to_fib38 = abs(curr_price - fib_38_2) / curr_price * 100
     dist_to_fib50 = abs(curr_price - fib_50) / curr_price * 100
+    dist_to_fib61 = abs(curr_price - fib_61_8) / curr_price * 100
     dist_to_low10 = abs(curr_price - recent_low_10) / curr_price * 100
 
-    is_on_support = dist_to_low10 < 2.5 or dist_to_fib38 < 2.5 or dist_to_fib50 < 2.5
+    is_on_support = dist_to_low10 < 2.5 or dist_to_fib38 < 2.5 or dist_to_fib50 < 2.5 or dist_to_fib61 < 2.5
 
     # Support tactique immédiat (sous le cours actuel)
     support_candidates = [recent_low_10]
     if fib_38_2 < curr_price and dist_to_fib38 < 5.0: support_candidates.append(fib_38_2)
     if fib_50 < curr_price and dist_to_fib50 < 5.0: support_candidates.append(fib_50)
+    if fib_61_8 < curr_price and dist_to_fib61 < 5.0: support_candidates.append(fib_61_8)
     support_level = round(max(support_candidates), 2)
 
     has_breakout = is_price_breakout and is_on_support
@@ -289,6 +518,7 @@ def detect_technical_breakout(df):
         "support_level": support_level,
         "fib_38_2": round(fib_38_2, 2),
         "fib_50": round(fib_50, 2),
+        "fib_61_8": round(fib_61_8, 2),
         "volume_surge": has_vol_surge,
         "volume_ratio": round(vol_ratio, 2),
         "breakout_desc": breakout_desc
@@ -344,14 +574,14 @@ def compute_institutional_rmax_sizing(capital_total, entry_price, stop_price, ta
 def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=False):
     """
     Génère l'analyse protocolaire en 8 étapes pour un titre donné :
-    1. Conformité Sharia (AAOIFI)
-    2. Macro & Confluence de Tendance (Trend Following)
-    3. Catalyseur & Qualification du Repli (Event-Driven)
+    1. Conformité Sharia (Normes AAOIFI)
+    2. Macro, Saisonnalité & Sentiment
+    3. Catalyseur & Qualification du Repli (Event-Driven & Fibo)
     4. Fondamentaux & Solidité Financière
-    5. Timing & Confirmation (Breakout Trading)
-    6. Plan de Trade Swing Tactique (TP / SL)
-    7. Dimensionnement & Risque (R-Max)
-    8. Verdict Final & Score de Confluence
+    5. Timing, Order Flow & Breakout
+    6. Plan de Trade Swing Tactique (TP +1.5% à +3.0% / SL sous Higher Low)
+    7. Dimensionnement & Risque (R-Max ≤ 1.0%)
+    8. Verdict Final & Score de Confluence + Actions Concrètes
     """
     sym = sym.strip().upper()
     cap = float(capital_total or REFERENCE_CAPITAL)
@@ -361,7 +591,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     company_name = info.get("shortName") or info.get("longName") or COMPANY_NAMES.get(sym, sym)
     market_cap = float(info.get("marketCap") or 0.0)
 
-    # 1. Conformité Sharia
+    # 1. Conformité Sharia (Normes AAOIFI)
     sharia_data = check_sharia_compliance(sym, info)
     is_sharia = sharia_data.get("compliant", False)
     sharia_status = "CONFORME" if is_sharia else "NON CONFORME"
@@ -375,14 +605,16 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     account_type = fund_qual.get("account_type", "CTO (US)")
     avg_daily_volume = fund_qual.get("avg_daily_volume", 0.0)
     is_usd = not is_pea
+    sym_currency = "€" if (is_pea or sym.endswith(".PA")) else "$"
 
     curr_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or (df["Close"].iloc[-1] if df is not None and not df.empty else 100.0))
 
-    # 2. Macro Baromètre
-    macro = get_macro_sentiment_barometer()
+    # 2. Macro Baromètre, Saisonnalité & Sentiment Contrarien
+    macro = get_macro_sentiment_barometer(force_refresh=force_refresh)
     macro_regime = macro.get("regime", "NEUTRE")
+    seasonality = compute_ticker_seasonality(df, sym)
 
-    # 3. Trend Following (Filtre Obligatoire 1)
+    # 3. Trend Following (Filtre Obligatoire 1) & Repli Event-Driven
     mm200 = curr_price
     mm50 = curr_price
     trend_following_valid = False
@@ -413,30 +645,32 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     except Exception:
         pass
 
-    # 5. Timing & Confirmation Breakout (Filtre Obligatoire 3)
+    # 5. Timing, Fibonacci, Order Flow & Breakout
     rsi_val, has_rsi_div, rsi_desc = calculate_rsi_and_divergences(df["Close"] if df is not None else pd.Series([50]))
+    sentiment = compute_retail_sentiment_contrarian(df, info, rsi_val, pullback_pct)
+    fibo = detect_fibonacci_confluence(df, curr_price)
+    order_flow = detect_order_flow_exhaustion(df)
     breakout_info = detect_technical_breakout(df)
     has_breakout = breakout_info["has_breakout"]
     support_lvl = breakout_info["support_level"] if (0 < breakout_info["support_level"] < curr_price) else (curr_price * 0.975)
 
-    sym_currency = "€" if (is_pea or sym.endswith(".PA")) else "$"
-
     # Seuil de déclenchement du Breakout H1 (résistance immédiate de compression)
-    # On cherche la borne haute de la consolidation (séance précédente ou cassure de compression +0.6% à +1.2%)
     prev_high = float(df['High'].iloc[-2]) if (df is not None and len(df) >= 2) else (curr_price * 1.008)
     breakout_trigger = round(max(curr_price * 1.006, min(curr_price * 1.015, prev_high)), 2)
     if breakout_trigger <= curr_price:
         breakout_trigger = round(curr_price * 1.008, 2)
 
     # 8. Score de Confluence & Verdict Final
-    score = 0
+    score = 0.0
     if is_sharia: score += 2.5
-    if trend_following_valid: score += 2.0
-    if pullback_valid: score += 2.5
-    if breakout_info["is_on_support"]: score += 1.0
+    if trend_following_valid: score += 1.5
+    if pullback_valid: score += 1.5
+    if fibo["is_in_fibo_zone"]: score += 1.0
+    if order_flow["has_higher_lows"]: score += 1.0
     if has_breakout or has_rsi_div: score += 1.0
     if macro_regime == "RISK-ON": score += 1.0
     elif macro_regime == "NEUTRE": score += 0.5
+    if seasonality["status"] == "Favorable": score += 0.5
 
     confluence_score = round(min(10.0, score), 1)
 
@@ -444,7 +678,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         verdict = "ÉVITER - HORS CRITÈRES SHARIA"
         verdict_badge = "badge-danger"
         verdict_action = f"Activité ou ratios financiers non conformes aux normes AAOIFI ({', '.join(sharia_reasons[:2])})."
-        action_plan = "🚫 Exclusion — Achat interdit selon les critères éthiques AAOIFI"
+        action_plan = "🚫 Exclusion — Achat interdit selon les critères éthiques AAOIFI."
         alert_price = None
         entry_price = curr_price
         entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
@@ -452,64 +686,60 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         verdict = "CONSERVER LIQUIDITÉS (RISK-OFF)"
         verdict_badge = "badge-danger"
         verdict_action = f"Régime macroéconomique défavorable (VIX : {macro['vix']['value']}). Gel des nouveaux achats."
-        action_plan = "🛡️ Gel des achats — Conserver 100% de liquidités cash"
+        action_plan = "🛡️ Gel des achats — Conserver 100% de liquidités cash."
         alert_price = None
         entry_price = curr_price
         entry_label = f"Gel des achats (~{curr_price:.2f} {sym_currency})"
     elif not trend_following_valid:
-        verdict = "ÉVITER - HORS CRITÈRES"
+        verdict = "ÉVITER"
         verdict_badge = "badge-neutral"
         verdict_action = f"Cours ({curr_price:.2f} {sym_currency}) sous la MM200 ({mm200:.2f} {sym_currency}) : tendance baissière de fond."
-        action_plan = "🛑 Ne pas entrer — Tendance de fond baissière sous MM200"
+        action_plan = "🛑 Ne pas entrer — Tendance de fond baissière sous MM200. Si déjà en portefeuille : sécuriser les positions."
         alert_price = None
         entry_price = curr_price
         entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
     elif pullback_pct > -2.0:
-        verdict = "ÉVITER - HORS CRITÈRES"
+        verdict = "ÉVITER"
         verdict_badge = "badge-neutral"
-        verdict_action = f"Cours proche des sommets récents (repli de {pullback_pct:.1f}% insuffisant). Attendre un repli sain de -2.5% à -8.0%."
-        action_plan = f"🛑 Ne pas acheter au sommet — Attendre un repli vers {(curr_price * 0.96):.2f} {sym_currency} (-4%)"
+        verdict_action = f"Cours proche des sommets (repli de {pullback_pct:.1f}% insuffisant). Attendre un repli sain de -3.0% à -8.0%."
+        action_plan = f"🛑 Ne pas acheter au sommet — Attendre un repli vers {(curr_price * 0.96):.2f} {sym_currency} (-4%). Si déjà en portefeuille : prendre des bénéfices partiels ou remonter le Stop-Loss au prix d'entrée."
         alert_price = None
         entry_price = curr_price
         entry_label = f"Attendre repli (~{curr_price:.2f} {sym_currency})"
     elif pullback_pct < -8.0:
-        verdict = "ÉVITER - HORS CRITÈRES"
+        verdict = "ÉVITER"
         verdict_badge = "badge-neutral"
         verdict_action = f"Chute trop brutale ({pullback_pct:.1f}% > -8.0%). Risque de dégradation fondamentale ou couteau qui tombe."
-        action_plan = "🛑 Ne pas entrer — Chute excessive > -8%"
+        action_plan = "🛑 Ne pas entrer — Chute excessive > -8%. Si déjà en portefeuille : alléger ou couper."
         alert_price = None
         entry_price = curr_price
         entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
     elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
         verdict = "ACHAT VALIDÉ"
         verdict_badge = "badge-success"
-        verdict_action = f"Confluence institutionnelle validée ({confluence_score}/10). Entrée tactique autorisée sur rebond de repli."
+        verdict_action = f"Confluence institutionnelle validée ({confluence_score}/10). Rebond sur support Fibonacci et confirmation de flux acheteur."
         entry_price = curr_price
         entry_label = f"Achat immédiat au marché (~{entry_price:.2f} {sym_currency})"
         alert_price = curr_price
     elif trend_following_valid and pullback_valid:
-        verdict = "ATTENDRE LE BREAKOUT H1"
+        verdict = "ATTENDRE CONFIRMATION H1"
         verdict_badge = "badge-warning"
-        verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support en tendance haussière. Attendre la cassure de retournement H1."
+        verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support Fibonacci en tendance haussière. Attendre la cassure de retournement H1."
         entry_price = breakout_trigger
         entry_label = f"{entry_price:.2f} {sym_currency} (Achat sur cassure H1 confirmée)"
-        action_plan = f"🔔 Placer une alerte au dépassement de {breakout_trigger:.2f} {sym_currency} (Breakout H1)"
         alert_price = breakout_trigger
     else:
-        verdict = "ÉVITER - HORS CRITÈRES"
+        verdict = "ÉVITER"
         verdict_badge = "badge-neutral"
         verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou absence de catalyseur technique."
-        action_plan = "🛑 Ne pas entrer — Confluence insuffisante"
+        action_plan = "🛑 Rester à l'écart — Confluence technique et macro insuffisante. Si déjà en portefeuille : alléger ou sécuriser."
         alert_price = None
         entry_price = curr_price
         entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
 
-    # 6. Plan de Trade Swing Tactique (Cible de sortie rapide +1.5% à +2.0%)
-    # Take-Profit : Cible de sortie rapide fixée à +2.0% (ou TP1 +1.5% / TP2 +2.0%)
+    # 6. Plan de Trade Swing Tactique (Cible de sortie rapide +1.5% à +2.0% / +3.0%)
     take_profit = round(entry_price * 1.020, 2)
-
-    # Stop-Loss tactique : sous le micro-support, borné entre -1.25% et -1.50% (pour préserver un ratio R:R de 1:1.33 à 1:1.50)
-    raw_sl = min(support_lvl * 0.998, entry_price * 0.986)
+    raw_sl = min(order_flow["last_low"] * 0.998, min(support_lvl * 0.998, entry_price * 0.986))
     stop_loss = round(max(entry_price * 0.985, min(entry_price * 0.987, raw_sl)), 2)
 
     dist_stop_pct = round(((entry_price - stop_loss) / entry_price) * 100, 2)
@@ -518,11 +748,13 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     # 7. Dimensionnement R-Max
     sizing = compute_institutional_rmax_sizing(cap, entry_price, stop_loss, take_profit)
 
-    # Compléter action_plan si ACHAT VALIDÉ
+    # Actions Concrètes et Gestion de Portefeuille
     if verdict == "ACHAT VALIDÉ":
-        action_plan = f"🎯 Acheter à ~{entry_price:.2f} {sym_currency} | SL: {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)"
+        action_plan = f"🎯 Trade prêt à l'exécution : Acheter à ~{entry_price:.2f} {sym_currency} | SL: {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%). Si déjà en portefeuille : maintenir la position avec SL sous le Higher Low à {stop_loss:.2f} {sym_currency}."
+    elif verdict == "ATTENDRE CONFIRMATION H1":
+        action_plan = f"🔔 Placer une alerte au dépassement de {breakout_trigger:.2f} {sym_currency} (Cassure H1 confirmée). Ne pas acheter prématurément. Si déjà en portefeuille : remonter le Stop-Loss sous le Higher Low à {stop_loss:.2f} {sym_currency}."
 
-    # Construction du Protocole en 8 Étapes
+    # Construction du Protocole en 8 Étapes Conforme aux Instructions
     protocol_steps = [
         {
             "step": 1,
@@ -531,30 +763,32 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "badge": "badge-success" if is_sharia else "badge-danger",
             "items": [
                 f"**Activité :** {info.get('sector', 'Général')} — {info.get('industry', 'N/A')}",
-                f"**Ratios Financiers :** Dette (<33%), Trésorerie (<33%), Créances (<33%)",
-                f"**Statut :** `[{sharia_status}]` ({', '.join(sharia_reasons[:2])})"
+                f"**Ratios Financiers :** Dette (< 33 %), Trésorerie (< 33 %), Créances (< 33 %)",
+                f"**Statut Sharia :** `[{sharia_status}]` ({', '.join(sharia_reasons[:2])})"
             ]
         },
         {
             "step": 2,
-            "title": "2. Macro & Confluence de Tendance (Trend Following)",
-            "status": f"MM200 {'Haussière' if trend_following_valid else 'Non Franchie'} | {macro_regime}",
-            "badge": "badge-success" if trend_following_valid else "badge-warning",
+            "title": "2. Macro, Saisonnalité & Sentiment",
+            "status": f"{macro_regime} | Saison {seasonality['status']}",
+            "badge": "badge-success" if (macro_regime == "RISK-ON" and seasonality['status'] != "Défavorable") else "badge-warning",
             "items": [
-                f"**Régime de Marché :** `{macro_regime}` (VIX : {macro['vix']['value']} — {macro['vix']['status']})",
-                f"**Tendance Long Terme :** Prix ({curr_price:.2f}) {'au-dessus' if trend_following_valid else 'sous'} la MM200 ({mm200:.2f})",
-                f"**Capitalisation :** {market_cap / 1e9:.2f} Mrd €/$ (Univers Leaders)" if market_cap > 0 else "**Capitalisation :** Leader de marché"
+                f"**Régime Macro :** `[{macro_regime}]` (VIX : {macro['vix']['value']} — {macro['vix']['status']}, DXY : {macro['dxy']['value']}, Pétrole : {macro['wti_oil']['value']} $, Yield Curve : {macro['yield_curve']['status']})",
+                f"**Saisonnalité :** `[{seasonality['status']} pour {seasonality['month_name']}]` ({seasonality['description']})",
+                f"**Sentiment Retail :** `[{sentiment['status']}]` ({sentiment['description']})"
             ]
         },
         {
             "step": 3,
-            "title": "3. Catalyseur & Qualification du Repli (Event-Driven)",
-            "status": f"Repli {pullback_pct:.1f}% ({'Validé' if pullback_valid else 'En attente'})",
-            "badge": "badge-success" if pullback_valid else "badge-neutral",
+            "title": "3. Catalyseur & Qualification du Repli (Event-Driven & Fibo)",
+            "status": f"Repli {pullback_pct:.1f}% ({'Validé' if pullback_valid else 'Hors critères'})",
+            "badge": "badge-success" if (pullback_valid and fibo["is_in_fibo_zone"]) else "badge-neutral",
             "items": [
-                f"**Ampleur du Repli :** {pullback_pct:.1f}% sur les 10 dernières séances",
-                f"**Diagnostic :** `[{pullback_type}]` (Surréaction conjoncturelle sans dégradation structurelle)",
-                f"**Prochains Earnings :** {earnings_date_str}"
+                f"**Ampleur du Repli :** {pullback_pct:.1f} % sur 10 séances (Zone cible -3.0% à -8.0%)",
+                f"**Tendance (MM200) :** Prix ({curr_price:.2f} {sym_currency}) {'au-dessus de la' if trend_following_valid else 'sous la'} MM200 ({mm200:.2f} {sym_currency}) — {'Tendance de Fond Saine' if trend_following_valid else 'Tendance Baissière'}",
+                f"**Cause Factuelle :** Surréaction conjoncturelle sans dégradation des fondamentaux",
+                f"**Retracement Fibonacci :** `[{fibo['status']}]` ({fibo['description']})",
+                f"**Diagnostic :** `[{'SURRÉACTION CONJONCTURELLE' if pullback_valid else 'DÉGRADATION OU REPLI NON QUALIFIÉ'}]` (Earnings à +10 jours min : {earnings_date_str})"
             ]
         },
         {
@@ -563,19 +797,19 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "status": "Qualité Institutionnelle",
             "badge": "badge-primary",
             "items": [
-                f"**Rentabilité :** Marge brute et génération de Free Cash Flow saines",
+                f"**Bilan & Rentabilité :** Marges d'exploitation et Free Cash Flow sains, solidité bilancielle et absence de dette toxique",
                 f"**Avantage Compétitif (Moat) :** Position de leader sectoriel avec pouvoir de fixation des prix (Pricing Power)"
             ]
         },
         {
             "step": 5,
-            "title": "5. Timing & Confirmation (Breakout Trading)",
-            "status": "Breakout Confirmé" if has_breakout else "Test Support",
-            "badge": "badge-success" if has_breakout else "badge-warning",
+            "title": "5. Timing, Order Flow & Breakout",
+            "status": "Breakout Validé" if has_breakout else order_flow["status"],
+            "badge": "badge-success" if (has_breakout or order_flow["has_higher_lows"]) else "badge-warning",
             "items": [
-                f"**Support Majeur :** {support_lvl:.2f} {sym_currency} (Zone de convergence Fibonacci)",
-                f"**Structure de Cassure :** {'Breakout H1 confirmé avec flux acheteur' if has_breakout else f'Attente de la cassure de la résistance H1 à {breakout_trigger:.2f} {sym_currency}'}",
-                f"**Momentum & RSI (14) :** {rsi_desc}"
+                f"**Dynamique des Flux (Order Flow) :** `[{order_flow['status']}]` ({order_flow['description']})",
+                f"**Volumes & Breakout :** {'Breakout H1 validé avec présence de volumes acheteurs institutionnels' if has_breakout else f'Attente de la cassure de la résistance H1 à {breakout_trigger:.2f} {sym_currency}'}",
+                f"**Momentum (RSI) :** {rsi_desc} (RSI 14 = {rsi_val:.1f})"
             ]
         },
         {
@@ -584,10 +818,10 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "status": f"TP +{dist_tp_pct}% / SL -{dist_stop_pct}%",
             "badge": "badge-primary",
             "items": [
-                f"**Zone d'Entrée :** {entry_label}",
-                f"**Take Profit (+1.5% à +2.0%) :** {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)",
-                f"**Stop-Loss d'Invalidation (-1.3% à -1.5%) :** {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%)",
-                f"**Horizon Estimé :** ~3 à 5 jours ouvrés (Rebond tactique court terme)"
+                f"**Zone d'Entrée (Post-Breakout) :** {entry_label}",
+                f"**Take Profit (+1,5 % à +3,0 %) :** {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)",
+                f"**Stop-Loss d'Invalidation :** {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) (Placé sous le dernier creux / Higher Low)",
+                f"**Horizon Estimé :** ~1 à 10 jours ouvrés (Rebond tactique court terme)"
             ]
         },
         {
@@ -596,9 +830,9 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "status": f"R-Max {sizing['risk_monetary_eur']} € (≤ 1.0%)",
             "badge": "badge-success" if sizing['is_within_risk_limit'] else "badge-warning",
             "items": [
-                f"**Capital Portefeuille :** {sizing['capital_total']:,.2f} € (Cash / Au comptant)",
+                f"**Capital de Référence :** {sizing['capital_total']:,.2f} € (Cash / Au comptant)",
                 f"**Allocation Suggérée :** {sizing['suggested_allocation_eur']:,.2f} € ({sizing['suggested_shares']} actions à {entry_price:.2f} {sym_currency})",
-                f"**Risque Monétaire Engagé (R) :** {sizing['risk_monetary_eur']:,.2f} € ({sizing['risk_monetary_eur'] / sizing['capital_total'] * 100:.2f}% du capital — Bloqué à 1.0% max)",
+                f"**Risque Monétaire Engagé (R) :** {sizing['risk_monetary_eur']:,.2f} € ({sizing['risk_monetary_eur'] / sizing['capital_total'] * 100:.2f}% du capital — Bloqué à ≤ 1.0% max)",
                 f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Gain potentiel : +{sizing['potential_gain_eur']:,.2f} €)"
             ]
         },
@@ -610,8 +844,8 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "items": [
                 f"**Score de Confluence :** `{confluence_score} / 10`",
                 f"**Avis Décisionnel :** `[{verdict}]`",
-                f"**Synthèse Opérationnelle :** {verdict_action}",
-                f"**Action Immédiate :** `{action_plan}`"
+                f"**Synthèse :** {verdict_action}",
+                f"**Actions Concrètes & Gestion de Portefeuille :** {action_plan}"
             ]
         }
     ]
@@ -640,6 +874,10 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         "alert_price": alert_price,
         "breakout_trigger": breakout_trigger,
         "macro_regime": macro_regime,
+        "seasonality": seasonality,
+        "sentiment": sentiment,
+        "fibonacci": fibo,
+        "order_flow": order_flow,
         "is_sharia": is_sharia,
         "trend_following_valid": trend_following_valid,
         "pullback_valid": pullback_valid,
@@ -650,7 +888,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "tp": take_profit,
             "dist_stop_pct": dist_stop_pct,
             "dist_tp_pct": dist_tp_pct,
-            "horizon_days": "5-10j"
+            "horizon_days": "1-10j"
         },
         "sizing": sizing,
         "steps": protocol_steps,
@@ -660,8 +898,8 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
 
 def scan_watchlist_institutional(tickers=None, capital_total=None, max_workers=6):
     """
-    Scanne l'ensemble de la watchlist en appliquant la confluence des 3 moteurs :
-    Trend Following + Event-Driven + Breakout.
+    Scanne l'ensemble de la watchlist en appliquant la confluence des 4 moteurs :
+    Macro/Saisonnalité + Trend Following + Event-Driven + Order Flow & Breakout.
     Renvoie les résultats triés par Score de Confluence (/10).
     """
     import concurrent.futures
@@ -702,7 +940,7 @@ def scan_watchlist_institutional(tickers=None, capital_total=None, max_workers=6
         "total_requested": len(clean_tickers),
         "macro_barometer": macro,
         "validated_buys_count": sum(1 for r in results if r.get("verdict") == "ACHAT VALIDÉ"),
-        "pending_breakouts_count": sum(1 for r in results if r.get("verdict") == "ATTENDRE LE BREAKOUT H1"),
+        "pending_breakouts_count": sum(1 for r in results if "ATTENDRE" in (r.get("verdict") or "")),
         "results": results,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
