@@ -4,6 +4,7 @@ Intègre la confluence macroéconomique, la conformité Sharia AAOIFI (<33%),
 l'analyse de repli conjoncturel, la détection technique avancée et le dimensionnement R-Max.
 """
 
+import re
 import math
 import time
 import requests
@@ -215,6 +216,133 @@ def calculate_rsi_and_divergences(series_close, period=14):
         div_desc = f"Zone de Surachat ({current_rsi:.1f})"
 
     return round(current_rsi, 2), has_bullish_divergence, div_desc
+
+
+# Cache mémoire pour les Actualités Live (TTL 10 min)
+_NEWS_CACHE = {}
+NEWS_CACHE_TTL = 600  # 10 minutes
+
+
+def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_val=50.0):
+    """
+    Agrège les flux d'actualités récents (Yahoo Finance / Wire / Media) et qualifie l'impact événementiel :
+    1. Détection des risques structurels (fraude, litige, enquête SEC, faillite, défaut, scandale)
+    2. Qualification du catalyseur : Surréaction conjoncturelle, Résultats trimestriels / Earnings, Rotation sectorielle
+    3. Extraction des 5 dernières dépêches avec titres, sources, dates et liens cliquables
+    """
+    global _NEWS_CACHE
+    now_ts = time.time()
+    cache_key = symbol.upper()
+    if cache_key in _NEWS_CACHE and (now_ts - _NEWS_CACHE[cache_key]["ts"]) < NEWS_CACHE_TTL:
+        return _NEWS_CACHE[cache_key]["data"]
+
+    parsed_news = []
+    has_structural_risk = False
+    has_earnings_news = False
+    has_sector_macro_news = False
+    risk_triggers = []
+
+    # Patterns précis de risques structurels d'entreprise (évite les faux positifs macro)
+    direct_risk_patterns = [
+        r"\baccounting fraud\b",
+        r"\bsec (probe|investigation)\b",
+        r"\b(criminal|fraud) charges\b",
+        r"\b(bankruptcy|chapter 11|insolvency)\b",
+        r"\bauditor resigns?\b",
+        r"\bdefault(ed)? on (debt|bonds|loans)\b",
+        r"\bsevere profit warning\b",
+        r"\bclass action lawsuit\b",
+        r"\baccounting (irregularity|irregularities|scandal)\b"
+    ]
+    earnings_keywords = [
+        "earnings", "quarterly", "revenue", "guidance", "results", "q1", "q2", "q3", "q4",
+        "eps", "ebitda", "sales miss", "earnings beat", "conference call"
+    ]
+    sector_macro_keywords = [
+        "sector", "chip stocks", "fed", "inflation", "market today", "jackson hole",
+        "tariffs", "trade war", "rates", "yields", "crude", "oil", "macro", "futures"
+    ]
+
+    try:
+        ticker_obj = yf.Ticker(symbol)
+        raw_news = ticker_obj.news or []
+
+        for item in raw_news[:8]:
+            content = item.get("content", {}) if isinstance(item, dict) else {}
+            title = (content.get("title") or item.get("title") or "").strip()
+            summary = (content.get("summary") or item.get("summary") or "").strip()
+            pub_date = content.get("pubDate") or content.get("displayTime") or str(item.get("providerPublishTime", ""))
+            if pub_date and "T" in pub_date:
+                pub_date_formatted = pub_date.split("T")[0]
+            elif pub_date and len(pub_date) >= 10:
+                pub_date_formatted = pub_date[:10]
+            else:
+                pub_date_formatted = datetime.now().strftime("%Y-%m-%d")
+
+            provider = content.get("provider", {}).get("displayName") or item.get("publisher") or "Yahoo Finance"
+            url = content.get("canonicalUrl", {}).get("url") or item.get("link") or f"https://finance.yahoo.com/quote/{symbol}/news"
+
+            if not title:
+                continue
+
+            full_text = f"{title} {summary}".lower()
+
+            # Analyse des risques structurels
+            for pat in direct_risk_patterns:
+                if re.search(pat, full_text):
+                    has_structural_risk = True
+                    risk_triggers.append(f"Alerte ({title[:45]}...)")
+
+            # Analyse des Earnings
+            for kw in earnings_keywords:
+                if kw in full_text:
+                    has_earnings_news = True
+
+            # Analyse Macro / Secteur
+            for kw in sector_macro_keywords:
+                if kw in full_text:
+                    has_sector_macro_news = True
+
+            parsed_news.append({
+                "title": title,
+                "summary": summary[:200] + ("..." if len(summary) > 200 else ""),
+                "pub_date": pub_date_formatted,
+                "provider": provider,
+                "url": url
+            })
+
+    except Exception as e:
+        print(f"⚠️ Erreur agrégation news pour {symbol}: {e}")
+
+    # Qualification Event-Driven
+    if has_structural_risk:
+        diagnostic = "DÉGRADATION STRUCTURELLE"
+        badge = "badge-danger"
+        summary_desc = f"Alerte risque structurel identifié : {', '.join(risk_triggers[:2])}. Rejet swing immédiat."
+    elif has_earnings_news:
+        diagnostic = "CATALYSEUR RÉSULTATS (Earnings)"
+        badge = "badge-warning"
+        summary_desc = f"Actualité rythmée par les publications de résultats récents ou à venir ({len(parsed_news)} dépêches récentes)."
+    elif has_sector_macro_news or (pullback_pct <= -2.5 and rsi_val <= 60.0):
+        diagnostic = "SURRÉACTION CONJONCTURELLE"
+        badge = "badge-success"
+        summary_desc = f"Flux d'actualité sain : repli lié à une rotation sectorielle ou à des prises de profits sans dégradation structurelle ({len(parsed_news)} dépêches analysées)."
+    else:
+        diagnostic = "ACTUALITÉ NEUTRE"
+        badge = "badge-neutral"
+        summary_desc = f"Flux d'actualité régulier ({len(parsed_news)} dépêches), aucune anomalie majeure détectée."
+
+    result = {
+        "count": len(parsed_news),
+        "diagnostic": diagnostic,
+        "badge": badge,
+        "summary": summary_desc,
+        "has_structural_risk": has_structural_risk,
+        "items": parsed_news[:5]
+    }
+
+    _NEWS_CACHE[cache_key] = {"data": result, "ts": now_ts}
+    return result
 
 
 # Cache mémoire pour les données de Saisonnalité (TTL 24h)
@@ -633,7 +761,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             pullback_pct = ((curr_price - peak_10) / peak_10) * 100
             pullback_valid = (-8.0 <= pullback_pct <= -2.5)
 
-    # 4. Prochains Earnings
+    # 4. Prochains Earnings & Analyse Actualités Live Event-Driven
     earnings_date_str = "Fenêtre > 10j (Aucun risque binaire immédiat)"
     no_earnings_10d = True
     try:
@@ -647,6 +775,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
 
     # 5. Timing, Fibonacci, Order Flow & Breakout
     rsi_val, has_rsi_div, rsi_desc = calculate_rsi_and_divergences(df["Close"] if df is not None else pd.Series([50]))
+    news_data = fetch_and_analyze_live_news(sym, company_name, pullback_pct, rsi_val)
     sentiment = compute_retail_sentiment_contrarian(df, info, rsi_val, pullback_pct)
     fibo = detect_fibonacci_confluence(df, curr_price)
     order_flow = detect_order_flow_exhaustion(df)
@@ -664,13 +793,14 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     score = 0.0
     if is_sharia: score += 2.5
     if trend_following_valid: score += 1.5
-    if pullback_valid: score += 1.5
+    if pullback_valid and not news_data["has_structural_risk"]: score += 1.5
     if fibo["is_in_fibo_zone"]: score += 1.0
     if order_flow["has_higher_lows"]: score += 1.0
     if has_breakout or has_rsi_div: score += 1.0
     if macro_regime == "RISK-ON": score += 1.0
     elif macro_regime == "NEUTRE": score += 0.5
     if seasonality["status"] == "Favorable": score += 0.5
+    if news_data["diagnostic"] == "SURRÉACTION CONJONCTURELLE": score += 0.5
 
     confluence_score = round(min(10.0, score), 1)
 
@@ -690,6 +820,15 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         alert_price = None
         entry_price = curr_price
         entry_label = f"Gel des achats (~{curr_price:.2f} {sym_currency})"
+    elif news_data["has_structural_risk"]:
+        verdict = "ÉVITER - RISQUE STRUCTUREL DÉTECTÉ"
+        verdict_badge = "badge-danger"
+        verdict_action = f"Alerte actualité : {news_data['summary']}"
+        action_plan = "🛑 Rejet immédiat — Les actualités révèlent un risque juridique/structurel majeur. Ne pas entrer en swing."
+        alert_price = None
+        entry_price = curr_price
+        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
+        confluence_score = min(confluence_score, 4.0)
     elif not trend_following_valid:
         verdict = "ÉVITER"
         verdict_badge = "badge-neutral"
@@ -717,14 +856,14 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
         verdict = "ACHAT VALIDÉ"
         verdict_badge = "badge-success"
-        verdict_action = f"Confluence institutionnelle validée ({confluence_score}/10). Rebond sur support Fibonacci et confirmation de flux acheteur."
+        verdict_action = f"Confluence tripartite validée ({confluence_score}/10). Rebond sur support Fibonacci, actualité saine [{news_data['diagnostic']}] et flux acheteur confirmé."
         entry_price = curr_price
         entry_label = f"Achat immédiat au marché (~{entry_price:.2f} {sym_currency})"
         alert_price = curr_price
     elif trend_following_valid and pullback_valid:
         verdict = "ATTENDRE CONFIRMATION H1"
         verdict_badge = "badge-warning"
-        verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support Fibonacci en tendance haussière. Attendre la cassure de retournement H1."
+        verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support Fibonacci en tendance haussière. Actualité [{news_data['diagnostic']}]. Attendre la cassure de retournement H1."
         entry_price = breakout_trigger
         entry_label = f"{entry_price:.2f} {sym_currency} (Achat sur cassure H1 confirmée)"
         alert_price = breakout_trigger
@@ -782,13 +921,13 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "step": 3,
             "title": "3. Catalyseur & Qualification du Repli (Event-Driven & Fibo)",
             "status": f"Repli {pullback_pct:.1f}% ({'Validé' if pullback_valid else 'Hors critères'})",
-            "badge": "badge-success" if (pullback_valid and fibo["is_in_fibo_zone"]) else "badge-neutral",
+            "badge": "badge-success" if (pullback_valid and fibo["is_in_fibo_zone"] and not news_data["has_structural_risk"]) else "badge-neutral",
             "items": [
                 f"**Ampleur du Repli :** {pullback_pct:.1f} % sur 10 séances (Zone cible -3.0% à -8.0%)",
                 f"**Tendance (MM200) :** Prix ({curr_price:.2f} {sym_currency}) {'au-dessus de la' if trend_following_valid else 'sous la'} MM200 ({mm200:.2f} {sym_currency}) — {'Tendance de Fond Saine' if trend_following_valid else 'Tendance Baissière'}",
-                f"**Cause Factuelle :** Surréaction conjoncturelle sans dégradation des fondamentaux",
+                f"**Actualité & Catalyseur Live :** `[{news_data['diagnostic']}]` ({news_data['summary']})",
                 f"**Retracement Fibonacci :** `[{fibo['status']}]` ({fibo['description']})",
-                f"**Diagnostic :** `[{'SURRÉACTION CONJONCTURELLE' if pullback_valid else 'DÉGRADATION OU REPLI NON QUALIFIÉ'}]` (Earnings à +10 jours min : {earnings_date_str})"
+                f"**Diagnostic :** `[{'SURRÉACTION CONJONCTURELLE' if (pullback_valid and not news_data['has_structural_risk']) else ('DÉGRADATION STRUCTURELLE' if news_data['has_structural_risk'] else 'REPLI NON QUALIFIÉ')}]` (Earnings à +10 jours min : {earnings_date_str})"
             ]
         },
         {
@@ -878,6 +1017,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         "sentiment": sentiment,
         "fibonacci": fibo,
         "order_flow": order_flow,
+        "news_analysis": news_data,
         "is_sharia": is_sharia,
         "trend_following_valid": trend_following_valid,
         "pullback_valid": pullback_valid,
