@@ -1186,10 +1186,14 @@ def get_backtest_periods_endpoint():
         "periods": HISTORICAL_PERIODS_1999_2026
     })
 
+_BACKTEST_RUN_CACHE = {}
+_BACKTEST_CRISES_CACHE = {}
+
 @app.route("/api/backtest/run", methods=["GET", "POST"])
 def backtest_run_endpoint():
     """
     Exécute le backtest historique complet de la stratégie sur la Watchlist et le Market Pool.
+    Utilise un cache en mémoire pour des réponses instantanées.
     """
     try:
         if request.method == "POST":
@@ -1206,6 +1210,13 @@ def backtest_run_endpoint():
         max_holding_days = int(data.get("max_holding_days", 10))
         universe_type = str(data.get("universe", "all"))
         strategy = str(data.get("strategy", "v3_institutional"))
+
+        cache_key = f"{strategy}_{universe_type}_{period}_{start_date}_{end_date}_{capital}_{tp1_pct}_{tp2_pct}_{max_holding_days}"
+        now_ts = time.time()
+        if cache_key in _BACKTEST_RUN_CACHE:
+            entry = _BACKTEST_RUN_CACHE[cache_key]
+            if (now_ts - entry["ts"]) < 3600: # 1h de cache
+                return safe_jsonify(entry["data"])
 
         if universe_type == "watchlist":
             symbols = DEFAULT_WATCHLIST
@@ -1224,10 +1235,12 @@ def backtest_run_endpoint():
             strategy=strategy
         )
         results = engine.run_simulation()
+        
+        _BACKTEST_RUN_CACHE[cache_key] = {"data": results, "ts": now_ts}
         return safe_jsonify(results)
     except Exception as e:
-        logger.error(f"Erreur backtest run: {e}")
-        return safe_jsonify({"success": False, "error": f"Erreur serveur backtest: {str(e)}"})
+        logger.error(f"Erreur backtest run: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": f"Erreur serveur backtest: {str(e)}"}, status_code=500)
 
 @app.route("/api/backtest/crises", methods=["GET", "POST"])
 def backtest_crises_endpoint():
@@ -1246,6 +1259,13 @@ def backtest_crises_endpoint():
         max_holding_days = int(data.get("max_holding_days", 10))
         strategy = str(data.get("strategy", "v3_institutional"))
 
+        cache_key = f"{strategy}_{capital}_{tp1_pct}_{tp2_pct}_{max_holding_days}"
+        now_ts = time.time()
+        if cache_key in _BACKTEST_CRISES_CACHE:
+            entry = _BACKTEST_CRISES_CACHE[cache_key]
+            if (now_ts - entry["ts"]) < 3600:
+                return safe_jsonify({"success": True, "crises": entry["data"]})
+
         results = run_all_crises_stress_test(
             initial_capital=capital,
             tp1_pct=tp1_pct,
@@ -1253,10 +1273,12 @@ def backtest_crises_endpoint():
             max_holding_days=max_holding_days,
             strategy=strategy
         )
+        
+        _BACKTEST_CRISES_CACHE[cache_key] = {"data": results, "ts": now_ts}
         return safe_jsonify({"success": True, "crises": results})
     except Exception as e:
-        logger.error(f"Erreur benchmark crises: {e}")
-        return safe_jsonify({"success": False, "error": f"Erreur serveur crises: {str(e)}"})
+        logger.error(f"Erreur benchmark crises: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": f"Erreur serveur crises: {str(e)}"}, status_code=500)
 
 def lookup_ticker_by_name(query):
     query = query.strip()
@@ -1448,6 +1470,31 @@ def chat():
         "response": f"J'ai bien reçu votre message : *\"{message}\"*.\n\nPour une analyse ou un ajout, veuillez préciser le nom de l'entreprise ou son ticker boursier (ex: `SAN.PA`, `AAPL`, `MSFT`, `MC.PA`, `AIR.PA`), ou tapez *'Ajoute [TICKER] à ma watchlist'*."
     })
 
+# ---------------------------------------------------------------------
+# GESTIONNAIRES D'ERREURS HTTP GLOBAUX (GARANTIE DE RÉPONSES JSON)
+# ---------------------------------------------------------------------
+@app.errorhandler(400)
+def handle_400(e):
+    return safe_jsonify({"success": False, "error": f"Requête invalide: {getattr(e, 'description', str(e))}"}, status_code=400)
+
+@app.errorhandler(404)
+def handle_404(e):
+    return safe_jsonify({"success": False, "error": f"Ressource introuvable: {getattr(e, 'description', str(e))}"}, status_code=404)
+
+@app.errorhandler(405)
+def handle_405(e):
+    return safe_jsonify({"success": False, "error": f"Méthode HTTP non autorisée: {getattr(e, 'description', str(e))}"}, status_code=405)
+
+@app.errorhandler(500)
+def handle_500(e):
+    logger.error(f"Internal 500 error: {e}", exc_info=True)
+    return safe_jsonify({"success": False, "error": f"Erreur interne du serveur: {getattr(e, 'description', str(e))}"}, status_code=500)
+
+@app.errorhandler(Exception)
+def handle_general_exception(e):
+    logger.error(f"Unhandled general exception: {e}", exc_info=True)
+    return safe_jsonify({"success": False, "error": f"Erreur serveur inattendue: {str(e)}"}, status_code=500)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
