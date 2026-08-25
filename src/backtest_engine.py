@@ -268,6 +268,20 @@ class BacktestEngine:
         df['Return_2d'] = df['Close'].pct_change(2) * 100
         df['Return_3d'] = df['Close'].pct_change(3) * 100
 
+        # ATR 14 (Average True Range)
+        h = df['High']
+        l = df['Low']
+        c_prev = df['Close'].shift(1)
+        tr = pd.concat([h - l, (h - c_prev).abs(), (l - c_prev).abs()], axis=1).max(axis=1)
+        df['ATR_14'] = tr.rolling(window=14, min_periods=5).mean()
+
+        # Fibonacci 50% & 61.8% sur les 60 derniers jours
+        h_60 = df['High'].rolling(window=60, min_periods=10).max()
+        l_60 = df['Low'].rolling(window=60, min_periods=10).min()
+        diff_60 = h_60 - l_60
+        df['Fib_50'] = h_60 - (0.500 * diff_60)
+        df['Fib_61_8'] = h_60 - (0.618 * diff_60)
+
         # Plus bas sur 20 jours (Support approximé)
         df['Support_20d'] = df['Low'].rolling(window=20, min_periods=5).min()
         df['Resistance_20d'] = df['High'].rolling(window=20, min_periods=5).max()
@@ -391,12 +405,18 @@ class BacktestEngine:
         if self.start_date:
             ts_start = pd.to_datetime(self.start_date)
             sorted_dates = [d for d in sorted_dates if d >= ts_start]
+        elif self.period in ["1mo", "3mo", "6mo", "1y", "2y", "3y", "5y", "10y", "ytd"]:
+            days_map = {"1mo": 22, "3mo": 66, "6mo": 126, "1y": 252, "2y": 504, "3y": 756, "5y": 1260, "10y": 2520, "ytd": 170}
+            n_days = days_map.get(self.period, 504)
+            if len(sorted_dates) > n_days:
+                sorted_dates = sorted_dates[-n_days:]
+
         if self.end_date:
             ts_end = pd.to_datetime(self.end_date)
             sorted_dates = [d for d in sorted_dates if d <= ts_end]
 
         # Ne commencer la simulation qu'après les barres de chauffe si pas de date de début précise
-        if not self.start_date and len(sorted_dates) > 60:
+        if not self.start_date and len(sorted_dates) > 60 and self.period == "max":
             simulation_dates = sorted_dates[50:]
         else:
             simulation_dates = sorted_dates
@@ -407,22 +427,76 @@ class BacktestEngine:
         closed_trades = []    # Liste de dicts
         daily_equity = []     # Historique date -> total equity
 
-        # Pré-évaluation Sharia (Statique pour le backtest sur l'univers)
+        # Pré-évaluation Sharia (Cache mémoire global)
+        global _GLOBAL_SHARIA_CACHE, _GLOBAL_CATEGORY_CACHE
+        if '_GLOBAL_SHARIA_CACHE' not in globals():
+            _GLOBAL_SHARIA_CACHE = {}
+        if '_GLOBAL_CATEGORY_CACHE' not in globals():
+            _GLOBAL_CATEGORY_CACHE = {}
+
         sharia_cache = {}
         for sym in self.symbols:
-            sharia_cache[sym] = screen_ticker(sym)
+            if sym not in _GLOBAL_SHARIA_CACHE:
+                _GLOBAL_SHARIA_CACHE[sym] = screen_ticker(sym)
+            sharia_cache[sym] = _GLOBAL_SHARIA_CACHE[sym]
 
         # Pré-évaluation Catégorie & ETF sectoriel
         category_cache = {}
         for sym in self.symbols:
-            cat_info = categorize_ticker(sym)
-            sec_name = cat_info.get("category", "Autres")
-            etf_symbol = SECTOR_ETFS.get(sec_name, "SPY")
-            category_cache[sym] = {
-                "category": sec_name,
-                "is_pea": cat_info.get("is_pea", False),
-                "sector_etf": etf_symbol
-            }
+            if sym not in _GLOBAL_CATEGORY_CACHE:
+                cat_info = categorize_ticker(sym)
+                sec_name = cat_info.get("category", "Autres")
+                etf_symbol = SECTOR_ETFS.get(sec_name, "SPY")
+                _GLOBAL_CATEGORY_CACHE[sym] = {
+                    "category": sec_name,
+                    "is_pea": cat_info.get("is_pea", False),
+                    "sector_etf": etf_symbol
+                }
+            category_cache[sym] = _GLOBAL_CATEGORY_CACHE[sym]
+
+        # Pré-extraction ultra-rapide des données sous forme de dictionnaires date -> dict
+        sym_fast_data = {}
+        for sym, df in self.historical_data.items():
+            dates_list = df.index
+            c_arr = df['Close'].values
+            o_arr = df['Open'].values
+            h_arr = df['High'].values
+            l_arr = df['Low'].values
+            s200_arr = df['SMA_200'].values if 'SMA_200' in df.columns else np.zeros(len(df))
+            s50_arr = df['SMA_50'].values if 'SMA_50' in df.columns else np.zeros(len(df))
+            r14_arr = df['RSI_14'].values if 'RSI_14' in df.columns else np.full(len(df), 50.0)
+            to_arr = df['SMA_20_Turnover'].values if 'SMA_20_Turnover' in df.columns else np.full(len(df), 10_000_000.0)
+            lw_arr = df['Lower_Wick_Pct'].values if 'Lower_Wick_Pct' in df.columns else np.zeros(len(df))
+            atr_arr = df['ATR_14'].values if 'ATR_14' in df.columns else (c_arr * 0.02)
+            f50_arr = df['Fib_50'].values if 'Fib_50' in df.columns else (c_arr * 0.98)
+            f61_arr = df['Fib_61_8'].values if 'Fib_61_8' in df.columns else (c_arr * 0.96)
+            r1_arr = df['Return_1d'].values if 'Return_1d' in df.columns else np.zeros(len(df))
+            r2_arr = df['Return_2d'].values if 'Return_2d' in df.columns else np.zeros(len(df))
+            r3_arr = df['Return_3d'].values if 'Return_3d' in df.columns else np.zeros(len(df))
+            sup_arr = df['Support_20d'].values if 'Support_20d' in df.columns else (c_arr * 0.98)
+
+            sym_map = {}
+            for idx, dt in enumerate(dates_list):
+                if idx < 20: continue
+                sym_map[dt] = {
+                    "Close": float(c_arr[idx]),
+                    "Open": float(o_arr[idx]),
+                    "High": float(h_arr[idx]),
+                    "Low": float(l_arr[idx]),
+                    "SMA_200": float(s200_arr[idx]) if not np.isnan(s200_arr[idx]) else 0.0,
+                    "SMA_50": float(s50_arr[idx]) if not np.isnan(s50_arr[idx]) else 0.0,
+                    "RSI_14": float(r14_arr[idx]) if not np.isnan(r14_arr[idx]) else 50.0,
+                    "SMA_20_Turnover": float(to_arr[idx]) if not np.isnan(to_arr[idx]) else 10_000_000.0,
+                    "Lower_Wick_Pct": float(lw_arr[idx]) if not np.isnan(lw_arr[idx]) else 0.0,
+                    "ATR_14": float(atr_arr[idx]) if not np.isnan(atr_arr[idx]) else (float(c_arr[idx]) * 0.02),
+                    "Fib_50": float(f50_arr[idx]) if not np.isnan(f50_arr[idx]) else (float(c_arr[idx]) * 0.98),
+                    "Fib_61_8": float(f61_arr[idx]) if not np.isnan(f61_arr[idx]) else (float(c_arr[idx]) * 0.96),
+                    "Return_1d": float(r1_arr[idx]) if not np.isnan(r1_arr[idx]) else 0.0,
+                    "Return_2d": float(r2_arr[idx]) if not np.isnan(r2_arr[idx]) else 0.0,
+                    "Return_3d": float(r3_arr[idx]) if not np.isnan(r3_arr[idx]) else 0.0,
+                    "Support_20d": float(sup_arr[idx]) if not np.isnan(sup_arr[idx]) else (float(c_arr[idx]) * 0.98)
+                }
+            sym_fast_data[sym] = sym_map
 
         # Boucle journalière Walk-Forward
         for date in simulation_dates:
@@ -430,16 +504,16 @@ class BacktestEngine:
             positions_to_keep = []
             for pos in active_positions:
                 sym = pos['symbol']
-                df = self.historical_data.get(sym)
-                if df is None or date not in df.index:
+                sym_dict = sym_fast_data.get(sym, {})
+                row = sym_dict.get(date)
+                if row is None:
                     positions_to_keep.append(pos)
                     continue
 
-                row = df.loc[date]
-                high = float(row['High'])
-                low = float(row['Low'])
-                close = float(row['Close'])
-                open_p = float(row['Open'])
+                high = row['High']
+                low = row['Low']
+                close = row['Close']
+                open_p = row['Open']
                 entry_p = pos['entry_price']
                 shares = pos['shares']
                 pos['days_held'] += 1
@@ -483,8 +557,8 @@ class BacktestEngine:
                     exit_reason = "TIME_STOP (J+10)"
                     is_closed = True
 
-                # D. Activation du Breakeven pour les jours suivants si la clôture est > +0.80% (Stratégie V3)
-                if self.strategy == "v3_institutional" and not is_closed:
+                # D. Activation du Breakeven pour les jours suivants si la clôture est > +0.80% (Stratégies V3 & V4)
+                if self.strategy in ["v3_institutional", "v4_sniper_swing"] and not is_closed:
                     if close >= entry_p * 1.008 and pos['stop_loss'] < entry_p:
                         pos['stop_loss'] = entry_p # Stop remonté au PRU pour la session suivante
                         pos['is_breakeven'] = True
@@ -521,18 +595,27 @@ class BacktestEngine:
 
             # 3. Détection de nouveaux signaux d'achat (si slots disponibles et cash disponible)
             current_portfolio_value = current_cash + sum(
-                (self.historical_data[p['symbol']].loc[date]['Close'] * p['shares'])
+                (sym_fast_data.get(p['symbol'], {}).get(date, {}).get('Close', p['entry_price']) * p['shares'])
                 for p in active_positions
-                if p['symbol'] in self.historical_data and date in self.historical_data[p['symbol']].index
             )
 
-            # Réserve de cash minimale (25% pour V3, 10% pour V2)
-            min_cash_pct = MIN_CASH_RESERVE_PCT if self.strategy == "v3_institutional" else 0.10
+            # Réserve de cash minimale (25% pour V3/V4, 10% pour V2, 0% pour V1)
+            if self.strategy in ["v3_institutional", "v4_sniper_swing"]:
+                min_cash_pct = MIN_CASH_RESERVE_PCT
+            elif self.strategy == "v2_standard":
+                min_cash_pct = 0.10
+            else:
+                min_cash_pct = 0.05
+
             min_cash_required = current_portfolio_value * min_cash_pct
             available_cash_for_trades = max(0, current_cash - min_cash_required)
 
+            is_v4 = (self.strategy == "v4_sniper_swing")
             is_v3 = (self.strategy == "v3_institutional")
-            can_trade_macro = (macro_regime != "RISK-OFF") if is_v3 else True
+            is_v1 = (self.strategy == "v1_classic")
+            is_inst = is_v3 or is_v4
+
+            can_trade_macro = (macro_regime != "RISK-OFF") if is_inst else True
 
             if can_trade_macro and len(active_positions) < MAX_SIMULTANEOUS_POSITIONS and available_cash_for_trades > 100:
                 active_symbols = [p['symbol'] for p in active_positions]
@@ -544,8 +627,8 @@ class BacktestEngine:
                     if sym in active_symbols:
                         continue
 
-                    # Filtre Sharia AAOIFI (V3 uniquement)
-                    if is_v3:
+                    # Filtre Sharia AAOIFI (V3 & V4 uniquement)
+                    if is_inst:
                         sh_res = sharia_cache.get(sym, {})
                         if sh_res.get("status") == "NON CONFORME":
                             continue
@@ -553,48 +636,75 @@ class BacktestEngine:
                     # Filtre Secteur (Max 2 positions par secteur)
                     cat_info = category_cache.get(sym, {})
                     sec_cat = cat_info.get("category", "Autres")
-                    if active_sectors.count(sec_cat) >= MAX_SECTOR_POSITIONS:
+                    if is_inst and active_sectors.count(sec_cat) >= MAX_SECTOR_POSITIONS:
                         continue
 
-                    df = self.historical_data.get(sym)
-                    if df is None or date not in df.index:
+                    sym_dict = sym_fast_data.get(sym, {})
+                    row = sym_dict.get(date)
+                    if row is None:
                         continue
 
-                    # Vérifier historique suffisant à cette date
-                    loc_idx = df.index.get_loc(date)
-                    if isinstance(loc_idx, (slice, np.ndarray, list)):
-                        loc_idx = loc_idx.start if isinstance(loc_idx, slice) else loc_idx[0]
-                    if loc_idx < 30:
-                        continue
+                    close = row['Close']
+                    sma_200 = row['SMA_200']
+                    sma_50 = row['SMA_50']
+                    rsi = row['RSI_14']
+                    turnover = row['SMA_20_Turnover']
+                    wick_pct = row['Lower_Wick_Pct']
+                    atr_14 = row['ATR_14']
+                    fib_50 = row['Fib_50']
+                    fib_61_8 = row['Fib_61_8']
 
-                    row = df.iloc[loc_idx]
-                    close = float(row['Close'])
-                    sma_200 = float(row['SMA_200']) if not pd.isna(row['SMA_200']) else 0
-                    sma_50 = float(row['SMA_50']) if not pd.isna(row['SMA_50']) else 0
-                    rsi = float(row['RSI_14']) if not pd.isna(row['RSI_14']) else 50
-                    turnover = float(row['SMA_20_Turnover']) if not pd.isna(row['SMA_20_Turnover']) else 10_000_000
-                    wick_pct = float(row['Lower_Wick_Pct']) if not pd.isna(row['Lower_Wick_Pct']) else 0
-
-                    r1 = float(row['Return_1d']) if not pd.isna(row['Return_1d']) else 0
-                    r2 = float(row['Return_2d']) if not pd.isna(row['Return_2d']) else 0
-                    r3 = float(row['Return_3d']) if not pd.isna(row['Return_3d']) else 0
+                    r1 = row['Return_1d']
+                    r2 = row['Return_2d']
+                    r3 = row['Return_3d']
                     min_ret = min(r1, r2, r3)
 
-                    if is_v3:
-                        # V3 Institutional : 3 Moteurs (Trend SMA200 + Event -3%/-8% + Breakout Confirmation)
-                        # 1. Filtre Tendance de fond : Cours > SMA 200 ou SMA 50
-                        if sma_200 > 0 and close < (sma_200 * 0.96): # Tolérance max 4% sous SMA200
+                    if is_v4:
+                        # V4 Sniper & Swing : 5 Piliers Confluence
+                        # 1. Tendance saine : Cours > MM200 (tolérance max 2%)
+                        if sma_200 > 0 and close < (sma_200 * 0.98):
                             continue
 
-                        # 2. Filtre Liquidité : Turnover > 1 M€/$
+                        # 2. Liquidité institutionnelle
                         if turnover < MIN_AVG_DAILY_VOLUME_USD:
                             continue
 
-                        # 3. Filtre Dip : Baisse de -3% à -8% sur 1, 2 ou 3 séances
+                        # 3. Repli Event-Driven de -2.5% à -8.0%
+                        if not (-MAX_DROP_PCT <= min_ret <= -2.5):
+                            continue
+
+                        # 4. Confluence Fibonacci 50-61.8% & Filtre Manipulation M15/ATR
+                        is_in_fibo = (close >= fib_61_8 * 0.985 and close <= fib_50 * 1.025)
+                        daily_range = float(row['High'] - row['Low'])
+                        ratio_atr = (daily_range / atr_14) if atr_14 > 0 else 0
+                        has_open_manip = (ratio_atr >= 0.25 and wick_pct >= 0.6)
+                        has_wick_reversal = wick_pct >= 0.75 or rsi <= 40
+
+                        if not (is_in_fibo or has_open_manip or has_wick_reversal):
+                            continue
+
+                        # Support & Stop Loss serré sous creux d'invalidation (1.2% à 1.8% max)
+                        support = row['Support_20d']
+                        stop_loss = max(support * 0.995, close * 0.985)
+                        stop_dist_pct = (close - stop_loss) / close
+
+                        # Score de confluence
+                        score = 7
+                        if close > sma_200: score += 1
+                        if is_in_fibo: score += 1
+                        if has_open_manip: score += 1.5
+                        if rsi <= 35: score += 1
+                        if wick_pct >= 1.0: score += 1
+
+                    elif is_v3:
+                        # V3 Institutional : 3 Moteurs (Trend SMA200 + Event -3%/-8% + Breakout Confirmation)
+                        if sma_200 > 0 and close < (sma_200 * 0.96):
+                            continue
+                        if turnover < MIN_AVG_DAILY_VOLUME_USD:
+                            continue
                         if not (-MAX_DROP_PCT <= min_ret <= -MIN_DROP_PCT):
                             continue
 
-                        # 4. Filtre Confluence : RSI < 45 OU mèche basse >= 0.6%
                         min_wick_req = 0.9 if macro_regime == "NEUTRE" else 0.6
                         max_rsi_req = 40 if macro_regime == "NEUTRE" else 45
                         has_wick = wick_pct >= min_wick_req
@@ -602,19 +712,26 @@ class BacktestEngine:
                         if not (has_wick or has_rsi_rebound):
                             continue
 
-                        # Support calculé & Stop Loss
-                        support = float(row['Support_20d']) if not pd.isna(row['Support_20d']) else (close * 0.96)
+                        support = row['Support_20d']
                         stop_loss = min(support * 0.99, close * 0.965)
                         stop_dist_pct = (close - stop_loss) / close
 
-                        # Score de confluence
                         score = 6
                         if close > sma_200: score += 1
                         if rsi < 35: score += 1
                         if has_wick: score += 1
                         if min_ret <= -4.0: score += 1
+
+                    elif is_v1:
+                        # V1 Classic : Signal RSI bas (< 30) ou croisement basique, Stop 5.0%
+                        if rsi > 32 and min_ret > -2.0:
+                            continue
+                        stop_loss = close * 0.95
+                        stop_dist_pct = 0.05
+                        score = 4 if rsi <= 30 else 2
+
                     else:
-                        # V2 Standard : Mean Reversion Simple (RSI < 40 ou repli ponctuel sans filtres macro ni MM200)
+                        # V2 Standard : Mean Reversion Simple (RSI < 38 ou Dip < -2.5%)
                         if rsi > 38 and min_ret > -2.5:
                             continue
                         stop_loss = close * 0.965
@@ -644,13 +761,13 @@ class BacktestEngine:
                     stop_loss = cand['stop_loss']
                     stop_dist = cand['stop_dist_pct']
 
-                    if is_v3:
-                        # V3 : Calcul dimensionnement R-Max exact (1% du capital max par trade)
+                    if is_inst:
+                        # V3 & V4 : Calcul dimensionnement R-Max exact (1% du capital max par trade)
                         r_max_amount = current_portfolio_value * r_max_rate
                         max_nominal = current_portfolio_value * MAX_ALLOCATION_PER_LINE_PCT
-                        suggested_nominal = min(r_max_amount / max(stop_dist, 0.02), max_nominal)
+                        suggested_nominal = min(r_max_amount / max(stop_dist, 0.012), max_nominal)
                     else:
-                        # V2 : Allocation fixe par position (20% du capital)
+                        # V1 & V2 : Allocation fixe par position (20% du capital)
                         r_max_amount = current_portfolio_value * 0.02
                         suggested_nominal = current_portfolio_value * 0.20
 
@@ -681,20 +798,10 @@ class BacktestEngine:
                     })
 
             # 4. Enregistrement de l'equity quotidienne (avec gestion des jours fériés croisés US/EU)
-            total_positions_val = 0.0
-            for p in active_positions:
-                sym = p['symbol']
-                df = self.historical_data.get(sym)
-                if df is not None:
-                    # Trouver le dernier cours disponible à ou avant cette date
-                    sub_df = df.loc[:date]
-                    if not sub_df.empty:
-                        p_close = float(sub_df.iloc[-1]['Close'])
-                    else:
-                        p_close = float(p['entry_price'])
-                else:
-                    p_close = float(p['entry_price'])
-                total_positions_val += (p_close * p['shares'])
+            total_positions_val = sum(
+                (sym_fast_data.get(p['symbol'], {}).get(date, {}).get('Close', p['entry_price']) * p['shares'])
+                for p in active_positions
+            )
 
             daily_equity.append({
                 "date": date.strftime("%Y-%m-%d"),

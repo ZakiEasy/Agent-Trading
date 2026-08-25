@@ -1,0 +1,25 @@
+Periode,Periode_ID,Strategie,Strategie_ID,Trades,WinRate,ProfitFactor,TotalReturn,MaxDrawdown,Sharpe
+Global Multi-Décennies (1999 - 2026),all_cycles,V1 Classic,v1_classic,11185,78.7%,1.45,+2157233.2%,51.3%,1.92
+Global Multi-Décennies (1999 - 2026),all_cycles,V2 Standard,v2_standard,12771,74.0%,1.41,+9730454.7%,57.0%,2.29
+Global Multi-Décennies (1999 - 2026),all_cycles,V3 Institutional,v3_institutional,3542,79.4%,1.43,+536.8%,9.2%,1.09
+Global Multi-Décennies (1999 - 2026),all_cycles,V4 Sniper & Swing,v4_sniper_swing,6383,59.2%,1.56,+19110.5%,22.1%,1.95
+Bulle Internet (1999 - 2003),crisis_2000,V1 Classic,v1_classic,3034,77.6%,1.31,+1033.0%,51.3%,1.67
+Bulle Internet (1999 - 2003),crisis_2000,V2 Standard,v2_standard,3390,73.1%,1.43,+1861.2%,57.0%,2.14
+Bulle Internet (1999 - 2003),crisis_2000,V3 Institutional,v3_institutional,555,82.5%,1.32,+18.2%,9.2%,0.69
+Bulle Internet (1999 - 2003),crisis_2000,V4 Sniper & Swing,v4_sniper_swing,974,60.3%,1.31,+102.2%,22.1%,1.17
+Crise des Subprimes (2007 - 2009),crisis_2008,V1 Classic,v1_classic,1220,78.6%,1.51,+192.9%,13.5%,2.35
+Crise des Subprimes (2007 - 2009),crisis_2008,V2 Standard,v2_standard,1412,73.1%,1.57,+246.0%,10.1%,2.79
+Crise des Subprimes (2007 - 2009),crisis_2008,V3 Institutional,v3_institutional,193,82.9%,1.26,+5.0%,3.6%,0.62
+Crise des Subprimes (2007 - 2009),crisis_2008,V4 Sniper & Swing,v4_sniper_swing,364,60.7%,1.46,+31.7%,4.3%,1.73
+Krach Covid-19 (2020),crisis_2020,V1 Classic,v1_classic,450,77.6%,1.56,+61.1%,21.0%,2.19
+Krach Covid-19 (2020),crisis_2020,V2 Standard,v2_standard,504,72.8%,1.56,+64.3%,19.8%,2.41
+Krach Covid-19 (2020),crisis_2020,V3 Institutional,v3_institutional,97,75.3%,1.10,+1.2%,4.7%,0.25
+Krach Covid-19 (2020),crisis_2020,V4 Sniper & Swing,v4_sniper_swing,268,63.8%,1.72,+33.5%,6.2%,2.70
+Choc Inflation & Taux (2021 - 2022),crisis_2022,V1 Classic,v1_classic,573,77.8%,1.48,+67.5%,10.1%,2.50
+Choc Inflation & Taux (2021 - 2022),crisis_2022,V2 Standard,v2_standard,690,71.0%,1.45,+79.3%,10.7%,2.77
+Choc Inflation & Taux (2021 - 2022),crisis_2022,V3 Institutional,v3_institutional,82,73.2%,0.91,-1.1%,2.7%,-0.19
+Choc Inflation & Taux (2021 - 2022),crisis_2022,V4 Sniper & Swing,v4_sniper_swing,161,55.9%,1.51,+13.0%,2.1%,1.61
+Marché Récent (2024 - 2026),2y,V1 Classic,v1_classic,15837,76.7%,1.45,+27933738.1%,51.6%,1.66
+Marché Récent (2024 - 2026),2y,V2 Standard,v2_standard,17686,72.1%,1.41,+196350380.3%,57.4%,2.02
+Marché Récent (2024 - 2026),2y,V3 Institutional,v3_institutional,4709,77.9%,1.40,+748.4%,18.7%,0.86
+Marché Récent (2024 - 2026),2y,V4 Sniper & Swing,v4_sniper_swing,8292,57.9%,1.56,+77746.0%,22.2%,1.75
