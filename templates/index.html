@@ -1577,7 +1577,7 @@
             </div>
 
             <!-- Breakdown by Account Cards -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                 <div class="glass-card" style="padding: 1.25rem; border-left: 4px solid #3b82f6;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                         <strong>🇫🇷 Compte PEA (Europe)</strong>
@@ -1602,6 +1602,14 @@
                     <div style="font-size: 1.4rem; font-weight: 700; color: var(--success);" id="journal-usd-pnl">+476.29 $</div>
                     <div style="font-size: 0.8rem; color: var(--text-muted);" id="journal-usd-count">56 trades clôturés (50 gagnants / 6 perdants)</div>
                 </div>
+                <div class="glass-card" style="padding: 1.25rem; border-left: 4px solid #06b6d4;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong>📱 Trading 212</strong>
+                        <span class="badge badge-primary" id="journal-t212-rate">0.0% Win Rate</span>
+                    </div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--success);" id="journal-t212-pnl">+0.00 €</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="journal-t212-count">0 trade clôturé (0 gagnant / 0 perdant)</div>
+                </div>
             </div>
 
             <!-- Filters & Actions Toolbar -->
@@ -1609,7 +1617,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
                         <!-- Filtre Période Calendaire -->
-                        <div style="display: flex; align-items: center; gap: 0.4rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem;">
+                        <div style="display: align-items: center; gap: 0.4rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem; display: flex;">
                             <label style="font-size: 0.85rem; color: #60a5fa; font-weight: 700;">📅 Période :</label>
                             <select id="journal-period-filter" class="filter-select" style="color: #60a5fa; font-weight: 700; background: transparent; border: none;" onchange="applyJournalFilters()">
                                 <option value="all">🌐 Tout l'historique</option>
@@ -1629,6 +1637,7 @@
                             <option value="PEA">🇫🇷 PEA uniquement</option>
                             <option value="CTO Euro">💶 CTO Euro</option>
                             <option value="CTO Dollar">🇺🇸 CTO Dollar (US)</option>
+                            <option value="Trading 212">📱 Trading 212</option>
                         </select>
 
                         <select id="journal-result-filter" style="padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.85rem;" onchange="applyJournalFilters()">
@@ -1642,8 +1651,11 @@
                         <button class="btn btn-secondary" onclick="loadJournalHistory(true)">
                             🔄 Actualiser
                         </button>
+                        <button class="btn btn-secondary" id="btn-sync-t212-journal" onclick="syncTrading212History()" title="Synchroniser l'historique des ordres Trading 212 via API" style="border-color: #06b6d4; color: #67e8f9;">
+                            📱 Sync Trading 212
+                        </button>
                         <button class="btn btn-secondary" onclick="openUploadCsvModal()">
-                            📂 Importer Fichier (XLSX / CSV)
+                            📂 Importer Fichiers (XTB / 212)
                         </button>
                         <button class="btn btn-primary" onclick="syncAllHistoryFiles()">
                             ⚡ Resynchroniser Historique
@@ -1652,53 +1664,63 @@
                 </div>
             </div>
 
-            <!-- Closed Trades Table -->
-            <div class="glass-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;">
-                        Historique Détaillé (<span id="journal-filtered-count">0</span> trades affichés)
-                    </h3>
-                    <div id="journal-pagination-info" style="font-size: 0.8rem; color: var(--text-muted);">
-                        Page <span id="journal-current-page">1</span> / <span id="journal-total-pages">1</span>
+            <!-- Closed Trades Table (Collapsible) -->
+            <div class="glass-card" style="transition: all 0.3s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleJournalHistoryCollapse()">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                            <span>📜</span> Historique Détaillé (<span id="journal-filtered-count">0</span> trades affichés)
+                        </h3>
+                        <span id="journal-collapse-badge" class="badge badge-primary" style="font-size: 0.72rem;">Déplié</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div id="journal-pagination-info" style="font-size: 0.8rem; color: var(--text-muted);">
+                            Page <span id="journal-current-page">1</span> / <span id="journal-total-pages">1</span>
+                        </div>
+                        <button class="btn btn-secondary" id="btn-toggle-journal-collapse" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;" onclick="event.stopPropagation(); toggleJournalHistoryCollapse();">
+                            <span id="journal-collapse-icon">🔼</span> <span id="journal-collapse-text">Réduire</span>
+                        </button>
                     </div>
                 </div>
 
-                <div style="overflow-x: auto;">
-                    <table class="data-table" id="journal-table">
-                        <thead>
-                            <tr>
-                                <th>Date Sortie</th>
-                                <th>Ticker & Société</th>
-                                <th>Compte</th>
-                                <th>PRU Achat</th>
-                                <th>Prix Sortie</th>
-                                <th>Quantité</th>
-                                <th>Capital Investi</th>
-                                <th>P&L Net Réalisé</th>
-                                <th>P&L (%)</th>
-                                <th>Durée</th>
-                                <th style="text-align: right;">Résultat</th>
-                            </tr>
-                        </thead>
-                        <tbody id="journal-table-body">
-                            <tr>
-                                <td colspan="11" style="text-align:center; color:var(--text-muted); padding:3rem;">
-                                    Chargement du Journal de Trading...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div id="journal-history-collapsible-content" style="margin-top: 1rem; transition: all 0.3s ease;">
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" id="journal-table">
+                            <thead>
+                                <tr>
+                                    <th>Date Sortie</th>
+                                    <th>Ticker & Société</th>
+                                    <th>Compte</th>
+                                    <th>PRU Achat</th>
+                                    <th>Prix Sortie</th>
+                                    <th>Quantité</th>
+                                    <th>Capital Investi</th>
+                                    <th>P&L Net Réalisé</th>
+                                    <th>P&L (%)</th>
+                                    <th>Durée</th>
+                                    <th style="text-align: right;">Résultat</th>
+                                </tr>
+                            </thead>
+                            <tbody id="journal-table-body">
+                                <tr>
+                                    <td colspan="11" style="text-align:center; color:var(--text-muted); padding:3rem;">
+                                        Chargement du Journal de Trading...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-                <!-- Table Pagination Controls -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--card-border);">
-                    <button class="btn btn-secondary" id="btn-journal-prev" onclick="changeJournalPage(-1)" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
-                        ⬅️ Page précédente
-                    </button>
-                    <span style="font-size: 0.85rem; color: var(--text-muted);" id="journal-page-summary">Affichage 1-50</span>
-                    <button class="btn btn-secondary" id="btn-journal-next" onclick="changeJournalPage(1)" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
-                        Page suivante ➡️
-                    </button>
+                    <!-- Table Pagination Controls -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--card-border);">
+                        <button class="btn btn-secondary" id="btn-journal-prev" onclick="changeJournalPage(-1)" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                            ⬅️ Page précédente
+                        </button>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);" id="journal-page-summary">Affichage 1-50</span>
+                        <button class="btn btn-secondary" id="btn-journal-next" onclick="changeJournalPage(1)" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+                            Page suivante ➡️
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -2470,18 +2492,18 @@
     </div>
 
     <!-- ===================================================================== -->
-    <!-- MODAL : IMPORTER RAPPORTS MULTIPLES (EXCEL .XLSX / CSV XTB - PEA, EURO, US) -->
+    <!-- MODAL : IMPORTER RAPPORTS MULTIPLES (EXCEL .XLSX / CSV XTB & TRADING 212) -->
     <!-- ===================================================================== -->
     <div class="modal-overlay" id="upload-csv-modal">
         <div class="modal-box" style="max-width: 680px;">
             <div class="modal-header">
-                <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📂 Importer des Fichiers d'Historique Multiples (PEA, Euro, US)</h3>
+                <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">📂 Importer des Fichiers d'Historique Multiples (XTB & Trading 212)</h3>
                 <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeUploadCsvModal()">✕</button>
             </div>
             <div class="modal-body">
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.45;">
-                    Sélectionnez ou déposez <strong>un ou plusieurs fichiers</strong> exportés depuis <strong>XTB</strong> (format <code>.xlsx</code> ou <code>.csv</code>).
-                    Le système auto-détecte automatiquement le <strong>compte</strong> (PEA, CTO Euro, CTO US) et les <strong>données</strong> (Ordres, Positions ouvertes/fermées, Trésorerie).
+                    Sélectionnez ou déposez <strong>un ou plusieurs fichiers</strong> exportés depuis <strong>XTB</strong> (format <code>.xlsx</code> ou <code>.csv</code>) ou <strong>Trading 212</strong> (format <code>.csv</code>).
+                    Le système auto-détecte automatiquement le <strong>compte</strong> (PEA, CTO Euro, CTO US, Trading 212) et les <strong>données</strong> (Ordres, Positions ouvertes/fermées, Trésorerie).
                 </p>
 
                 <div class="form-group" style="margin-bottom: 1rem;">
@@ -2491,6 +2513,7 @@
                         <option value="PEA">🇫🇷 Forcer Compte PEA (Europe)</option>
                         <option value="CTO Euro">💶 Forcer Compte Euro (CTO)</option>
                         <option value="CTO Dollar">🇺🇸 Forcer Compte Dollar (CTO US)</option>
+                        <option value="Trading 212">📱 Forcer Compte Trading 212</option>
                     </select>
                 </div>
 
@@ -3363,7 +3386,8 @@
             const byAcc = {
                 'PEA': { pnl: 0, trades: 0, wins: 0, losses: 0 },
                 'CTO Euro': { pnl: 0, trades: 0, wins: 0, losses: 0 },
-                'CTO Dollar': { pnl: 0, trades: 0, wins: 0, losses: 0 }
+                'CTO Dollar': { pnl: 0, trades: 0, wins: 0, losses: 0 },
+                'Trading 212': { pnl: 0, trades: 0, wins: 0, losses: 0 }
             };
 
             periodTrades.forEach(t => {
@@ -3386,7 +3410,8 @@
 
                 let accKey = 'CTO Euro';
                 if (t.account && t.account.includes('PEA')) accKey = 'PEA';
-                else if (t.account && t.account.includes('Dollar')) accKey = 'CTO Dollar';
+                else if (t.account && (t.account.includes('Dollar') || t.account.includes('USD'))) accKey = 'CTO Dollar';
+                else if (t.account && (t.account.includes('212') || t.account.includes('T212'))) accKey = 'Trading 212';
 
                 if (byAcc[accKey]) {
                     byAcc[accKey].trades++;
@@ -3433,10 +3458,10 @@
             }
 
             // Account Breakdown Cards Update (Basées sur la période choisie)
-            ['PEA', 'CTO Euro', 'CTO Dollar'].forEach(acc => {
+            ['PEA', 'CTO Euro', 'CTO Dollar', 'Trading 212'].forEach(acc => {
                 const d = byAcc[acc];
                 const rate = d.trades > 0 ? ((d.wins / d.trades) * 100).toFixed(1) : '0.0';
-                const prefix = acc === 'PEA' ? 'pea' : (acc === 'CTO Euro' ? 'eur' : 'usd');
+                const prefix = acc === 'PEA' ? 'pea' : (acc === 'CTO Euro' ? 'eur' : (acc === 'CTO Dollar' ? 'usd' : 't212'));
                 const sym = acc === 'CTO Dollar' ? '$' : '€';
 
                 const rateElem = document.getElementById(`journal-${prefix}-rate`);
@@ -3456,6 +3481,60 @@
             if (tradesBadge) tradesBadge.textContent = `${totalPeriod} Trade(s) Clôturé(s)`;
         }
 
+        let isJournalHistoryCollapsed = false;
+
+        function toggleJournalHistoryCollapse() {
+            isJournalHistoryCollapsed = !isJournalHistoryCollapsed;
+            const content = document.getElementById('journal-history-collapsible-content');
+            const icon = document.getElementById('journal-collapse-icon');
+            const text = document.getElementById('journal-collapse-text');
+            const badge = document.getElementById('journal-collapse-badge');
+
+            if (!content) return;
+
+            if (isJournalHistoryCollapsed) {
+                content.style.display = 'none';
+                if (icon) icon.textContent = '🔽';
+                if (text) text.textContent = 'Développer';
+                if (badge) {
+                    badge.textContent = 'Replié';
+                    badge.className = 'badge badge-neutral';
+                }
+            } else {
+                content.style.display = 'block';
+                if (icon) icon.textContent = '🔼';
+                if (text) text.textContent = 'Réduire';
+                if (badge) {
+                    badge.textContent = 'Déplié';
+                    badge.className = 'badge badge-primary';
+                }
+            }
+        }
+
+        async function syncTrading212History() {
+            const btn = document.getElementById('btn-sync-t212-journal');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span>⏳ Synchronisation...</span>`;
+            }
+            try {
+                const payload = await fetchJsonSafely(`${API_URL}/trading212/sync_history`, { method: 'POST' });
+                if (payload.success) {
+                    alert(`✅ ${payload.message}`);
+                    loadJournalHistory(true);
+                } else {
+                    alert(`❌ ${payload.error || 'Erreur lors de la synchronisation Trading 212.'}`);
+                }
+            } catch (e) {
+                alert(`❌ Erreur réseau: ${e.message}`);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<span>📱 Sync Trading 212</span>`;
+                }
+            }
+        }
+
         async function loadJournalHistory(force = false) {
             const now = Date.now();
             if (!force && FRONTEND_CACHE.journal.data && (now - FRONTEND_CACHE.journal.ts < FRONTEND_CACHE.journal.ttl)) {
@@ -3465,8 +3544,7 @@
 
             try {
                 const url = force ? `${API_URL}/journal/history?force=true` : `${API_URL}/journal/history`;
-                const res = await fetch(url);
-                const payload = await res.json();
+                const payload = await fetchJsonSafely(url);
                 if (!payload.success || !payload.trades) return;
 
                 FRONTEND_CACHE.journal = { data: payload, ts: Date.now(), ttl: 600000 };
@@ -3507,7 +3585,8 @@
                 if (accFilter !== 'all') {
                     if (accFilter === 'PEA' && !acc.includes('PEA')) return false;
                     if (accFilter === 'CTO Euro' && !acc.includes('Euro')) return false;
-                    if (accFilter === 'CTO Dollar' && !acc.includes('Dollar')) return false;
+                    if (accFilter === 'CTO Dollar' && !acc.includes('Dollar') && !acc.includes('USD')) return false;
+                    if (accFilter === 'Trading 212' && !acc.includes('212') && !acc.includes('T212')) return false;
                 }
 
                 const pnl = Number(t.pnl_amount) || 0;
@@ -3517,7 +3596,7 @@
                 return true;
             });
 
-            // 3. Mise à jour dynamique de la Synthèse de Rentabilité et des 3 Cartes de Compte
+            // 3. Mise à jour dynamique de la Synthèse de Rentabilité et des 4 Cartes de Compte
             updateJournalStatsFromTrades(periodTrades, filteredJournalTrades);
 
             // 4. Tri chronologique descendant
@@ -3573,8 +3652,9 @@
                 const pnlColor = isWin ? 'var(--success)' : 'var(--danger)';
 
                 const isPea = t.account && t.account.includes('PEA');
-                const isUsd = t.account && t.account.includes('Dollar');
-                const accBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' : '<span class="badge badge-success">💶 CTO EUR</span>';
+                const isUsd = t.account && (t.account.includes('Dollar') || t.account.includes('USD'));
+                const isT212 = t.account && (t.account.includes('212') || t.account.includes('T212'));
+                const accBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' : isT212 ? '<span class="badge badge-primary">📱 Trading 212</span>' : '<span class="badge badge-success">💶 CTO EUR</span>';
 
                 const closeDateStr = t.close_time ? String(t.close_time).substring(0, 10) : (t.open_time ? String(t.open_time).substring(0, 10) : '--');
 
@@ -4162,7 +4242,9 @@
                 const fnameUpper = f.name.toUpperCase();
                 
                 let accBadge = '<span class="badge badge-success" style="font-size:0.65rem;">💶 CTO Euro</span>';
-                if (fnameUpper.includes('PEA')) {
+                if (fnameUpper.includes('212') || fnameUpper.includes('T212')) {
+                    accBadge = '<span class="badge badge-primary" style="font-size:0.65rem;">📱 Trading 212</span>';
+                } else if (fnameUpper.includes('PEA')) {
                     accBadge = '<span class="badge badge-pea" style="font-size:0.65rem;">🇫🇷 PEA</span>';
                 } else if (fnameUpper.includes('USD') || fnameUpper.includes('DOLLAR') || fnameUpper.includes('US')) {
                     accBadge = '<span class="badge badge-cto" style="font-size:0.65rem;">🇺🇸 CTO US</span>';

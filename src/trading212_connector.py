@@ -311,7 +311,7 @@ def get_trading212_open_positions(force_refresh=False):
         print(f"⚠️ Erreur récupération positions Trading 212: {e}")
         return []
 
-def get_trading212_orders_history(limit=50):
+def get_trading212_orders_history(limit=100):
     """
     Récupère l'historique récent des ordres exécutés sur Trading 212.
     """
@@ -331,3 +331,228 @@ def get_trading212_orders_history(limit=50):
     except Exception as e:
         print(f"⚠️ Erreur récupération ordres Trading 212: {e}")
         return []
+
+def get_trading212_dividends_history(limit=50):
+    """
+    Récupère l'historique des dividendes versés sur Trading 212.
+    """
+    headers = get_trading212_headers()
+    if not headers:
+        return []
+
+    base_url = get_trading212_base_url()
+    try:
+        url = f"{base_url}/equity/history/dividends?limit={limit}"
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            items = data.get("items", []) if isinstance(data, dict) else data
+            return items if isinstance(items, list) else []
+        return []
+    except Exception as e:
+        print(f"⚠️ Erreur récupération dividendes Trading 212: {e}")
+        return []
+
+def sync_trading212_history_to_journal():
+    """
+    Récupère l'historique des ordres exécutés via l'API Trading 212 et construit les entrées du Journal de Trading.
+    """
+    orders = get_trading212_orders_history(limit=100)
+    if not orders:
+        return []
+
+    closed_trades = []
+    for o in orders:
+        status = str(o.get("status", "")).upper()
+        if status != "FILLED":
+            continue
+
+        side = str(o.get("side", "")).upper()
+        if side != "SELL":
+            continue
+
+        order_id = str(o.get("id", ""))
+        raw_ticker = str(o.get("ticker", ""))
+        ticker = normalize_t212_ticker(raw_ticker)
+        qty = float(o.get("filledQuantity", o.get("orderedQuantity", 0.0)))
+        fill_price = float(o.get("fillPrice", 0.0))
+        fill_val = float(o.get("filledValue", fill_price * qty))
+        
+        pnl = float(o.get("ppl", o.get("result", 0.0)))
+        invested = fill_val - pnl
+        pru = (invested / qty) if (qty > 0 and invested > 0) else fill_price
+        pnl_pct = (pnl / invested * 100) if invested > 0 else 0.0
+        
+        exec_date = str(o.get("dateExecuted", o.get("dateCreated", time.strftime("%Y-%m-%d %H:%M:%S"))))
+        if "T" in exec_date:
+            exec_date = exec_date.replace("T", " ").split(".")[0]
+
+        closed_trades.append({
+            "id": f"T212_API_{order_id}",
+            "symbol": ticker,
+            "name": ticker,
+            "open_time": exec_date,
+            "close_time": exec_date,
+            "pru": round(pru, 2),
+            "exit_price": round(fill_price, 2),
+            "quantity": qty,
+            "invested_amount": round(invested, 2),
+            "pnl_amount": round(pnl, 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "days_held": 1,
+            "result": "GAIN 🟢" if pnl >= 0 else "PERTE 🔴",
+            "account": "Trading 212",
+            "currency": "EUR" if ".PA" in ticker or ".DE" in ticker or ".AS" in ticker else "USD",
+            "comment": "Synchronisé via API Trading 212"
+        })
+
+    return closed_trades
+
+def parse_trading212_csv(csv_text_or_bytes):
+    """
+    Parse les exports CSV de Trading 212 (Historique des transactions, ordres et trésorerie).
+    Auto-détecte :
+      - Les trades clôturés (Actions 'Market sell', 'Limit sell', 'Stop sell')
+      - Les positions ouvertes / achats récents
+      - Les opérations de trésorerie (Dépôts, Retraits, Dividendes, Intérêts)
+    """
+    import csv
+    import io
+
+    if isinstance(csv_text_or_bytes, bytes):
+        try:
+            text = csv_text_or_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            text = csv_text_or_bytes.decode('latin-1', errors='replace')
+    else:
+        text = str(csv_text_or_bytes)
+
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if not lines:
+        return {"closed_positions": [], "open_positions": [], "cash_operations": []}
+
+    delimiter = ';' if lines[0].count(';') > lines[0].count(',') else ','
+    reader = csv.reader(io.StringIO(text), delimiter=delimiter)
+    all_rows = [r for r in reader if r]
+
+    if len(all_rows) < 2:
+        return {"closed_positions": [], "open_positions": [], "cash_operations": []}
+
+    header_idx = -1
+    header = []
+    for idx, r in enumerate(all_rows[:5]):
+        r_clean = [str(c).strip().lower() for c in r]
+        if any(k in r_clean for k in ["action", "ticker", "time", "date/heure", "result", "total", "isin"]):
+            header_idx = idx
+            header = r_clean
+            break
+
+    if header_idx == -1:
+        header_idx = 0
+        header = [str(c).strip().lower() for c in all_rows[0]]
+
+    col_map = {}
+    for idx, col in enumerate(header):
+        c = col.strip().lower()
+        if c == "action":
+            col_map["action"] = idx
+        elif any(k in c for k in ["time", "date/heure", "date"]):
+            col_map["time"] = idx
+        elif any(k == c or k in c for k in ["ticker", "symbole", "symbol"]) and "currency" not in c:
+            col_map["ticker"] = idx
+        elif any(k == c or k in c for k in ["name", "nom", "société", "societe"]) and "currency" not in c and "fee" not in c:
+            col_map["name"] = idx
+        elif any(k in c for k in ["no. of shares", "shares", "nombre", "quantité", "quantite", "qty"]):
+            col_map["quantity"] = idx
+        elif ("price / share" in c or "prix / action" in c or c == "price" or c == "cours" or c == "prix") and "currency" not in c and "devise" not in c:
+            col_map["price"] = idx
+        elif c.startswith("currency") or c == "devise":
+            if "currency" not in col_map or "price" in c:
+                col_map["currency"] = idx
+        elif (c.startswith("result") or c.startswith("résultat") or c == "profit" or c == "gain") and "currency" not in c:
+            col_map["result"] = idx
+        elif (c.startswith("total") or c == "montant") and "currency" not in c:
+            col_map["total"] = idx
+        elif c == "id" or c == "transaction id" or c == "identifiant":
+            col_map["id"] = idx
+
+    closed_positions = []
+    cash_operations = []
+
+    for r in all_rows[header_idx + 1:]:
+        if not r or len(r) <= 1:
+            continue
+
+        def get_val(key, default=""):
+            idx = col_map.get(key)
+            if idx is not None and idx < len(r):
+                return str(r[idx]).strip()
+            return default
+
+        action = get_val("action").lower()
+        time_str = get_val("time")
+        raw_ticker = get_val("ticker").upper()
+        ticker = normalize_t212_ticker(raw_ticker)
+        name = get_val("name") or ticker
+        qty_str = get_val("quantity", "0").replace(" ", "").replace(",", ".")
+        price_str = get_val("price", "0").replace(" ", "").replace(",", ".").replace("€", "").replace("$", "")
+        result_str = get_val("result", "0").replace(" ", "").replace(",", ".").replace("€", "").replace("$", "")
+        total_str = get_val("total", "0").replace(" ", "").replace(",", ".").replace("€", "").replace("$", "")
+        curr_str = get_val("currency", "EUR").upper()
+        tid = get_val("id") or f"T212_{abs(hash(time_str + raw_ticker + action))}"
+
+        try:
+            qty = float(qty_str) if qty_str else 0.0
+            price = float(price_str) if price_str else 0.0
+            pnl_amount = float(result_str) if result_str else 0.0
+            total_val = float(total_str) if total_str else (price * qty)
+        except Exception:
+            continue
+
+        # 1. Trades de vente clôturés
+        if any(k in action for k in ["sell", "vente"]):
+            if qty > 0 and (price > 0 or total_val > 0):
+                exit_price = price if price > 0 else (total_val / qty)
+                invested = (total_val - pnl_amount) if total_val > 0 else (price * qty - pnl_amount)
+                pru = (invested / qty) if (qty > 0 and invested > 0) else exit_price
+                pnl_pct = (pnl_amount / invested * 100) if invested > 0 else 0.0
+                
+                closed_positions.append({
+                    "id": f"T212_{tid}",
+                    "symbol": ticker,
+                    "name": name,
+                    "open_time": time_str,
+                    "close_time": time_str,
+                    "pru": round(pru, 2),
+                    "exit_price": round(exit_price, 2),
+                    "quantity": qty,
+                    "invested_amount": round(invested, 2),
+                    "pnl_amount": round(pnl_amount, 2),
+                    "pnl_pct": round(pnl_pct, 2),
+                    "days_held": 1,
+                    "result": "GAIN 🟢" if pnl_amount >= 0 else "PERTE 🔴",
+                    "account": "Trading 212",
+                    "currency": curr_str or ("EUR" if ".PA" in ticker else "USD"),
+                    "comment": f"Export Trading 212 ({action})"
+                })
+
+        # 2. Opérations de Cash / Dividendes / Intérêts
+        elif any(k in action for k in ["deposit", "dépôt", "depot", "withdrawal", "retrait", "dividend", "dividende", "interest", "intérêt", "interet"]):
+            op_type = "DIVIDENDE" if "dividend" in action else ("INTERET" if "interest" in action else ("DEPOT" if ("deposit" in action or "dépôt" in action) else "RETRAIT"))
+            cash_amt = abs(total_val if total_val > 0 else (pnl_amount if pnl_amount > 0 else price))
+            cash_operations.append({
+                "id": f"T212_CASH_{tid}",
+                "date": time_str,
+                "type": op_type,
+                "symbol": ticker if op_type == "DIVIDENDE" else "",
+                "amount": cash_amt,
+                "currency": curr_str or "EUR",
+                "account": "Trading 212",
+                "description": f"Trading 212: {action.title()} {name or ''}".strip()
+            })
+
+    return {
+        "closed_positions": closed_positions,
+        "open_positions": [],
+        "cash_operations": cash_operations
+    }

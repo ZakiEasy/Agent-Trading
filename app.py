@@ -361,7 +361,10 @@ from src.trading212_connector import (
     test_trading212_connection,
     get_trading212_cash,
     get_trading212_open_positions,
-    set_runtime_trading212_config
+    set_runtime_trading212_config,
+    get_trading212_orders_history,
+    sync_trading212_history_to_journal,
+    parse_trading212_csv
 )
 from src.sheets_connector import (
     add_position_to_sheets,
@@ -440,6 +443,38 @@ def configure_trading212():
         "success": test_res.get("connected", False),
         "result": test_res
     })
+
+@app.route("/api/trading212/sync_history", methods=["POST"])
+def sync_trading212_history_endpoint():
+    """
+    Récupère l'historique des ordres exécutés sur Trading 212 via l'API et les intègre au Journal de Trading Google Sheets.
+    """
+    try:
+        trades = sync_trading212_history_to_journal()
+        if not trades:
+            return safe_jsonify({
+                "success": True,
+                "message": "Aucun nouvel ordre exécuté trouvé via l'API Trading 212 (ou aucun ordre de vente fermé).",
+                "imported": 0
+            })
+
+        existing_journal = read_journal_from_sheets() or []
+        seen_ids = {t.get("id") for t in existing_journal if t.get("id")}
+        new_trades = [t for t in trades if t.get("id") not in seen_ids]
+
+        if new_trades:
+            combined = existing_journal + new_trades
+            batch_import_journal_to_sheets(combined)
+
+        return safe_jsonify({
+            "success": True,
+            "message": f"Synchronisation Trading 212 réussie : {len(new_trades)} nouveau(x) trade(s) archivé(s) dans le Journal de Trading !",
+            "imported": len(new_trades),
+            "total_found": len(trades)
+        })
+    except Exception as e:
+        logger.error(f"Erreur sync history Trading 212: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": f"Erreur lors de la synchronisation Trading 212: {str(e)}"}, status_code=500)
 
 @app.route("/api/portfolio/monthly_rotation")
 def get_portfolio_monthly_rotation():
@@ -588,7 +623,8 @@ def upload_portfolio_report():
     by_account = {
         "PEA": {"closed": 0, "open": 0, "cash": 0},
         "CTO Euro": {"closed": 0, "open": 0, "cash": 0},
-        "CTO Dollar": {"closed": 0, "open": 0, "cash": 0}
+        "CTO Dollar": {"closed": 0, "open": 0, "cash": 0},
+        "Trading 212": {"closed": 0, "open": 0, "cash": 0}
     }
 
     # Charger l'existant pour déduplication
@@ -623,7 +659,9 @@ def upload_portfolio_report():
         detected_acc = default_acc_override
         if not detected_acc:
             fname_upper = fname.upper()
-            if "PEA" in fname_upper:
+            if "212" in fname_upper or "T212" in fname_upper:
+                detected_acc = "Trading 212"
+            elif "PEA" in fname_upper:
                 detected_acc = "PEA"
             elif "USD" in fname_upper or "DOLLAR" in fname_upper or "US" in fname_upper:
                 detected_acc = "CTO Dollar"
@@ -662,16 +700,36 @@ def upload_portfolio_report():
                         by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
                     by_account[acc_key]["cash"] += 1
         else:
-            positions = parse_broker_csv(content)
-            for pos in positions:
-                pid = pos.get("id")
-                if pid and pid not in seen_open_ids:
-                    seen_open_ids.add(pid)
-                    new_open_list.append(pos)
-                    acc_key = pos.get("account", "CTO Euro")
-                    if acc_key not in by_account:
-                        by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
-                    by_account[acc_key]["open"] += 1
+            # Traitement CSV (Trading 212 vs format standard/XTB)
+            sample_header = content[:200].decode('utf-8', errors='ignore').lower() if isinstance(content, bytes) else str(content[:200]).lower()
+            is_t212 = detected_acc == "Trading 212" or "isin" in sample_header or "no. of shares" in sample_header or "price / share" in sample_header
+
+            if is_t212:
+                parsed_t212 = parse_trading212_csv(content)
+                for t in parsed_t212.get("closed_positions", []):
+                    tid = t.get("id")
+                    if tid and tid not in seen_closed_ids:
+                        seen_closed_ids.add(tid)
+                        new_closed_list.append(t)
+                        by_account["Trading 212"]["closed"] += 1
+
+                for c in parsed_t212.get("cash_operations", []):
+                    cid = c.get("id")
+                    if cid and cid not in seen_cash_ids:
+                        seen_cash_ids.add(cid)
+                        new_cash_list.append(c)
+                        by_account["Trading 212"]["cash"] += 1
+            else:
+                positions = parse_broker_csv(content)
+                for pos in positions:
+                    pid = pos.get("id")
+                    if pid and pid not in seen_open_ids:
+                        seen_open_ids.add(pid)
+                        new_open_list.append(pos)
+                        acc_key = pos.get("account", detected_acc or "CTO Euro")
+                        if acc_key not in by_account:
+                            by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
+                        by_account[acc_key]["open"] += 1
 
     if new_closed_list:
         combined_journal = existing_journal + new_closed_list
