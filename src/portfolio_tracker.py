@@ -201,7 +201,35 @@ def get_live_portfolio_summary(force_refresh=False):
         return _LIVE_PORTFOLIO_CACHE["data"]
 
     from src.trading212_connector import get_trading212_open_positions
-    raw_positions = read_positions_from_sheets(force_refresh=force_refresh) or []
+    from src.supabase_connector import get_supabase_positions
+    
+    # Récupérer les positions depuis Supabase en priorité avec fallback Google Sheets
+    raw_positions = []
+    try:
+        sb_positions = get_supabase_positions(status="ACTIVE")
+        if sb_positions and len(sb_positions) > 0:
+            for sp in sb_positions:
+                raw_positions.append({
+                    "id": str(sp.get("id")),
+                    "symbol": sp.get("symbol"),
+                    "name": sp.get("company_name") or sp.get("symbol"),
+                    "pru": float(sp.get("pru", 0.0)),
+                    "quantity": float(sp.get("quantity", 0.0)),
+                    "invested_amount": float(sp.get("invested_capital", 0.0)),
+                    "stop_loss": float(sp.get("stop_loss", 0.0)),
+                    "tp1": float(sp.get("take_profit_1", 0.0)),
+                    "tp2": float(sp.get("take_profit_2", 0.0)),
+                    "broker": sp.get("broker", "XTB"),
+                    "account": sp.get("account_type", "CTO"),
+                    "currency": sp.get("currency", "EUR"),
+                    "status": sp.get("status", "ACTIVE"),
+                    "notes": sp.get("notes", "")
+                })
+    except Exception as e:
+        print(f"⚠️ Erreur chargement positions Supabase: {e}")
+
+    if not raw_positions:
+        raw_positions = read_positions_from_sheets(force_refresh=force_refresh) or []
     
     # Taguer les positions Google Sheets avec broker XTB par défaut
     for p in raw_positions:

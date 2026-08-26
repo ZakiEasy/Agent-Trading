@@ -26,6 +26,16 @@ from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
 from src.institutional_engine import generate_8_step_protocol_analysis
 from src.backtest_engine import BacktestEngine, CRISIS_PERIODS, run_all_crises_stress_test
 from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets, add_ticker_to_sheets
+from src.supabase_connector import (
+    get_supabase_watchlist,
+    add_or_update_watchlist_item,
+    delete_from_watchlist,
+    get_supabase_positions,
+    save_or_update_position,
+    log_trading_signal,
+    get_recent_signals,
+    log_macro_regime
+)
 from src.config import (
     DEFAULT_WATCHLIST,
     DEFAULT_MARKET_POOL,
@@ -277,13 +287,21 @@ def home():
 @app.route("/api/watchlist")
 def get_watchlist():
     force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
-    watchlist = read_watchlist_from_sheets(force_refresh=force)
+    try:
+        sb_wl = get_supabase_watchlist(only_active=True)
+        if sb_wl and len(sb_wl) > 0:
+            watchlist = [item["symbol"] for item in sb_wl]
+        else:
+            watchlist = read_watchlist_from_sheets(force_refresh=force)
+    except Exception as e:
+        print(f"⚠️ Erreur get_watchlist Supabase: {e}")
+        watchlist = read_watchlist_from_sheets(force_refresh=force)
     return safe_jsonify({"watchlist": watchlist})
 
 @app.route("/api/watchlist/add", methods=["POST"])
 def add_watchlist_ticker():
     """
-    Endpoint pour ajouter ou mettre à jour une action dans Google Sheets et la Watchlist active.
+    Endpoint pour ajouter ou mettre à jour une action dans Supabase et Google Sheets.
     """
     data = request.json or {}
     symbol = data.get("ticker", "").upper().strip()
@@ -322,7 +340,22 @@ def add_watchlist_ticker():
 
     price_str = f"{price:.2f} €" if currency == "EUR" else f"{price:.2f} $" if price > 0 else ""
 
-    # 4. Écrire dans Google Sheets
+    # 4. Écrire dans Supabase
+    try:
+        add_or_update_watchlist_item(
+            symbol=symbol,
+            name=name,
+            category=category,
+            category_icon=fund_q.get("category_icon", "📦"),
+            is_pea=is_pea,
+            account_type="🇫🇷 PEA" if is_pea else "CTO (US)",
+            sharia_status=sharia_status,
+            currency=currency
+        )
+    except Exception as e:
+        print(f"⚠️ Erreur sync Supabase add_watchlist_ticker: {e}")
+
+    # 5. Écrire dans Google Sheets
     success, msg = add_ticker_to_sheets(
         ticker_symbol=symbol,
         name=name,
@@ -1003,7 +1036,17 @@ def scan_watchlist():
     try:
         force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
         strategy = request.args.get("strategy", "ALL").upper()
-        watchlist = read_watchlist_from_sheets(force_refresh=force)
+        
+        # 1. Charger la Watchlist depuis Supabase avec fallback Sheets
+        try:
+            sb_wl = get_supabase_watchlist(only_active=True)
+            if sb_wl and len(sb_wl) > 0:
+                watchlist = [item["symbol"] for item in sb_wl]
+            else:
+                watchlist = read_watchlist_from_sheets(force_refresh=force)
+        except Exception:
+            watchlist = read_watchlist_from_sheets(force_refresh=force)
+            
         if not watchlist:
             watchlist = DEFAULT_WATCHLIST
             
@@ -1059,7 +1102,7 @@ def scan_watchlist():
                         analysis = future.result()
                         if not analysis or not isinstance(analysis, dict) or "error" in analysis:
                             continue
-                        results.append({
+                        r_dict = {
                             "symbol": analysis.get("symbol"),
                             "name": analysis.get("name", analysis.get("symbol")),
                             "category": analysis.get("category", "Autres"),
@@ -1090,7 +1133,15 @@ def scan_watchlist():
                             "execution_timing": analysis.get("execution_timing"),
                             "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
                             "currency": analysis.get("currency", "EUR")
-                        })
+                        }
+                        results.append(r_dict)
+                        
+                        # Enregistrer le signal dans Supabase si signal d'intérêt
+                        if "ACHAT" in str(r_dict["verdict_swing"]) or "ACHAT" in str(r_dict["verdict_sniper"]) or "ATTENDRE" in str(r_dict["verdict_sniper"]):
+                            try:
+                                log_trading_signal(r_dict)
+                            except Exception:
+                                pass
                     except Exception:
                         pass
                         

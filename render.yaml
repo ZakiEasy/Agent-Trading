@@ -16,3 +16,17 @@ services:
         value: "Signaux"
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false
+      - key: SUPABASE_PROJECT_REF
+        value: "wszevrqncyusohdmiswe"
+      - key: SUPABASE_URL
+        value: "https://wszevrqncyusohdmiswe.supabase.co"
+      - key: SUPABASE_DB_HOST
+        value: "db.wszevrqncyusohdmiswe.supabase.co"
+      - key: SUPABASE_DB_PORT
+        value: "5432"
+      - key: SUPABASE_DB_NAME
+        value: "postgres"
+      - key: SUPABASE_DB_USER
+        value: "postgres"
+      - key: SUPABASE_DB_PASSWORD
+        sync: false
