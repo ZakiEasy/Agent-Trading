@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -383,6 +384,11 @@ def get_macro_barometer(force_refresh=False):
     """
     global _macro_cache, _macro_cache_time
     now = time.time()
+    now_dt = datetime.now()
+    analysis_date = now_dt.strftime("%d/%m/%Y")
+    analysis_time = now_dt.strftime("%H:%M:%S CET")
+    analysis_timestamp = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    last_updated_str = f"{analysis_date} à {analysis_time}"
 
     if not force_refresh and _macro_cache is not None and (now - _macro_cache_time) < CACHE_TTL_SECONDS:
         return _macro_cache
@@ -392,8 +398,16 @@ def get_macro_barometer(force_refresh=False):
         evaluations, scores = evaluate_macro_indicators(raw_data)
         regime_info = determine_global_macro_regime(evaluations, scores, raw_data)
 
+        # Ajouter l'heure sur chaque indicateur
+        for k in evaluations:
+            evaluations[k]["updated_at"] = analysis_time
+
         barometer = {
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": analysis_timestamp,
+            "analysis_date": analysis_date,
+            "analysis_time": analysis_time,
+            "analysis_timestamp": analysis_timestamp,
+            "last_updated_str": last_updated_str,
             "regime": regime_info["regime"],
             "badge": regime_info["badge"],
             "sizing_multiplier": regime_info["sizing_multiplier"],
@@ -422,7 +436,11 @@ def get_macro_barometer(force_refresh=False):
         print(f"Erreur calcul baromètre macro : {e}")
         # En cas d'erreur réseau, renvoyer un fallback défensif
         return {
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": analysis_timestamp,
+            "analysis_date": analysis_date,
+            "analysis_time": analysis_time,
+            "analysis_timestamp": analysis_timestamp,
+            "last_updated_str": last_updated_str,
             "regime": "RÉGIME NEUTRE / VIGILANCE (Fallback)",
             "badge": "neutral",
             "sizing_multiplier": 0.5,

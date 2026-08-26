@@ -860,7 +860,8 @@
                             <p style="font-size: 0.8rem; color: var(--text-muted);" id="macro-action-rule">Chargement du régime macroéconomique...</p>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+                        <span id="macro-last-updated" class="badge" style="background: rgba(59, 130, 246, 0.1); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.78rem; padding: 0.35rem 0.65rem;">🕒 Relevé : --:--:-- CET</span>
                         <span id="macro-regime-badge" class="badge badge-neutral" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">SYNCHRONISATION...</span>
                         <span id="macro-sizing-pct" class="badge badge-primary" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">100% SIZING</span>
                         <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="loadMacroBarometer(true)">🔄 Rafraîchir</button>
@@ -4357,6 +4358,12 @@
 
         function renderMacroBarometer(data) {
             if (!data) return;
+
+            const lastUpdatedElem = document.getElementById('macro-last-updated');
+            if (lastUpdatedElem) {
+                const ts = data.last_updated_str || (data.analysis_date && data.analysis_time ? `${data.analysis_date} à ${data.analysis_time}` : data.timestamp ? `${data.timestamp} CET` : new Date().toLocaleTimeString('fr-FR'));
+                lastUpdatedElem.innerHTML = `🕒 <strong>Relevé :</strong> ${ts}`;
+            }
 
             const badgeElem = document.getElementById('macro-regime-badge');
             badgeElem.textContent = data.regime;

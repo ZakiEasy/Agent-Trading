@@ -48,10 +48,21 @@ def get_macro_sentiment_barometer(force_refresh=False):
     """
     global _MACRO_CACHE
     now = time.time()
+    now_dt = datetime.now()
+    analysis_date = now_dt.strftime("%d/%m/%Y")
+    analysis_time = now_dt.strftime("%H:%M:%S CET")
+    analysis_timestamp = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    last_updated_str = f"{analysis_date} à {analysis_time}"
+
     if not force_refresh and _MACRO_CACHE["data"] and (now - _MACRO_CACHE["ts"]) < MACRO_CACHE_TTL:
         return _MACRO_CACHE["data"]
 
     barometer = {
+        "timestamp": analysis_timestamp,
+        "analysis_date": analysis_date,
+        "analysis_time": analysis_time,
+        "analysis_timestamp": analysis_timestamp,
+        "last_updated_str": last_updated_str,
         "regime": "NEUTRE",
         "regime_badge": "badge-warning",
         "regime_description": "Régime neutre : sélectivité accrue, positions réduites, TP plus rapides.",
@@ -59,29 +70,33 @@ def get_macro_sentiment_barometer(force_refresh=False):
         "vix": {
             "value": 15.5,
             "status": "Risk-On (Marché Calme)",
-            "color": "var(--success)"
+            "color": "var(--success)",
+            "updated_at": analysis_time
         },
         "dxy": {
             "value": 102.5,
             "trend": "Stable / Neutre",
-            "change_pct": 0.0
+            "change_pct": 0.0,
+            "updated_at": analysis_time
         },
         "xly_xlp_ratio": {
             "value": 2.15,
             "trend": "Risk-On (Surperformance Discrétionnaire)",
-            "change_pct": 0.0
+            "change_pct": 0.0,
+            "updated_at": analysis_time
         },
         "wti_oil": {
             "value": 74.5,
             "status": "Modéré",
-            "change_pct": 0.0
+            "change_pct": 0.0,
+            "updated_at": analysis_time
         },
         "yield_curve": {
             "value": 0.15,
             "status": "Courbe Normale / Positive",
-            "spread_10y_2y": 0.15
-        },
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "spread_10y_2y": 0.15,
+            "updated_at": analysis_time
+        }
     }
 
     try:
@@ -1167,6 +1182,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "status": f"{macro_regime} | Saison {seasonality['status']}",
             "badge": "badge-success" if (macro_regime == "RISK-ON" and seasonality['status'] != "Défavorable") else "badge-warning",
             "items": [
+                f"**Horodatage Baromètre Macro :** `{macro.get('analysis_time', timing['analysis_time'])}` ({macro.get('analysis_date', timing['analysis_date'])}) | Climat Général : **{macro.get('regime', macro_regime)}**",
                 f"**Régime Macro :** `[{macro_regime}]` (VIX : {macro['vix']['value']} — {macro['vix']['status']}, DXY : {macro['dxy']['value']}, Pétrole WTI : {macro['wti_oil']['value']} $, Yield Curve : {macro['yield_curve']['status']})",
                 f"**Saisonnalité Historique :** `[{seasonality['status']} pour {seasonality['month_name']}]` ({seasonality['description']})",
                 f"**Sentiment & Positionnement :** `[{sentiment['status']}]` ({sentiment['description']})"
