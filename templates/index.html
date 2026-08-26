@@ -4723,6 +4723,12 @@
 
                 const actionHtml = r.action_plan ? `<div style="font-size: 0.72rem; color: ${vBadge === 'badge-warning' ? '#fbbf24' : vBadge === 'badge-success' ? '#34d399' : 'var(--text-muted)'}; margin-top: 0.25rem; font-weight: 600; line-height: 1.2;">${r.action_plan}</div>` : '';
 
+                let timingPill = '';
+                if (r.execution_timing && (r.verdict && (r.verdict.includes('SNIPER') || r.verdict.includes('ATTENDRE')))) {
+                    const et = r.execution_timing;
+                    timingPill = `<div style="font-size: 0.68rem; color: #94a3b8; margin-top: 0.25rem; display: flex; gap: 0.35rem; flex-wrap: wrap; background: rgba(59, 130, 246, 0.08); padding: 0.15rem 0.35rem; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2);"><span>🕒 ${et.analysis_time}</span> | <span style="color:#34d399;">⚡ ${et.ideal_execution_time}</span> | <span style="color:#f87171;">🛑 Max ${et.max_execution_time}</span></div>`;
+                }
+
                 tr.innerHTML = `
                     <td><strong>${r.symbol}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${r.name || ''}</span></td>
                     <td>${accountBadge}</td>
@@ -4734,7 +4740,7 @@
                     <td>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
                     <td>${r.rsi_divergence && r.rsi_divergence.includes('HAUSSIÈRE') ? '<span class="badge badge-primary">OUI 🔥</span>' : '<span style="color:var(--text-muted);">-</span>'}</td>
                     <td><span class="score-pill ${scoreClass}">${score}/10</span></td>
-                    <td><span class="badge ${vBadge}">${r.verdict}</span>${actionHtml}</td>
+                    <td><span class="badge ${vBadge}">${r.verdict}</span>${actionHtml}${timingPill}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -4949,23 +4955,19 @@
         }
 
         async function showTickerDetail(symbol) {
-            const overlay = document.getElementById('ticker-detail-overlay');
-            const container = document.getElementById('ticker-detail-content');
-            const card = document.getElementById('ticker-detail-card');
+            const modal = document.getElementById('ticker-detail-modal');
+            const container = document.getElementById('ticker-detail-body');
+            const scorePill = document.getElementById('detail-score-pill');
             
-            if (card) card.setAttribute('data-current-symbol', symbol);
-            document.getElementById('detail-card-title').textContent = `📋 Rapport Protocolaire : ${symbol}`;
-            container.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">Chargement du protocole en 8 étapes...</p>';
-            
-            const chartCont = document.getElementById('tv-chart-container');
-            if (chartCont) chartCont.style.display = 'none';
-
-            // Affichage en Popin Overhead pleine largeur
-            if (overlay) {
-                overlay.style.display = 'flex';
-                overlay.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            }
+            modal.style.display = 'flex';
+            scorePill.textContent = '-/10';
+            scorePill.className = 'score-pill score-low';
+            container.innerHTML = `
+                <div style="text-align: center; padding: 3rem;">
+                    <div class="spinner" style="margin: 0 auto 1rem auto; width: 40px; height: 40px;"></div>
+                    <p style="color: var(--text-muted);">Génération de l'Analyse Tactique & Stratégie Institutionnelle V3 (${symbol})...</p>
+                </div>
+            `;
 
             try {
                 // Détection de la stratégie sélectionnée
@@ -5023,6 +5025,16 @@
                         </div>
                     ` : '';
 
+                    const timing = d.execution_timing || (d.pricing_plan_sniper && d.pricing_plan_sniper.execution_timing) || null;
+                    const timingBannerHtml = timing ? `
+                        <div style="margin-top: 0.5rem; padding: 0.45rem 0.75rem; border-radius: 6px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); display: flex; flex-wrap: wrap; gap: 0.85rem; align-items: center; font-size: 0.78rem;">
+                            <span style="color: #cbd5e1;">🕒 <strong>Analyse :</strong> <span style="color: #93c5fd; font-weight: 600;">${timing.analysis_time}</span></span>
+                            <span style="color: #cbd5e1;">⚡ <strong>Heure Idéale d'Exécution :</strong> <strong style="color: #34d399;">${timing.ideal_execution_time}</strong></span>
+                            <span style="color: #cbd5e1;">🛑 <strong>Heure Max :</strong> <strong style="color: #f87171;">${timing.max_execution_time}</strong></span>
+                            <span style="font-size: 0.72rem; color: #94a3b8; margin-left: auto;">📍 ${timing.market_name}</span>
+                        </div>
+                    ` : '';
+
                     let newsHtml = '';
                     if (d.news_analysis && d.news_analysis.items && d.news_analysis.items.length > 0) {
                         const na = d.news_analysis;
@@ -5074,6 +5086,7 @@
                                 <span class="badge ${d.verdict_badge || 'badge-neutral'}" style="font-size: 0.95rem; padding: 0.45rem 0.9rem;">${d.verdict}</span>
                             </div>
                             ${actionBannerHtml}
+                            ${timingBannerHtml}
                         </div>
 
                         <div class="report-section">

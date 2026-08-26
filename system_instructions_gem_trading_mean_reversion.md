@@ -119,6 +119,11 @@ Générer systématiquement la réponse selon ce format exact en Markdown :
 - **Qualité de l'Actif** : [Marges opérationnelles, dynamique du Free Cash Flow, valorisation relative et position sectorielle]
 
 ### 5. Timing, Order Flow & Protocole d'Ouverture
+- **Horodatage de l'Analyse** : [HH:MM:SS CET / EST et date]
+- **Session de Marché & Fenêtre d'Ouverture** : [Euronext 09:00 - 17:30 CET / Wall Street 15:30 - 22:00 CET]
+- **Créneaux d'Exécution Sniper (< 90 min)** :
+  * **Heure Idéale d'Exécution** : [ex. 09:15 à 09:45 CET (Europe) / 15:45 à 16:15 CET (US) — dès confirmation bougie M15 et rejet M5]
+  * **Heure Maximale d'Exécution** : [ex. 10:30 CET (Europe) / 17:00 CET (US) — limite stricte de la fenêtre de 90 min, ordre invalidé ensuite]
 - **Structure H1/H4 (Order Flow Swing)** : [Épuisement vendeur, formation de creux ascendants (Higher Lows), divergence RSI(14)]
 - **Analyse d'Ouverture (< 90 min - Si applicable)** :
   * ATR(14) D1 : [X,XX $ / €]
@@ -136,6 +141,10 @@ Générer systématiquement la réponse selon ce format exact en Markdown :
 
 #### Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min)
 - **Niveau d'Entrée Sniper** : [Prix d'achat sur dépassement de la bougie M5 de retournement ou sur réintégration du Low M15]
+- **Timings d'Exécution Sniper** :
+  * **Heure de l'Analyse** : [HH:MM:SS CET / EST]
+  * **Heure Idéale d'Exécution** : [09:15 - 09:45 CET (Europe) / 15:45 - 16:15 CET (US)]
+  * **Heure Maximale d'Exécution** : [10:30 CET (Europe) / 17:00 CET (US) — Fin de validité stricte 90 min]
 - **Objectifs de Sortie** :
   * **TP1 (Sécurisation / Rétrocession 50%)** : [Prix de la borne haute M15 ou Fibo 61,8 % interne]
   * **TP2 (Cible Finale Swing)** : [Prix sous résistance Daily (+1,5 % à +3,0 %)]
@@ -151,5 +160,6 @@ Générer systématiquement la réponse selon ce format exact en Markdown :
 ### 8. Verdict Final & Score de Confluence
 - **Score de Confluence** : [X / 10]
 - **Avis Décisionnel** : [ACHAT VALIDÉ (SWING)] / [ACHAT SNIPER OUVERTURE VALIDÉ] / [ATTENDRE REJET M5 (<90 MIN)] / [ATTENDRE CONFIRMATION H1] / [ÉVITER] / [RENFORCER] / [ALLÉGER]
+- **Horodatage & Timing d'Exécution** : [Analyse à HH:MM:SS CET | Exécution Idéale : HH:MM à HH:MM | Limite Max : HH:MM]
 - **Synthèse** : [1 à 2 phrases résumant l'opportunité technico-fondamentale]
-- **Actions Concrètes & Gestion de Portefeuille** : [Instructions d'exécution immédiate, alertes de prix précises à placer (ex: "Alerte cassure M5 à X,XX € avant 10h30 / Alerte breakout H1 à X,XX €"), ou consignes de gestion d'une position existante (remontée de Stop au point d'entrée après TP1, prise de bénéfices partiels)].
+- **Actions Concrètes & Gestion de Portefeuille** : [Instructions d'exécution immédiate avec heures d'exécution idéales et limites maximales, alertes de prix précises à placer (ex: "Alerte cassure M5 à X,XX € entre 09h15 et 09h45 / Invalidation après 10h30"), ou consignes de gestion d'une position existante (remontée de Stop au point d'entrée après TP1, prise de bénéfices partiels)].

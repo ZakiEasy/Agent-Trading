@@ -978,6 +978,11 @@ def scan_batch():
                             "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
                             "confluence_score": analysis.get("confluence_score", 0),
                             "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
+                            "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
+                            "verdict_action": analysis.get("verdict_action", ""),
+                            "action_plan": analysis.get("action_plan", ""),
+                            "execution_timing": analysis.get("execution_timing"),
+                            "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
                             "currency": analysis.get("currency", "EUR")
                         })
                     except Exception:
@@ -1063,6 +1068,11 @@ def scan_watchlist():
                             "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
                             "confluence_score": analysis.get("confluence_score", 0),
                             "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
+                            "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
+                            "verdict_action": analysis.get("verdict_action", ""),
+                            "action_plan": analysis.get("action_plan", ""),
+                            "execution_timing": analysis.get("execution_timing"),
+                            "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
                             "currency": analysis.get("currency", "EUR")
                         })
                     except Exception:
