@@ -1,8 +1,11 @@
 import time
 from datetime import datetime
+import zoneinfo
 import yfinance as yf
 import pandas as pd
 import numpy as np
+
+PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
 from src.config import (
     MACRO_TICKERS,
     VIX_FAVORABLE_MAX,
@@ -384,7 +387,7 @@ def get_macro_barometer(force_refresh=False):
     """
     global _macro_cache, _macro_cache_time
     now = time.time()
-    now_dt = datetime.now()
+    now_dt = datetime.now(PARIS_TZ)
     analysis_date = now_dt.strftime("%d/%m/%Y")
     analysis_time = now_dt.strftime("%H:%M:%S CET")
     analysis_timestamp = now_dt.strftime("%Y-%m-%d %H:%M:%S")

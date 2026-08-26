@@ -8,10 +8,13 @@ import re
 import math
 import time
 import requests
+import zoneinfo
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
+
+PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
 
 from src.config import (
     CAPITAL_REFERENCE_DEFAULT,
@@ -48,7 +51,7 @@ def get_macro_sentiment_barometer(force_refresh=False):
     """
     global _MACRO_CACHE
     now = time.time()
-    now_dt = datetime.now()
+    now_dt = datetime.now(PARIS_TZ)
     analysis_date = now_dt.strftime("%d/%m/%Y")
     analysis_time = now_dt.strftime("%H:%M:%S CET")
     analysis_timestamp = now_dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -714,7 +717,7 @@ def get_market_execution_timing(symbol, now_dt=None):
         * Clôture : 22:00 CET (16:00 EST)
     """
     if now_dt is None:
-        now_dt = datetime.now()
+        now_dt = datetime.now(PARIS_TZ)
         
     sym_str = str(symbol or "").upper().strip()
     is_europe = sym_str.endswith(('.PA', '.AS', '.DE', '.MC', '.MI', '.BR', '.LS', '.VI', '.ST', '.HE', '.CO', '.L'))
@@ -1158,111 +1161,136 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
 
     confluence_score = round(min(10.0, score), 1)
 
-    # Décision selon les 7 statuts normalisés
+    # -------------------------------------------------------------
+    # 1. VERDICT SWING TRADING (Standard H1/H4)
+    # -------------------------------------------------------------
     if not is_sharia:
-        verdict = "ÉVITER"
-        verdict_badge = "badge-danger"
-        verdict_action = f"Non conforme aux normes AAOIFI ({', '.join(sharia_reasons[:2])}). Achat interdit. [Analyse: {timing['analysis_time']}]."
-        action_plan = "🚫 Exclusion — Titre non conforme selon les critères éthiques AAOIFI."
-        alert_price = None
-        entry_price = curr_price
-        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
+        verdict_swing = "ÉVITER (SHARIA)"
+        verdict_swing_badge = "badge-danger"
+        verdict_swing_action = f"Non conforme aux normes AAOIFI ({', '.join(sharia_reasons[:2])})."
     elif macro_regime == "RISK-OFF":
-        verdict = "ÉVITER"
-        verdict_badge = "badge-danger"
-        verdict_action = f"Régime macroéconomique défavorable (VIX : {macro['vix']['value']}). Gel des nouveaux achats. [Analyse: {timing['analysis_time']}]."
-        action_plan = "🛡️ Gel des achats — Conserver 100% de liquidités cash."
-        alert_price = None
-        entry_price = curr_price
-        entry_label = f"Gel des achats (~{curr_price:.2f} {sym_currency})"
+        verdict_swing = "GEL (RISK-OFF)"
+        verdict_swing_badge = "badge-danger"
+        verdict_swing_action = f"Régime macro RISK-OFF (VIX : {macro['vix']['value']}). Achats gelés."
     elif news_data["has_structural_risk"]:
-        verdict = "ÉVITER"
-        verdict_badge = "badge-danger"
-        verdict_action = f"Alerte risque structurel identifié : {news_data['summary']}. [Analyse: {timing['analysis_time']}]."
-        action_plan = "🛑 Rejet immédiat — Les actualités révèlent un risque juridique/structurel majeur. Ne pas entrer en swing."
-        alert_price = None
-        entry_price = curr_price
-        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
-        confluence_score = min(confluence_score, 4.0)
+        verdict_swing = "ÉVITER (RISQUE NEWS)"
+        verdict_swing_badge = "badge-danger"
+        verdict_swing_action = f"Risque structurel identifié : {news_data['summary']}."
     elif not trend_following_valid:
-        verdict = "ÉVITER"
-        verdict_badge = "badge-neutral"
-        verdict_action = f"Cours ({curr_price:.2f} {sym_currency}) sous la MM200 ({mm200:.2f} {sym_currency}) : tendance baissière de fond. [Analyse: {timing['analysis_time']}]."
-        action_plan = "🛑 Ne pas entrer — Tendance de fond baissière sous MM200. Si déjà en portefeuille : sécuriser ou alléger."
-        alert_price = None
-        entry_price = curr_price
-        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
+        verdict_swing = "ÉVITER (< MM200)"
+        verdict_swing_badge = "badge-neutral"
+        verdict_swing_action = f"Cours sous MM200 ({mm200:.2f} {sym_currency}) : tendance baissière."
     elif pullback_pct > -2.0:
-        verdict = "ÉVITER"
-        verdict_badge = "badge-neutral"
-        verdict_action = f"Cours proche des sommets (repli de {pullback_pct:.1f}% insuffisant). Attendre un repli sain de -3.0% à -8.0%. [Analyse: {timing['analysis_time']}]."
-        action_plan = f"🛑 Ne pas acheter au sommet — Attendre un repli vers {(curr_price * 0.96):.2f} {sym_currency} (-4%). Si déjà en portefeuille : prendre des bénéfices partiels."
-        alert_price = None
-        entry_price = curr_price
-        entry_label = f"Attendre repli (~{curr_price:.2f} {sym_currency})"
+        verdict_swing = "ATTENDRE REPLI"
+        verdict_swing_badge = "badge-neutral"
+        verdict_swing_action = f"Cours proche des sommets (repli {pullback_pct:.1f}% insuffisant)."
     elif pullback_pct < -8.0:
-        verdict = "ÉVITER"
-        verdict_badge = "badge-neutral"
-        verdict_action = f"Chute trop brutale ({pullback_pct:.1f}% > -8.0%). Risque de couteau qui tombe ou dégradation fondamentale. [Analyse: {timing['analysis_time']}]."
-        action_plan = "🛑 Ne pas entrer — Chute excessive > -8%. Si déjà en portefeuille : couper la position."
-        alert_price = None
-        entry_price = curr_price
-        entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
-    # Branches décisionnelles selon la phase de séance et les critères institutionnels
+        verdict_swing = "ÉVITER (CHUTE > 8%)"
+        verdict_swing_badge = "badge-neutral"
+        verdict_swing_action = f"Chute excessive ({pullback_pct:.1f}%). Risque de dégradation fondamentale."
+    elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
+        verdict_swing = "ACHAT VALIDÉ (SWING)"
+        verdict_swing_badge = "badge-success"
+        verdict_swing_action = f"Cassure H1 confirmée avec volumes. Confluence {confluence_score}/10."
+    elif trend_following_valid and pullback_valid:
+        verdict_swing = "ATTENDRE CONFIRMATION H1"
+        verdict_swing_badge = "badge-warning"
+        verdict_swing_action = f"Repli sain ({pullback_pct:.1f}%). Attendre franchissement de {breakout_trigger:.2f} {sym_currency}."
+    else:
+        verdict_swing = "ÉVITER"
+        verdict_swing_badge = "badge-neutral"
+        verdict_swing_action = f"Score de confluence insuffisant ({confluence_score}/10)."
+
+    # -------------------------------------------------------------
+    # 2. VERDICT SNIPER D'OUVERTURE (< 90 minutes)
+    # -------------------------------------------------------------
     phase = timing.get("phase", "REGULAR_SESSION_LATE")
 
-    if phase in ["PRE_MARKET", "POST_MARKET_CLOSED"] and pullback_valid and trend_following_valid and confluence_score >= 6.5:
-        verdict = "PLAN PRÉ-OUVERTURE (ATTENDRE M15)"
-        verdict_badge = "badge-primary"
-        verdict_action = f"Plan Pré-Ouverture : Titre éligible en surveillance Sniper ({confluence_score}/10). Marché fermé ({timing['phase_label']}). Ne pas acheter avant l'ouverture. Attendre la formation de la 1ère bougie M15 ({timing['m15_candle_window']}) pour vérifier l'amplitude de manipulation (Seuil ≥ 25% ATR) puis guetter un rejet M5 entre {timing['ideal_execution_time']}."
+    if not is_sharia or macro_regime == "RISK-OFF" or news_data["has_structural_risk"] or not trend_following_valid or not pullback_valid:
+        verdict_sniper = "NON ÉLIGIBLE"
+        verdict_sniper_badge = "badge-neutral"
+        verdict_sniper_action = "Filtres majeurs non validés (Sharia, Macro, MM200 ou Repli)."
+    elif phase in ["PRE_MARKET", "POST_MARKET_CLOSED"]:
+        verdict_sniper = "PLAN PRÉ-OUVERTURE (ATTENDRE M15)"
+        verdict_sniper_badge = "badge-primary"
+        verdict_sniper_action = f"Marché fermé ({timing['phase_label']}). Surveiller l'ouverture à {timing['market_open']} et la 1ère bougie M15."
+    elif phase == "M15_FORMATION":
+        verdict_sniper = "FORMATION M15 (NE PAS ENTRER)"
+        verdict_sniper_badge = "badge-warning"
+        verdict_sniper_action = f"1ère bougie M15 en cours ({timing['m15_candle_window']}). Interdiction formelle d'entrer avant clôture."
+    elif phase == "SNIPER_WINDOW":
+        if has_sniper_signal and confluence_score >= 7.0:
+            verdict_sniper = "ACHAT SNIPER VALIDÉ"
+            verdict_sniper_badge = "badge-success"
+            verdict_sniper_action = f"Signal Sniper validé : {sniper_data['variant']}. Rejet M5 sous boîte M15 ({sniper_data['ratio_atr_pct']}% ATR)."
+        elif has_sniper_pending:
+            verdict_sniper = "ATTENDRE REJET M5 (<90 MIN)"
+            verdict_sniper_badge = "badge-warning"
+            verdict_sniper_action = f"Manipulation M15 éligible ({sniper_data['ratio_atr_pct']}% ATR). En attente du chandelier de rejet M5."
+        else:
+            verdict_sniper = "NON ÉLIGIBLE (M15 < 25% ATR)"
+            verdict_sniper_badge = "badge-neutral"
+            verdict_sniper_action = f"Amplitude bougie M15 ({sniper_data['ratio_atr_pct']}% ATR) inférieure à 25% ATR."
+    else: # REGULAR_SESSION_LATE
+        verdict_sniper = "FENÊTRE EXPIRÉE (> 90 MIN)"
+        verdict_sniper_badge = "badge-neutral"
+        verdict_sniper_action = f"Fenêtre d'ouverture de 90 min terminée. Bascule sur le Swing Standard H1."
+
+    # -------------------------------------------------------------
+    # 3. VERDICT COMPOSITE & PLAN D'ACTION OPÉRATIONNEL
+    # -------------------------------------------------------------
+    if verdict_sniper == "ACHAT SNIPER VALIDÉ":
+        verdict = verdict_sniper
+        verdict_badge = verdict_sniper_badge
+        verdict_action = f"Signal Sniper validé (< 90 min) : {sniper_data['variant']}. [Analyse : {timing['analysis_time']} | Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}]."
+        entry_price = sniper_data["sniper_plan"]["entry"]
+        entry_label = f"Achat Sniper immédiat (~{entry_price:.2f} {sym_currency})"
+        alert_price = entry_price
+        action_plan = f"🎯 Exécution Sniper d'Ouverture [Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}] : Acheter à ~{entry_price:.2f} {sym_currency} | SL: {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%) | TP1: {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%) | TP2: {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%)."
+    elif verdict_swing == "ACHAT VALIDÉ (SWING)":
+        verdict = verdict_swing
+        verdict_badge = verdict_swing_badge
+        verdict_action = f"Confluence Swing validée ({confluence_score}/10). Rebond sur support Fibonacci et cassure H1 confirmée. [Analyse: {timing['analysis_time']}]."
+        entry_price = curr_price
+        entry_label = f"Achat Swing au marché (~{entry_price:.2f} {sym_currency})"
+        alert_price = curr_price
+        action_plan = f"🎯 Exécution Swing [Analyse: {timing['analysis_time']}] : Acheter au marché à ~{entry_price:.2f} {sym_currency}."
+    elif verdict_sniper == "PLAN PRÉ-OUVERTURE (ATTENDRE M15)":
+        verdict = verdict_sniper
+        verdict_badge = verdict_sniper_badge
+        verdict_action = f"Plan Pré-Ouverture : Titre éligible en surveillance Sniper ({confluence_score}/10). Marché fermé ({timing['phase_label']}). Ne pas acheter avant l'ouverture. Attendre la 1ère bougie M15 ({timing['m15_candle_window']}) puis guetter un rejet M5 entre {timing['ideal_execution_time']}."
         entry_price = sniper_data["sniper_plan"]["entry"]
         entry_label = f"{entry_price:.2f} {sym_currency} (Plan Pré-Ouverture)"
         alert_price = entry_price
         action_plan = f"⏳ Surveillance Pré-Ouverture [Ouverture à {timing['market_open']}] : Titre en surveillance Sniper. Ne pas acheter avant l'ouverture. Attendre la 1ère bougie M15 ({timing['m15_candle_window']}) pour mesurer le range de manipulation (≥ 25% ATR) puis guetter un rejet M5 avant {timing['max_execution_time']}."
-    elif phase == "M15_FORMATION" and pullback_valid and trend_following_valid and confluence_score >= 6.5:
-        verdict = "FORMATION M15 EN COURS (NE PAS ENTRER)"
-        verdict_badge = "badge-warning"
-        verdict_action = f"1ère bougie M15 en cours de formation ({timing['m15_candle_window']}). Interdiction formelle d'entrer pendant les 15 premières minutes. Attendre la clôture à {timing['m15_candle_window'].split(' - ')[1]} pour qualifier la manipulation."
+    elif verdict_sniper == "FORMATION M15 (NE PAS ENTRER)":
+        verdict = verdict_sniper
+        verdict_badge = verdict_sniper_badge
+        verdict_action = f"1ère bougie M15 en cours de formation ({timing['m15_candle_window']}). Interdiction formelle d'entrer pendant les 15 premières minutes. Attendre la clôture à {timing['m15_candle_window'].split(' - ')[1]}."
         entry_price = sniper_data["sniper_plan"]["entry"]
         entry_label = f"{entry_price:.2f} {sym_currency} (Attendre clôture M15)"
         alert_price = entry_price
         action_plan = f"⏳ Formation M15 en cours : Ne pas acheter. Attendre {timing['m15_candle_window'].split(' - ')[1]} pour vérifier l'amplitude de manipulation de liquidité."
-    elif phase == "SNIPER_WINDOW" and has_sniper_signal and pullback_valid and trend_following_valid and confluence_score >= 7.0:
-        verdict = "ACHAT SNIPER OUVERTURE VALIDÉ"
-        verdict_badge = "badge-success"
-        verdict_action = f"Signal Sniper validé (< 90 min) : {sniper_data['variant']}. Confluence ({confluence_score}/10) avec manipulation M15 ({sniper_data['ratio_atr_pct']}% ATR). [Analyse : {timing['analysis_time']} | Heure idéale d'exécution : {timing['ideal_execution_time']} | Heure max : {timing['max_execution_time']}]."
-        entry_price = sniper_data["sniper_plan"]["entry"]
-        entry_label = f"Achat Sniper immédiat (~{entry_price:.2f} {sym_currency})"
-        alert_price = entry_price
-        action_plan = f"🎯 Exécution Sniper d'Ouverture [Analyse : {timing['analysis_time']} | Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}] : Acheter à ~{entry_price:.2f} {sym_currency} | SL: {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%) | TP1: {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%) | TP2: {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%)."
-    elif phase == "SNIPER_WINDOW" and has_sniper_pending and pullback_valid and trend_following_valid:
-        verdict = "ATTENDRE REJET M5 (<90 MIN)"
-        verdict_badge = "badge-warning"
-        verdict_action = f"Manipulation d'ouverture M15 éligible ({sniper_data['ratio_atr_pct']}% ATR D1). [Analyse : {timing['analysis_time']} | Heure idéale : {timing['ideal_execution_time']} | Heure max : {timing['max_execution_time']}]. Attendre la formation d'un chandelier de rejet (Hammer / Engulfing en M5)."
+    elif verdict_sniper == "ATTENDRE REJET M5 (<90 MIN)":
+        verdict = verdict_sniper
+        verdict_badge = verdict_sniper_badge
+        verdict_action = f"Manipulation d'ouverture M15 éligible ({sniper_data['ratio_atr_pct']}% ATR D1). [Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}]. Attendre la formation d'un chandelier de rejet M5."
         entry_price = sniper_data["sniper_plan"]["entry"]
         entry_label = f"{entry_price:.2f} {sym_currency} (Sur validation M5 <90 min)"
         alert_price = entry_price
-        action_plan = f"🔔 Alerte Sniper [Analyse : {timing['analysis_time']} | Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}] : Placer une alerte sur réintégration de {entry_price:.2f} {sym_currency} avec chandelier de rejet M5 avant la fin de la fenêtre de 90 min ({timing['max_execution_time']})."
-    elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
-        verdict = "ACHAT VALIDÉ (SWING)"
-        verdict_badge = "badge-success"
-        verdict_action = f"Confluence Swing validée ({confluence_score}/10). Rebond sur support Fibonacci, actualité saine [{news_data['diagnostic']}] et cassure H1 confirmée. [Analyse: {timing['analysis_time']}]."
-        entry_price = curr_price
-        entry_label = f"Achat Swing au marché (~{entry_price:.2f} {sym_currency})"
-        alert_price = curr_price
-        action_plan = f"🎯 Exécution Swing [Analyse: {timing['analysis_time']}] : Acheter à ~{entry_price:.2f} {sym_currency} | SL sous creux H1 à {stop_loss:.2f} {sym_currency} | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)."
-    elif trend_following_valid and pullback_valid:
-        verdict = "ATTENDRE CONFIRMATION H1"
-        verdict_badge = "badge-warning"
-        verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support Fibonacci en tendance haussière. Actualité [{news_data['diagnostic']}]. Attendre la cassure de retournement H1. [Analyse: {timing['analysis_time']}]."
+        action_plan = f"🔔 Alerte Sniper [Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}] : Placer une alerte sur réintégration de {entry_price:.2f} {sym_currency} avec chandelier de rejet M5 avant {timing['max_execution_time']}."
+    elif verdict_swing == "ATTENDRE CONFIRMATION H1":
+        verdict = verdict_swing
+        verdict_badge = verdict_swing_badge
+        verdict_action = f"Repli sain ({pullback_pct:.1f}%) sur support Fibonacci en tendance haussière. Attendre la cassure de retournement H1 à {breakout_trigger:.2f} {sym_currency}."
         entry_price = breakout_trigger
         entry_label = f"{entry_price:.2f} {sym_currency} (Achat sur cassure H1 confirmée)"
         alert_price = breakout_trigger
-        action_plan = f"🔔 Placer une alerte au dépassement de {breakout_trigger:.2f} {sym_currency} (Cassure H1 confirmée). Ne pas acheter prématurément. [Analyse: {timing['analysis_time']}]."
+        action_plan = f"🔔 Placer une alerte au dépassement de {breakout_trigger:.2f} {sym_currency} (Cassure H1 confirmée). Ne pas acheter prématurément."
     else:
-        verdict = "ÉVITER"
-        verdict_badge = "badge-neutral"
-        verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou absence de catalyseur technique. [Analyse: {timing['analysis_time']}]."
+        verdict = verdict_swing
+        verdict_badge = verdict_swing_badge
+        verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou critères non satisfaits. [Analyse: {timing['analysis_time']}]."
         action_plan = "🛑 Rester à l'écart — Confluence technique et macro insuffisante. Si déjà en portefeuille : sécuriser."
         alert_price = None
         entry_price = curr_price
@@ -1397,6 +1425,12 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         "verdict": verdict,
         "verdict_badge": verdict_badge,
         "verdict_action": verdict_action,
+        "verdict_swing": verdict_swing,
+        "verdict_swing_badge": verdict_swing_badge,
+        "verdict_swing_action": verdict_swing_action,
+        "verdict_sniper": verdict_sniper,
+        "verdict_sniper_badge": verdict_sniper_badge,
+        "verdict_sniper_action": verdict_sniper_action,
         "action_plan": action_plan,
         "execution_timing": timing,
         "alert_price": alert_price,
@@ -1423,7 +1457,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         "pricing_plan_sniper": sniper_data["sniper_plan"],
         "sizing": sizing,
         "steps": protocol_steps,
-        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "generated_at": datetime.now(PARIS_TZ).strftime("%Y-%m-%d %H:%M:%S")
     }
 
 

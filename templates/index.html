@@ -1052,12 +1052,13 @@
                                     <th onclick="sortBy('rsi')" style="cursor: pointer; user-select: none;">RSI ↕</th>
                                     <th style="user-select: none;">Divergence</th>
                                     <th onclick="sortBy('confluence_score')" style="cursor: pointer; user-select: none;">Score ↕</th>
-                                    <th onclick="sortBy('verdict')" style="cursor: pointer; user-select: none;">Verdict ↕</th>
+                                    <th onclick="sortBy('verdict_swing')" style="cursor: pointer; user-select: none;">Verdict Swing (Standard) ↕</th>
+                                    <th onclick="sortBy('verdict_sniper')" style="cursor: pointer; user-select: none;">Verdict Sniper (90 min) ↕</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                    <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
                                         Aucun scan lancé. Cliquez sur <strong>"Scanner la Watchlist"</strong> ou saisissez un ticker pour lancer le protocole en 8 étapes.
                                     </td>
                                 </tr>
@@ -4648,11 +4649,12 @@
                 // 3. Filtre Sharia
                 if (shariaFilter === 'CONFORME' && r.sharia !== 'CONFORME') return false;
 
-                // 4. Filtre Verdict
-                if (verdictFilter === 'ACHAT' && !(r.verdict && (r.verdict.includes('ACHAT') || r.verdict.includes('ACHETER')))) return false;
-                if (verdictFilter === 'ATTENDRE' && !(r.verdict && (r.verdict.includes('ATTENDRE') || r.verdict.includes('BREAKOUT')))) return false;
-                if (verdictFilter === 'ÉVITER' && !(r.verdict && (r.verdict.includes('ÉVITER') || r.verdict.includes('HORS')))) return false;
-                if (verdictFilter === 'RISK_OFF' && !(r.verdict && (r.verdict.includes('RISK-OFF') || r.verdict.includes('LIQUIDITÉS') || r.verdict.includes('GEL')))) return false;
+                // 4. Filtre Verdict (Swing et Sniper)
+                const vAll = `${r.verdict || ''} ${r.verdict_swing || ''} ${r.verdict_sniper || ''}`.toUpperCase();
+                if (verdictFilter === 'ACHAT' && !vAll.includes('ACHAT')) return false;
+                if (verdictFilter === 'ATTENDRE' && !vAll.includes('ATTENDRE') && !vAll.includes('FORMATION') && !vAll.includes('SURVEILLANCE') && !vAll.includes('PLAN')) return false;
+                if (verdictFilter === 'ÉVITER' && !vAll.includes('ÉVITER') && !vAll.includes('HORS') && !vAll.includes('NON ÉLIGIBLE')) return false;
+                if (verdictFilter === 'RISK_OFF' && !vAll.includes('RISK-OFF') && !vAll.includes('LIQUIDITÉS') && !vAll.includes('GEL')) return false;
 
                 // 5. Recherche textuelle
                 if (searchText) {
@@ -4677,7 +4679,7 @@
             tbody.innerHTML = '';
             
             if (!results || results.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Aucun résultat correspondant aux critères de filtre.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Aucun résultat correspondant aux critères de filtre.</td></tr>`;
                 return;
             }
 
@@ -4698,17 +4700,30 @@
 
                 const symChar = r.currency === "EUR" ? "€" : "$";
                 
-                let vBadge = 'badge-neutral';
-                if (r.verdict && (r.verdict.includes("ACHAT") || r.verdict.includes("ACHETER"))) {
-                    vBadge = 'badge-success';
-                } else if (r.verdict && (r.verdict.includes("PLAN PRÉ-OUVERTURE") || r.verdict.includes("SURVEILLANCE"))) {
-                    vBadge = 'badge-primary';
-                } else if (r.verdict && (r.verdict.includes("ATTENDRE") || r.verdict.includes("FORMATION") || r.verdict.includes("BREAKOUT"))) {
-                    vBadge = 'badge-warning';
-                } else if (r.verdict && (r.verdict.includes("RISK-OFF") || r.verdict.includes("SHARIA") || r.verdict.includes("GEL"))) {
-                    vBadge = 'badge-danger';
+                // Verdict Swing (Standard H1/H4)
+                const vSwingText = r.verdict_swing || r.verdict || "ÉVITER";
+                let vSwingBadge = r.verdict_swing_badge || 'badge-neutral';
+                if (vSwingText.includes("ACHAT") || vSwingText.includes("ACHETER")) {
+                    vSwingBadge = 'badge-success';
+                } else if (vSwingText.includes("ATTENDRE")) {
+                    vSwingBadge = 'badge-warning';
+                } else if (vSwingText.includes("RISK-OFF") || vSwingText.includes("SHARIA") || vSwingText.includes("GEL") || vSwingText.includes("RISQUE")) {
+                    vSwingBadge = 'badge-danger';
                 } else {
-                    vBadge = 'badge-neutral';
+                    vSwingBadge = 'badge-neutral';
+                }
+
+                // Verdict Sniper (90 min)
+                const vSniperText = r.verdict_sniper || "NON ÉLIGIBLE";
+                let vSniperBadge = r.verdict_sniper_badge || 'badge-neutral';
+                if (vSniperText.includes("ACHAT")) {
+                    vSniperBadge = 'badge-success';
+                } else if (vSniperText.includes("PLAN PRÉ-OUVERTURE") || vSniperText.includes("SURVEILLANCE")) {
+                    vSniperBadge = 'badge-primary';
+                } else if (vSniperText.includes("ATTENDRE") || vSniperText.includes("FORMATION")) {
+                    vSniperBadge = 'badge-warning';
+                } else {
+                    vSniperBadge = 'badge-neutral';
                 }
                 
                 const score = r.confluence_score || 0;
@@ -4730,14 +4745,6 @@
                 const volM = r.avg_daily_volume ? (r.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar : '-';
                 const volColor = (r.avg_daily_volume && r.avg_daily_volume < 1e6) ? 'var(--danger)' : 'var(--text-main)';
 
-                const actionHtml = r.action_plan ? `<div style="font-size: 0.72rem; color: ${vBadge === 'badge-warning' ? '#fbbf24' : vBadge === 'badge-success' ? '#34d399' : vBadge === 'badge-primary' ? '#60a5fa' : 'var(--text-muted)'}; margin-top: 0.25rem; font-weight: 600; line-height: 1.2;">${r.action_plan}</div>` : '';
-
-                let timingPill = '';
-                if (r.execution_timing && (r.verdict && (r.verdict.includes('SNIPER') || r.verdict.includes('ATTENDRE') || r.verdict.includes('PLAN') || r.verdict.includes('OUVERTURE') || r.verdict.includes('FORMATION')))) {
-                    const et = r.execution_timing;
-                    timingPill = `<div style="font-size: 0.68rem; color: #94a3b8; margin-top: 0.25rem; display: flex; gap: 0.35rem; flex-wrap: wrap; background: rgba(59, 130, 246, 0.08); padding: 0.15rem 0.35rem; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2);"><span>🕒 ${et.analysis_time}</span> | <span style="color:#34d399;">⚡ ${et.ideal_execution_time}</span> | <span style="color:#f87171;">🛑 Max ${et.max_execution_time}</span></div>`;
-                }
-
                 tr.innerHTML = `
                     <td><strong>${r.symbol}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${r.name || ''}</span></td>
                     <td>${accountBadge}</td>
@@ -4749,7 +4756,8 @@
                     <td>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
                     <td>${r.rsi_divergence && r.rsi_divergence.includes('HAUSSIÈRE') ? '<span class="badge badge-primary">OUI 🔥</span>' : '<span style="color:var(--text-muted);">-</span>'}</td>
                     <td><span class="score-pill ${scoreClass}">${score}/10</span></td>
-                    <td><span class="badge ${vBadge}">${r.verdict}</span>${actionHtml}${timingPill}</td>
+                    <td><span class="badge ${vSwingBadge}">${vSwingText}</span></td>
+                    <td><span class="badge ${vSniperBadge}">${vSniperText}</span></td>
                 `;
                 tbody.appendChild(tr);
             });

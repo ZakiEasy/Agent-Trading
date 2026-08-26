@@ -980,6 +980,12 @@ def scan_batch():
                             "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
                             "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
                             "verdict_action": analysis.get("verdict_action", ""),
+                            "verdict_swing": analysis.get("verdict_swing", analysis.get("verdict", "ÉVITER")),
+                            "verdict_swing_badge": analysis.get("verdict_swing_badge", "badge-neutral"),
+                            "verdict_swing_action": analysis.get("verdict_swing_action", ""),
+                            "verdict_sniper": analysis.get("verdict_sniper", "NON ÉLIGIBLE"),
+                            "verdict_sniper_badge": analysis.get("verdict_sniper_badge", "badge-neutral"),
+                            "verdict_sniper_action": analysis.get("verdict_sniper_action", ""),
                             "action_plan": analysis.get("action_plan", ""),
                             "execution_timing": analysis.get("execution_timing"),
                             "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
@@ -1037,6 +1043,10 @@ def scan_watchlist():
                             "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
                             "confluence_score": analysis.get("confluence_score", 0),
                             "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                            "verdict_swing": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                            "verdict_swing_badge": "badge-warning",
+                            "verdict_sniper": "NON ÉLIGIBLE",
+                            "verdict_sniper_badge": "badge-neutral",
                             "currency": tech.get("currency", "USD")
                         })
                     except Exception:
@@ -1070,6 +1080,12 @@ def scan_watchlist():
                             "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
                             "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
                             "verdict_action": analysis.get("verdict_action", ""),
+                            "verdict_swing": analysis.get("verdict_swing", analysis.get("verdict", "ÉVITER")),
+                            "verdict_swing_badge": analysis.get("verdict_swing_badge", "badge-neutral"),
+                            "verdict_swing_action": analysis.get("verdict_swing_action", ""),
+                            "verdict_sniper": analysis.get("verdict_sniper", "NON ÉLIGIBLE"),
+                            "verdict_sniper_badge": analysis.get("verdict_sniper_badge", "badge-neutral"),
+                            "verdict_sniper_action": analysis.get("verdict_sniper_action", ""),
                             "action_plan": analysis.get("action_plan", ""),
                             "execution_timing": analysis.get("execution_timing"),
                             "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
@@ -1079,8 +1095,6 @@ def scan_watchlist():
                         pass
                         
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
-    except Exception as e:
-        return safe_jsonify({"success": False, "error": str(e), "results": []}, 500)
     except Exception as e:
         return safe_jsonify({"success": False, "error": str(e), "results": []}, 500)
 
