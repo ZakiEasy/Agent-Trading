@@ -1005,15 +1005,30 @@
                             </select>
                         </div>
 
-                        <!-- Filtre Verdict -->
+                        <!-- Filtre Verdict Swing -->
                         <div class="filter-group">
-                            <label>⚖️ Verdict :</label>
-                            <select id="filter-verdict" class="filter-select" onchange="applyFilters()">
-                                <option value="ALL">Tous les verdicts</option>
-                                <option value="ACHAT">🟢 Achat Validé / Acheter</option>
-                                <option value="ATTENDRE">🟡 Attendre Breakout / Repli</option>
-                                <option value="ÉVITER">⚪ Éviter - Hors Critères</option>
-                                <option value="RISK_OFF">🔴 Conserver Liquidités (Risk-Off)</option>
+                            <label>⚖️ Verdict Swing :</label>
+                            <select id="filter-verdict-swing" class="filter-select" onchange="applyFilters()">
+                                <option value="ALL">Tous verdicts Swing</option>
+                                <option value="ACHAT">🟢 Achat Validé (Swing)</option>
+                                <option value="ATTENDRE_H1">🟡 Attendre Confirmation H1</option>
+                                <option value="ATTENDRE_REPLI">⚪ Attendre Repli</option>
+                                <option value="EVITER">🔴 Éviter / Hors Critères</option>
+                                <option value="RISK_OFF">🛑 Gel (Risk-Off)</option>
+                            </select>
+                        </div>
+
+                        <!-- Filtre Verdict Sniper -->
+                        <div class="filter-group">
+                            <label>🎯 Verdict Sniper :</label>
+                            <select id="filter-verdict-sniper" class="filter-select" onchange="applyFilters()">
+                                <option value="ALL">Tous statuts Sniper</option>
+                                <option value="ACHAT_SNIPER">🟢 Achat Sniper Validé</option>
+                                <option value="ATTENDRE_M5">🟡 Attendre Rejet M5 (< 90 min)</option>
+                                <option value="PRE_MARKET">🔵 Plan Pré-Ouverture (M15)</option>
+                                <option value="FORMATION_M15">🟠 Formation M15</option>
+                                <option value="EXPIRED">⚪ Fenêtre Expirée (> 90 min)</option>
+                                <option value="NON_ELIGIBLE">🔘 Non Éligible</option>
                             </select>
                         </div>
 
@@ -4632,7 +4647,8 @@
             const accountFilter = document.getElementById('filter-account').value;
             const categoryFilter = document.getElementById('filter-category').value;
             const shariaFilter = document.getElementById('filter-sharia').value;
-            const verdictFilter = document.getElementById('filter-verdict').value;
+            const verdictSwingFilter = document.getElementById('filter-verdict-swing') ? document.getElementById('filter-verdict-swing').value : 'ALL';
+            const verdictSniperFilter = document.getElementById('filter-verdict-sniper') ? document.getElementById('filter-verdict-sniper').value : 'ALL';
             const searchText = (document.getElementById('filter-search').value || '').trim().toLowerCase();
 
             filteredResults = currentScanResults.filter(r => {
@@ -4649,14 +4665,28 @@
                 // 3. Filtre Sharia
                 if (shariaFilter === 'CONFORME' && r.sharia !== 'CONFORME') return false;
 
-                // 4. Filtre Verdict (Swing et Sniper)
-                const vAll = `${r.verdict || ''} ${r.verdict_swing || ''} ${r.verdict_sniper || ''}`.toUpperCase();
-                if (verdictFilter === 'ACHAT' && !vAll.includes('ACHAT')) return false;
-                if (verdictFilter === 'ATTENDRE' && !vAll.includes('ATTENDRE') && !vAll.includes('FORMATION') && !vAll.includes('SURVEILLANCE') && !vAll.includes('PLAN')) return false;
-                if (verdictFilter === 'ÉVITER' && !vAll.includes('ÉVITER') && !vAll.includes('HORS') && !vAll.includes('NON ÉLIGIBLE')) return false;
-                if (verdictFilter === 'RISK_OFF' && !vAll.includes('RISK-OFF') && !vAll.includes('LIQUIDITÉS') && !vAll.includes('GEL')) return false;
+                // 4. Filtre Verdict Swing (Standard H1/H4)
+                if (verdictSwingFilter !== 'ALL') {
+                    const vSwing = (r.verdict_swing || r.verdict || '').toUpperCase();
+                    if (verdictSwingFilter === 'ACHAT' && !vSwing.includes('ACHAT')) return false;
+                    if (verdictSwingFilter === 'ATTENDRE_H1' && !vSwing.includes('CONFIRMATION H1')) return false;
+                    if (verdictSwingFilter === 'ATTENDRE_REPLI' && !vSwing.includes('ATTENDRE REPLI')) return false;
+                    if (verdictSwingFilter === 'EVITER' && !(vSwing.includes('ÉVITER') || vSwing.includes('EVITER') || vSwing.includes('HORS CRITÈRES'))) return false;
+                    if (verdictSwingFilter === 'RISK_OFF' && !(vSwing.includes('RISK-OFF') || vSwing.includes('GEL') || vSwing.includes('LIQUIDITÉS'))) return false;
+                }
 
-                // 5. Recherche textuelle
+                // 5. Filtre Verdict Sniper (90 min)
+                if (verdictSniperFilter !== 'ALL') {
+                    const vSniper = (r.verdict_sniper || 'NON ÉLIGIBLE').toUpperCase();
+                    if (verdictSniperFilter === 'ACHAT_SNIPER' && !vSniper.includes('ACHAT')) return false;
+                    if (verdictSniperFilter === 'ATTENDRE_M5' && !vSniper.includes('REJET M5')) return false;
+                    if (verdictSniperFilter === 'PRE_MARKET' && !(vSniper.includes('PRÉ-OUVERTURE') || vSniper.includes('PRE-OUVERTURE') || vSniper.includes('SURVEILLANCE'))) return false;
+                    if (verdictSniperFilter === 'FORMATION_M15' && !vSniper.includes('FORMATION')) return false;
+                    if (verdictSniperFilter === 'EXPIRED' && !(vSniper.includes('EXPIRÉE') || vSniper.includes('EXPIREE'))) return false;
+                    if (verdictSniperFilter === 'NON_ELIGIBLE' && !(vSniper.includes('NON ÉLIGIBLE') || vSniper.includes('NON ELIGIBLE'))) return false;
+                }
+
+                // 6. Recherche textuelle
                 if (searchText) {
                     const matchSymbol = (r.symbol || '').toLowerCase().includes(searchText);
                     const matchName = (r.name || '').toLowerCase().includes(searchText);

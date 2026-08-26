@@ -952,11 +952,42 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None):
         reversal_candle = "Hors fenêtre d'ouverture (Bascule Swing H1)"
         description = f"La fenêtre d'opportunité d'ouverture de 90 min est close ({timing['max_execution_time']}). Appliquer le protocole Swing Standard (Option A - Cassure H1 avec volumes)."
 
-    # Calcul du Plan de Trade Sniper (Option B)
-    sniper_entry = round(max(p, m15_low * 1.002), 2)
-    sniper_tp1 = round(max(m15_high, sniper_entry * 1.012), 2) # Borne haute M15 / Fibo 61.8% interne
-    sniper_tp2 = round(sniper_entry * 1.025, 2) # Cible finale Swing (+2.5% sous résistance)
-    sniper_sl = round(min(session_low * 0.998, sniper_entry * 0.992), 2)
+    # Extraction des indicateurs Daily associés (Points Pivots, Niveaux de la veille, ATR D1)
+    if df_daily is not None and len(df_daily) >= 2:
+        y_high = float(df_daily['High'].iloc[-2])
+        y_low = float(df_daily['Low'].iloc[-2])
+        y_close = float(df_daily['Close'].iloc[-2])
+        pivot = (y_high + y_low + y_close) / 3.0
+        r1_pivot = (2.0 * pivot) - y_low
+        r2_pivot = pivot + (y_high - y_low)
+    else:
+        y_high = p * 1.02
+        y_low = p * 0.98
+        pivot = p
+        r1_pivot = p + (atr_d1 * 0.6 if atr_d1 > 0 else p * 0.015)
+        r2_pivot = p + (atr_d1 * 1.2 if atr_d1 > 0 else p * 0.030)
+
+    # Calcul du Plan de Trade Sniper (Option B) dérivé des indicateurs M15 / Fibo / Pivots
+    sniper_entry = round(p, 2)
+    
+    # SL Sniper : sous la mèche basse de manipulation (Session Low / M15 Low avec marge technique)
+    sniper_sl = round(min(session_low, m15_low) - max(0.08 * m15_range, 0.0015 * sniper_entry), 2)
+    if sniper_sl >= sniper_entry:
+        sniper_sl = round(sniper_entry * 0.992, 2)
+
+    # TP1 Sniper (Sécurisation 50% / Intraday) : Borne Haute M15 (m15_high) ou Retest Open M15
+    if m15_high > (sniper_entry * 1.003):
+        sniper_tp1 = round(m15_high, 2)
+        tp1_type = "Borne Haute Boîte M15"
+    else:
+        sniper_tp1 = round(max(m15_low + 1.272 * m15_range, sniper_entry + 0.4 * atr_d1, pivot), 2)
+        tp1_type = "Extension Fibo 1.272 M15 / Pivot"
+
+    # TP2 Sniper (Cible Finale) : Extension Fibonacci 1.618 de la manipulation M15 ou Pivot R1 Daily
+    fibo_ext_1618 = m15_low + (1.618 * m15_range)
+    sniper_tp2 = round(max(fibo_ext_1618, r1_pivot, sniper_tp1 + max(0.5 * atr_d1, 0.01 * sniper_entry)), 2)
+    tp2_type = "Extension Fibo 1.618 M15 / Pivot R1 Daily"
+    sl_type = "Sous Mèche Basse Rejet M5 / Low M15"
 
     dist_sl_pct = ((sniper_entry - sniper_sl) / sniper_entry * 100) if sniper_entry > 0 else 0.8
     dist_tp1_pct = ((sniper_tp1 - sniper_entry) / sniper_entry * 100) if sniper_entry > 0 else 1.2
@@ -986,11 +1017,14 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None):
             "sl": sniper_sl,
             "tp1": sniper_tp1,
             "tp2": sniper_tp2,
+            "tp1_target_type": tp1_type,
+            "tp2_target_type": tp2_type,
+            "sl_type": sl_type,
             "dist_sl_pct": round(dist_sl_pct, 2),
             "dist_tp1_pct": round(dist_tp1_pct, 2),
             "dist_tp2_pct": round(dist_tp2_pct, 2),
             "rr_ratio": rr_sniper,
-            "horizon": "Intraday pour TP1 / 1 à 5 jours pour TP2",
+            "horizon": "Intraday pour TP1 / 1 à 3 jours pour TP2",
             "analysis_time": timing["analysis_time"],
             "ideal_execution_time": timing["ideal_execution_time"],
             "max_execution_time": timing["max_execution_time"],
@@ -1374,7 +1408,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "badge": "badge-primary",
             "items": [
                 f"**Option A : Plan Swing Standard (Post-Breakout H1) :** Entrée à {entry_label} | TP (+1,5% à +3,0%) : {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%) | SL Invalidation : {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | Horizon : 1 à 10 jours",
-                f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** Entrée Sniper : {sniper_data['sniper_plan']['entry']:.2f} {sym_currency} [Créneau Idéal : `{timing['ideal_execution_time']}` | Heure Max : `{timing['max_execution_time']}`] | TP1 Sécurisation 50% : {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%) | TP2 Cible Finale : {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%) | SL Sniper : {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%) | Horizon : Intraday TP1 / 1 à 5j TP2"
+                f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** Entrée Sniper : {sniper_data['sniper_plan']['entry']:.2f} {sym_currency} [Créneau Idéal : `{timing['ideal_execution_time']}` | Heure Max : `{timing['max_execution_time']}`] | TP1 Sécurisation 50% ({sniper_data['sniper_plan']['tp1_target_type']}) : {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%) | TP2 Cible Finale ({sniper_data['sniper_plan']['tp2_target_type']}) : {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%) | SL ({sniper_data['sniper_plan']['sl_type']}) : {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%) | Horizon : Intraday TP1 / 1 à 3j TP2"
             ]
         },
         {
