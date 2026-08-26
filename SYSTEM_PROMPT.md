@@ -71,12 +71,17 @@ Interdiction absolue d'acheter un support "au premier contact sans réaction". L
 1. **Épuisement des Vendeurs (H1/H4)** : Formation de creux ascendants (*Higher Lows*) sur la zone Fibo 50-61,8 % et divergence haussière RSI(14).
 2. **Breakout & Volumes (H1)** : Cassure confirmée de la ligne de tendance baissière de court terme avec pic de volume acheteur.
 
-### Voie B : Timing "Sniper" d'Ouverture (Analyse dans les 90 minutes post-ouverture)
-1. **Validation de la Bougie de Manipulation** : La première bougie M15 rouge à l'ouverture présente une amplitude $\ge 25\%$ de l'ATR(14) D1.
-2. **Zone de Déclenchement (Boîte M15)** :
-   * *Variante Touch & Turn* : Le cours reteste le support inférieur (*Low*) de la bougie M15.
-   * *Variante Quick Flip (Rejet d'excès)* : Le cours s'enfonce sous le bas de la boîte M15 (chasse aux stops) puis imprime un chandelier de rejet (**Hammer** ou **Bullish Engulfing** en M5).
-3. **Fenêtre de Validité** : Le signal de retournement doit impérativement intervenir dans les 90 premières minutes de cotation.
+### Voie B : Timing "Sniper" d'Ouverture (< 90 minutes post-ouverture)
+1. **Discipline Temporelle Selon la Phase de Séance** :
+   * **Avant l'ouverture (Pré-Market)** : Aucun achat immédiat autorisé. Statut : `PLAN PRÉ-OUVERTURE (ATTENDRE M15)`. Plan de surveillance prêt avec niveaux indicatifs.
+   * **Pendant les 15 premières minutes (09:00 - 09:15 CET / 15:30 - 15:45 CET)** : Interdiction absolue d'entrer. Statut : `FORMATION BOUGIE M15 (NE PAS ENTRER)`. Attendre la clôture de la bougie.
+   * **Fenêtre Sniper Active (09:15 - 10:30 CET / 15:45 - 17:00 CET)** : Validation de l'amplitude M15 ($\ge 25\%$ ATR D1) et attente du chandelier de rejet M5.
+   * **Après 10:30 CET / 17:00 CET (> 90 min)** : Invalidation du Sniper d'ouverture -> Bascule automatique sur le Swing Standard (Option A - H1/H4).
+2. **Validation de la Bougie de Manipulation** : La première bougie M15 rouge à l'ouverture présente une amplitude $\ge 25\%$ de l'ATR(14) D1.
+3. **Zone de Déclenchement & Chandelier de Rejet M5 (Boîte M15)** :
+   * *Variante Touch & Turn* : Le cours reteste le support inférieur (*Low*) de la bougie M15 avec chandelier de rejet.
+   * *Variante Quick Flip (Rejet d'excès)* : Le cours s'enfonce sous le bas de la boîte M15 (chasse aux stops) puis réintègre la boîte avec un chandelier de rejet (**Hammer** ou **Bullish Engulfing** en M5).
+4. **Fenêtre de Validité** : Le signal d'achat immédiat `ACHAT SNIPER OUVERTURE VALIDÉ` n'est émis QUE si la bougie M15 $\ge 25\%$ ATR D1 ET le rejet M5 sont validés en direct entre 09:15 et 10:30 CET (15:45 et 17:00 CET aux US).
 
 ---
 

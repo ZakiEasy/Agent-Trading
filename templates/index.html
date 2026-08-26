@@ -4701,7 +4701,9 @@
                 let vBadge = 'badge-neutral';
                 if (r.verdict && (r.verdict.includes("ACHAT") || r.verdict.includes("ACHETER"))) {
                     vBadge = 'badge-success';
-                } else if (r.verdict && (r.verdict.includes("ATTENDRE") || r.verdict.includes("BREAKOUT"))) {
+                } else if (r.verdict && (r.verdict.includes("PLAN PRÉ-OUVERTURE") || r.verdict.includes("SURVEILLANCE"))) {
+                    vBadge = 'badge-primary';
+                } else if (r.verdict && (r.verdict.includes("ATTENDRE") || r.verdict.includes("FORMATION") || r.verdict.includes("BREAKOUT"))) {
                     vBadge = 'badge-warning';
                 } else if (r.verdict && (r.verdict.includes("RISK-OFF") || r.verdict.includes("SHARIA") || r.verdict.includes("GEL"))) {
                     vBadge = 'badge-danger';
@@ -4728,10 +4730,10 @@
                 const volM = r.avg_daily_volume ? (r.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar : '-';
                 const volColor = (r.avg_daily_volume && r.avg_daily_volume < 1e6) ? 'var(--danger)' : 'var(--text-main)';
 
-                const actionHtml = r.action_plan ? `<div style="font-size: 0.72rem; color: ${vBadge === 'badge-warning' ? '#fbbf24' : vBadge === 'badge-success' ? '#34d399' : 'var(--text-muted)'}; margin-top: 0.25rem; font-weight: 600; line-height: 1.2;">${r.action_plan}</div>` : '';
+                const actionHtml = r.action_plan ? `<div style="font-size: 0.72rem; color: ${vBadge === 'badge-warning' ? '#fbbf24' : vBadge === 'badge-success' ? '#34d399' : vBadge === 'badge-primary' ? '#60a5fa' : 'var(--text-muted)'}; margin-top: 0.25rem; font-weight: 600; line-height: 1.2;">${r.action_plan}</div>` : '';
 
                 let timingPill = '';
-                if (r.execution_timing && (r.verdict && (r.verdict.includes('SNIPER') || r.verdict.includes('ATTENDRE')))) {
+                if (r.execution_timing && (r.verdict && (r.verdict.includes('SNIPER') || r.verdict.includes('ATTENDRE') || r.verdict.includes('PLAN') || r.verdict.includes('OUVERTURE') || r.verdict.includes('FORMATION')))) {
                     const et = r.execution_timing;
                     timingPill = `<div style="font-size: 0.68rem; color: #94a3b8; margin-top: 0.25rem; display: flex; gap: 0.35rem; flex-wrap: wrap; background: rgba(59, 130, 246, 0.08); padding: 0.15rem 0.35rem; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2);"><span>🕒 ${et.analysis_time}</span> | <span style="color:#34d399;">⚡ ${et.ideal_execution_time}</span> | <span style="color:#f87171;">🛑 Max ${et.max_execution_time}</span></div>`;
                 }

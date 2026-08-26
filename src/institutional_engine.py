@@ -696,20 +696,22 @@ def compute_daily_atr(df, period=14):
 
 def get_market_execution_timing(symbol, now_dt=None):
     """
-    Calcule l'heure précise de l'analyse, l'heure idéale d'exécution et l'heure maximale d'exécution
-    pour le Protocole Sniper d'ouverture (< 90 minutes).
+    Calcule l'heure précise de l'analyse, l'état réel de la séance de marché (Pré-Market, Formation M15, Fenêtre Sniper, Séance normale, Post-Market),
+    l'heure idéale d'exécution et l'heure maximale d'exécution pour le Protocole Sniper d'ouverture (< 90 minutes).
     
     Règles Institutionnelles :
-    - Marchés Européens (Euronext Paris .PA, Amsterdam .AS, Francfort .DE, Bruxelles .BR, etc.) :
+    - Marchés Européens (Euronext Paris .PA, Amsterdam .AS, Francfort .DE, etc.) :
         * Ouverture : 09:00 CET
-        * Bougie M15 d'ouverture : 09:00 - 09:15 CET
-        * Heure Idéale d'Exécution : 09:15 à 09:45 CET (dès qualification de la bougie M15 et confirmation du rejet M5)
-        * Heure Max d'Exécution : 10:30 CET (Limite stricte des 90 premières minutes post-ouverture)
-    - Marchés Américains (NYSE, NASDAQ / Tickers US sans suffixe européen) :
+        * Bougie M15 d'ouverture : 09:00 - 09:15 CET (Interdiction d'acheter pendant cette bougie)
+        * Fenêtre d'Exécution Sniper (<90 min) : 09:15 à 10:30 CET (Idéale : 09:15 à 09:45 CET sur rejet M5)
+        * Invalidation Sniper : 10:30 CET (Bascule sur Swing Standard H1)
+        * Clôture : 17:30 CET
+    - Marchés Américains (NYSE, NASDAQ / Tickers US) :
         * Ouverture : 15:30 CET (09:30 EST)
-        * Bougie M15 d'ouverture : 15:30 - 15:45 CET (09:30 - 09:45 EST)
-        * Heure Idéale d'Exécution : 15:45 à 16:15 CET (09:45 à 10:15 EST - sur confirmation M5)
-        * Heure Max d'Exécution : 17:00 CET (11:00 EST / Limite stricte des 90 premières minutes post-ouverture)
+        * Bougie M15 d'ouverture : 15:30 - 15:45 CET (Interdiction d'acheter pendant cette bougie)
+        * Fenêtre d'Exécution Sniper (<90 min) : 15:45 à 17:00 CET (Idéale : 15:45 à 16:15 CET sur rejet M5)
+        * Invalidation Sniper : 17:00 CET (11:00 EST / Bascule sur Swing Standard H1)
+        * Clôture : 22:00 CET (16:00 EST)
     """
     if now_dt is None:
         now_dt = datetime.now()
@@ -720,20 +722,60 @@ def get_market_execution_timing(symbol, now_dt=None):
     analysis_time_str = now_dt.strftime("%H:%M:%S") + " CET"
     analysis_date_str = now_dt.strftime("%d/%m/%Y")
     
+    is_weekday = now_dt.weekday() < 5  # Lundi (0) à Vendredi (4)
+    minute_of_day = now_dt.hour * 60 + now_dt.minute
+
     if is_europe:
         market_name = "Euronext / Europe (09:00 - 17:30 CET)"
         market_open = "09:00 CET"
         m15_window = "09:00 - 09:15 CET"
         ideal_time = "09:15 à 09:45 CET"
         max_time = "10:30 CET (Limite stricte 90 min)"
-        timing_desc = "Marché Euronext : Bougie M15 formée à 09:15. Exécution idéale entre 09:15 et 09:45 CET sur confirmation M5. Invalidation après 10:30 CET."
+        open_min = 9 * 60          # 09:00 CET (540)
+        m15_end_min = 9 * 60 + 15   # 09:15 CET (555)
+        sniper_max_min = 10 * 60 + 30 # 10:30 CET (630)
+        close_min = 17 * 60 + 30    # 17:30 CET (1050)
     else:
         market_name = "Wall Street / US (15:30 - 22:00 CET / 09:30 - 16:00 EST)"
         market_open = "15:30 CET (09:30 EST)"
         m15_window = "15:30 - 15:45 CET (09:30 - 09:45 EST)"
         ideal_time = "15:45 à 16:15 CET (09:45 à 10:15 EST)"
         max_time = "17:00 CET (11:00 EST / Limite stricte 90 min)"
-        timing_desc = "Marché US : Bougie M15 formée à 15:45 CET. Exécution idéale entre 15:45 et 16:15 CET sur confirmation M5. Invalidation après 17:00 CET."
+        open_min = 15 * 60 + 30     # 15:30 CET (930)
+        m15_end_min = 15 * 60 + 45  # 15:45 CET (945)
+        sniper_max_min = 17 * 60    # 17:00 CET (1020)
+        close_min = 22 * 60         # 22:00 CET (1320)
+
+    if not is_weekday:
+        phase = "POST_MARKET_CLOSED"
+        phase_label = "Week-end (Marché Fermé)"
+        can_execute_sniper = False
+        timing_desc = f"Marché fermé (Week-end). Prochaine ouverture : Lundi à {market_open}."
+    elif minute_of_day < open_min:
+        phase = "PRE_MARKET"
+        phase_label = "Marché Fermé / Pré-Ouverture"
+        can_execute_sniper = False
+        timing_desc = f"Marché fermé / Pré-ouverture. Ouverture prévue à {market_open}. Attendre la 1ère bougie M15 ({m15_window}) avant tout signal."
+    elif open_min <= minute_of_day < m15_end_min:
+        phase = "M15_FORMATION"
+        phase_label = "Formation 1ère Bougie M15 (En cours - Ne pas entrer)"
+        can_execute_sniper = False
+        timing_desc = f"Séance ouverte. 1ère bougie M15 en cours ({m15_window}). Interdiction formelle d'entrer avant sa clôture à {m15_window.split(' - ')[1]}."
+    elif m15_end_min <= minute_of_day <= sniper_max_min:
+        phase = "SNIPER_WINDOW"
+        phase_label = "Fenêtre d'Exécution Sniper Active (< 90 min)"
+        can_execute_sniper = True
+        timing_desc = f"Fenêtre d'opportunité Sniper active ({ideal_time}). Entrée sur chandelier de rejet M5. Invalidation stricte après {max_time}."
+    elif sniper_max_min < minute_of_day <= close_min:
+        phase = "REGULAR_SESSION_LATE"
+        phase_label = "Séance Ouverte (Fenêtre Sniper Expirée > 90 min)"
+        can_execute_sniper = False
+        timing_desc = f"Fenêtre d'ouverture de 90 min expirée. Basculer impérativement sur le protocole Swing Standard (Option A - Cassure H1 avec volumes)."
+    else:
+        phase = "POST_MARKET_CLOSED"
+        phase_label = "Marché Clôturé"
+        can_execute_sniper = False
+        timing_desc = f"Séance terminée. Marché fermé. Prochaine ouverture à {market_open}."
 
     return {
         "analysis_time": analysis_time_str,
@@ -745,7 +787,11 @@ def get_market_execution_timing(symbol, now_dt=None):
         "ideal_execution_time": ideal_time,
         "max_execution_time": max_time,
         "validity_window_minutes": 90,
-        "timing_description": timing_desc
+        "timing_description": timing_desc,
+        "phase": phase,
+        "phase_label": phase_label,
+        "can_execute_sniper": can_execute_sniper,
+        "is_europe": is_europe
     }
 
 
@@ -758,10 +804,11 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None):
     4. Variantes de déclenchement :
        - Touch & Turn : Retest du support inférieur (Low M15).
        - Quick Flip : Enfoncement sous le bas M15 puis chandelier de rejet (Hammer / Bullish Engulfing en M5).
-    5. Fenêtre de validité & Timings d'exécution :
-       - Heure de l'analyse : Horodatage précis
-       - Heure idéale d'exécution : Immédiatement après la clôture M15 sur chandelier de rejet M5 (09:15-09:45 CET en Europe / 15:45-16:15 CET aux US)
-       - Heure max d'exécution : Fin stricte des 90 premières minutes (10:30 CET en Europe / 17:00 CET aux US).
+    5. Règle Temporelle Absolue :
+       - Avant l'ouverture (PRE_MARKET) : Plan de surveillance pré-ouverture (ZÉRO signal d'achat immédiat).
+       - Pendant M15 (09:00 - 09:15 CET) : Interdiction formelle d'entrer.
+       - Fenêtre Sniper (09:15 - 10:30 CET) : Validation de l'amplitude M15 et recherche de rejet M5.
+       - Après 10:30 CET : Invalidation du Sniper d'ouverture -> Bascule Swing Standard H1.
     """
     global _INTRADAY_SNIPER_CACHE
     now_ts = time.time()
@@ -774,85 +821,133 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None):
     atr_d1 = compute_daily_atr(df_daily, period=14)
     p = float(curr_price or (df_daily["Close"].iloc[-1] if (df_daily is not None and not df_daily.empty) else 100.0))
 
-    # Valeurs par défaut
+    # Niveaux indicatifs pour le plan de trade
     m15_open = p
-    m15_high = p * 1.008
-    m15_low = p * 0.992
+    m15_high = round(p * 1.008, 2)
+    m15_low = round(p * 0.992, 2)
     m15_close = p
-    m15_range = m15_high - m15_low
+    m15_range = round(m15_high - m15_low, 2)
     ratio_atr_pct = (m15_range / atr_d1 * 100) if atr_d1 > 0 else 25.0
-    is_eligible = ratio_atr_pct >= 25.0
-    variant = "En attente d'ouverture"
-    status = "ATTENDRE"
-    badge = "badge-neutral"
-    reversal_candle = "Aucun"
     session_low = m15_low
-    description = f"ATR D1: {atr_d1:.2f} | Range M15: {m15_range:.2f} ({ratio_atr_pct:.1f}% ATR) | Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}"
+    reversal_candle = "En attente de séance"
+    is_eligible = False
+    has_sniper_signal = False
+    has_sniper_pending = False
 
-    if symbol:
-        try:
-            t_obj = yf.Ticker(symbol)
-            m15_df = t_obj.history(period="5d", interval="15m")
-            if not m15_df.empty:
-                dates = m15_df.index.normalize().unique()
-                last_date = dates[-1]
-                session_m15 = m15_df[m15_df.index.normalize() == last_date]
-                
-                if not session_m15.empty:
-                    first_bar = session_m15.iloc[0]
-                    m15_open = float(first_bar['Open'])
-                    m15_high = float(first_bar['High'])
-                    m15_low = float(first_bar['Low'])
-                    m15_close = float(first_bar['Close'])
-                    m15_range = max(0.01, m15_high - m15_low)
-                    ratio_atr_pct = (m15_range / atr_d1 * 100) if atr_d1 > 0 else 0.0
-                    is_eligible = ratio_atr_pct >= 25.0
-                    
-                    # Bars dans les 90 premières minutes (6 bougies M15 max)
-                    bars_90m = session_m15.iloc[:6]
-                    session_low = float(bars_90m['Low'].min())
-                    session_high = float(bars_90m['High'].max())
-                    
-                    dipped_below_low = session_low < (m15_low * 0.999)
-                    retested_low = abs(session_low - m15_low) / max(m15_low, 1.0) * 100 < 0.35
-                    rebounded_inside = p >= (m15_low * 0.998)
-                    
-                    # Détection de Hammer ou Bullish Engulfing sur les barres récentes
-                    last_m15 = session_m15.iloc[-1]
-                    body = abs(float(last_m15['Close']) - float(last_m15['Open']))
-                    lower_wick = min(float(last_m15['Close']), float(last_m15['Open'])) - float(last_m15['Low'])
-                    is_hammer = lower_wick >= 1.5 * max(body, 0.05)
-                    is_bullish_engulf = (float(last_m15['Close']) > float(last_m15['Open']) and len(session_m15) >= 2 and float(session_m15.iloc[-2]['Close']) < float(session_m15.iloc[-2]['Open']))
-                    
-                    if is_hammer:
-                        reversal_candle = "Hammer (Marteau de rejet M15/M5)"
-                    elif is_bullish_engulf:
-                        reversal_candle = "Bullish Engulfing (Avalement haussier)"
-                    else:
-                        reversal_candle = "Chandelier standard / Test du support en cours"
+    phase = timing["phase"]
 
-                    if is_eligible and dipped_below_low and rebounded_inside:
-                        variant = "Quick Flip (Chasse aux stops sous borne basse M15 & Rejet)"
-                        status = "ACHAT SNIPER OUVERTURE VALIDÉ"
-                        badge = "badge-success"
-                        description = f"Chasse aux liquidités validée sous la boîte M15 ({m15_low:.2f}). Réintégration avec {reversal_candle}. [Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}]."
-                    elif is_eligible and (retested_low or rebounded_inside):
-                        variant = "Touch & Turn (Rebond direct sur Support M15)"
-                        status = "ACHAT SNIPER OUVERTURE VALIDÉ"
-                        badge = "badge-success"
-                        description = f"Retest et rebond direct sur le Low M15 ({m15_low:.2f}). {reversal_candle}. [Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}]."
-                    elif is_eligible:
-                        variant = "En attente de signal (< 90 min)"
-                        status = "ATTENDRE REJET M5 (<90 MIN)"
-                        badge = "badge-warning"
-                        description = f"Manipulation d'ouverture éligible ({ratio_atr_pct:.1f}% ATR). Attendre la formation du rejet Hammer / Engulfing. [Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}]."
-                    else:
-                        variant = "Non éligible (Amplitude M15 < 25% ATR)"
-                        status = "NON ÉLIGIBLE"
-                        badge = "badge-neutral"
-                        description = f"Amplitude de la bougie d'ouverture ({ratio_atr_pct:.1f}% ATR) inférieure au seuil institutionnel de 25%. [Analyse: {timing['analysis_time']}]."
-        except Exception as e:
-            print(f"⚠️ Erreur analyse sniper intraday {symbol}: {e}")
+    # 1. Cas : Marché Fermé / Pré-Ouverture ou Week-end
+    if phase in ["PRE_MARKET", "POST_MARKET_CLOSED"]:
+        is_eligible = True
+        has_sniper_signal = False
+        has_sniper_pending = True
+        variant = f"Plan Pré-Ouverture (En attente M15 à {timing['market_open']})"
+        status = "SURVEILLANCE PRÉ-OUVERTURE (ATTENDRE M15)"
+        badge = "badge-warning"
+        reversal_candle = "Marché fermé / En attente de cotation"
+        description = f"Marché fermé ({timing['phase_label']}). Titre en surveillance Sniper. Ne pas acheter avant l'ouverture. Attendre la formation de la 1ère bougie M15 ({timing['m15_candle_window']}) pour vérifier l'amplitude de manipulation (Seuil ≥ 25% ATR) puis guetter un rejet M5 entre {timing['ideal_execution_time']}."
+
+    # 2. Cas : Pendant la formation de la 1ère bougie M15 (09:00 - 09:15 CET / 15:30 - 15:45 CET)
+    elif phase == "M15_FORMATION":
+        is_eligible = True
+        has_sniper_signal = False
+        has_sniper_pending = True
+        variant = f"Formation 1ère Bougie M15 en cours ({timing['m15_candle_window']})"
+        status = "FORMATION BOUGIE M15 (NE PAS ENTRER)"
+        badge = "badge-warning"
+        reversal_candle = "Bougie M15 d'ouverture en cours de formation"
+        description = f"Séance ouverte. 1ère bougie M15 en cours de formation ({timing['m15_candle_window']}). Interdiction formelle d'entrer pendant les 15 premières minutes. Attendre la clôture à {timing['m15_candle_window'].split(' - ')[1]} pour qualifier le range de manipulation."
+
+    # 3. Cas : Fenêtre active Sniper d'ouverture (< 90 minutes post-ouverture)
+    elif phase == "SNIPER_WINDOW":
+        variant = "Analyse Intraday Sniper en direct"
+        status = "ATTENDRE REJET M5 (<90 MIN)"
+        badge = "badge-warning"
+        description = f"Fenêtre d'ouverture active (< 90 min). Analyse de la bougie M15 et recherche de rejet M5..."
+        
+        if symbol:
+            try:
+                t_obj = yf.Ticker(symbol)
+                m15_df = t_obj.history(period="5d", interval="15m")
+                if not m15_df.empty:
+                    dates = m15_df.index.normalize().unique()
+                    last_date = dates[-1]
+                    session_m15 = m15_df[m15_df.index.normalize() == last_date]
+                    
+                    if not session_m15.empty:
+                        first_bar = session_m15.iloc[0]
+                        m15_open = float(first_bar['Open'])
+                        m15_high = float(first_bar['High'])
+                        m15_low = float(first_bar['Low'])
+                        m15_close = float(first_bar['Close'])
+                        m15_range = max(0.01, m15_high - m15_low)
+                        ratio_atr_pct = (m15_range / atr_d1 * 100) if atr_d1 > 0 else 0.0
+                        is_eligible = ratio_atr_pct >= 25.0
+                        
+                        # Bars dans les 90 premières minutes (6 bougies M15 max)
+                        bars_90m = session_m15.iloc[:6]
+                        session_low = float(bars_90m['Low'].min())
+                        session_high = float(bars_90m['High'].max())
+                        
+                        dipped_below_low = session_low < (m15_low * 0.999)
+                        retested_low = abs(session_low - m15_low) / max(m15_low, 1.0) * 100 < 0.35
+                        rebounded_inside = p >= (m15_low * 0.998)
+                        
+                        # Détection de Hammer ou Bullish Engulfing sur les barres récentes
+                        last_m15 = session_m15.iloc[-1]
+                        body = abs(float(last_m15['Close']) - float(last_m15['Open']))
+                        lower_wick = min(float(last_m15['Close']), float(last_m15['Open'])) - float(last_m15['Low'])
+                        is_hammer = lower_wick >= 1.5 * max(body, 0.05)
+                        is_bullish_engulf = (float(last_m15['Close']) > float(last_m15['Open']) and len(session_m15) >= 2 and float(session_m15.iloc[-2]['Close']) < float(session_m15.iloc[-2]['Open']))
+                        
+                        if is_hammer:
+                            reversal_candle = "Hammer (Marteau de rejet M15/M5)"
+                        elif is_bullish_engulf:
+                            reversal_candle = "Bullish Engulfing (Avalement haussier)"
+                        else:
+                            reversal_candle = "Chandelier standard / Test du support en cours"
+
+                        if is_eligible and dipped_below_low and rebounded_inside and (is_hammer or is_bullish_engulf):
+                            variant = "Quick Flip (Chasse aux stops sous borne basse M15 & Rejet validé)"
+                            status = "ACHAT SNIPER OUVERTURE VALIDÉ"
+                            badge = "badge-success"
+                            has_sniper_signal = True
+                            has_sniper_pending = False
+                            description = f"Chasse aux liquidités validée sous la boîte M15 ({m15_low:.2f}). Réintégration avec {reversal_candle}. [Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}]."
+                        elif is_eligible and (retested_low or rebounded_inside) and (is_hammer or is_bullish_engulf):
+                            variant = "Touch & Turn (Rebond direct sur Support M15 validé)"
+                            status = "ACHAT SNIPER OUVERTURE VALIDÉ"
+                            badge = "badge-success"
+                            has_sniper_signal = True
+                            has_sniper_pending = False
+                            description = f"Retest et rebond direct sur le Low M15 ({m15_low:.2f}). {reversal_candle}. [Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}]."
+                        elif is_eligible:
+                            variant = "Manipulation d'ouverture M15 confirmée (En attente de rejet M5)"
+                            status = "ATTENDRE REJET M5 (<90 MIN)"
+                            badge = "badge-warning"
+                            has_sniper_signal = False
+                            has_sniper_pending = True
+                            description = f"Manipulation d'ouverture éligible ({ratio_atr_pct:.1f}% ATR). En attente de formation du chandelier de rejet Hammer / Engulfing avant {timing['max_execution_time']}."
+                        else:
+                            variant = "Non éligible (Amplitude M15 < 25% ATR)"
+                            status = "NON ÉLIGIBLE (M15 < 25% ATR)"
+                            badge = "badge-neutral"
+                            has_sniper_signal = False
+                            has_sniper_pending = False
+                            description = f"Amplitude de la bougie d'ouverture ({ratio_atr_pct:.1f}% ATR) inférieure au seuil de 25% ATR. Basculer sur le Swing Standard H1."
+            except Exception as e:
+                print(f"⚠️ Erreur analyse sniper intraday {symbol}: {e}")
+
+    # 4. Cas : Séance normale après la fenêtre des 90 minutes (> 10:30 CET / > 17:00 CET)
+    else:
+        is_eligible = False
+        has_sniper_signal = False
+        has_sniper_pending = False
+        variant = f"Fenêtre d'ouverture terminée (> 90 min) — Timing Swing Standard H1"
+        status = "FENÊTRE SNIPER EXPIRÉE (> 90 MIN)"
+        badge = "badge-neutral"
+        reversal_candle = "Hors fenêtre d'ouverture (Bascule Swing H1)"
+        description = f"La fenêtre d'opportunité d'ouverture de 90 min est close ({timing['max_execution_time']}). Appliquer le protocole Swing Standard (Option A - Cassure H1 avec volumes)."
 
     # Calcul du Plan de Trade Sniper (Option B)
     sniper_entry = round(max(p, m15_low * 1.002), 2)
@@ -863,33 +958,35 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None):
     dist_sl_pct = ((sniper_entry - sniper_sl) / sniper_entry * 100) if sniper_entry > 0 else 0.8
     dist_tp1_pct = ((sniper_tp1 - sniper_entry) / sniper_entry * 100) if sniper_entry > 0 else 1.2
     dist_tp2_pct = ((sniper_tp2 - sniper_entry) / sniper_entry * 100) if sniper_entry > 0 else 2.5
-    rr_ratio = round(dist_tp2_pct / max(dist_sl_pct, 0.1), 2) if dist_sl_pct > 0 else 3.0
+    rr_sniper = round((dist_tp1_pct * 0.5 + dist_tp2_pct * 0.5) / max(dist_sl_pct, 0.2), 2)
 
-    result = {
+    data_res = {
+        "symbol": symbol,
+        "is_eligible": is_eligible,
+        "has_sniper_signal": has_sniper_signal,
+        "has_sniper_pending": has_sniper_pending,
+        "ratio_atr_pct": round(ratio_atr_pct, 1),
         "atr_d1": round(atr_d1, 2),
         "m15_open": round(m15_open, 2),
         "m15_high": round(m15_high, 2),
         "m15_low": round(m15_low, 2),
         "m15_close": round(m15_close, 2),
         "m15_range": round(m15_range, 2),
-        "ratio_atr_pct": round(ratio_atr_pct, 1),
-        "is_eligible": is_eligible,
         "variant": variant,
         "status": status,
         "badge": badge,
         "reversal_candle": reversal_candle,
-        "session_low_90m": round(session_low, 2),
-        "description": description,
         "execution_timing": timing,
+        "description": description,
         "sniper_plan": {
             "entry": sniper_entry,
+            "sl": sniper_sl,
             "tp1": sniper_tp1,
             "tp2": sniper_tp2,
-            "sl": sniper_sl,
             "dist_sl_pct": round(dist_sl_pct, 2),
             "dist_tp1_pct": round(dist_tp1_pct, 2),
             "dist_tp2_pct": round(dist_tp2_pct, 2),
-            "rr_ratio": rr_ratio,
+            "rr_ratio": rr_sniper,
             "horizon": "Intraday pour TP1 / 1 à 5 jours pour TP2",
             "analysis_time": timing["analysis_time"],
             "ideal_execution_time": timing["ideal_execution_time"],
@@ -898,8 +995,8 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None):
         }
     }
 
-    _INTRADAY_SNIPER_CACHE[cache_key] = {"data": result, "ts": now_ts}
-    return result
+    _INTRADAY_SNIPER_CACHE[cache_key] = {"data": data_res, "ts": now_ts}
+    return data_res
 
 
 def compute_institutional_rmax_sizing(capital_total, entry_price, stop_price, target_price=None):
@@ -1111,7 +1208,26 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         alert_price = None
         entry_price = curr_price
         entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
-    elif has_sniper_signal and pullback_valid and trend_following_valid and confluence_score >= 7.0:
+    # Branches décisionnelles selon la phase de séance et les critères institutionnels
+    phase = timing.get("phase", "REGULAR_SESSION_LATE")
+
+    if phase in ["PRE_MARKET", "POST_MARKET_CLOSED"] and pullback_valid and trend_following_valid and confluence_score >= 6.5:
+        verdict = "PLAN PRÉ-OUVERTURE (ATTENDRE M15)"
+        verdict_badge = "badge-primary"
+        verdict_action = f"Plan Pré-Ouverture : Titre éligible en surveillance Sniper ({confluence_score}/10). Marché fermé ({timing['phase_label']}). Ne pas acheter avant l'ouverture. Attendre la formation de la 1ère bougie M15 ({timing['m15_candle_window']}) pour vérifier l'amplitude de manipulation (Seuil ≥ 25% ATR) puis guetter un rejet M5 entre {timing['ideal_execution_time']}."
+        entry_price = sniper_data["sniper_plan"]["entry"]
+        entry_label = f"{entry_price:.2f} {sym_currency} (Plan Pré-Ouverture)"
+        alert_price = entry_price
+        action_plan = f"⏳ Surveillance Pré-Ouverture [Ouverture à {timing['market_open']}] : Titre en surveillance Sniper. Ne pas acheter avant l'ouverture. Attendre la 1ère bougie M15 ({timing['m15_candle_window']}) pour mesurer le range de manipulation (≥ 25% ATR) puis guetter un rejet M5 avant {timing['max_execution_time']}."
+    elif phase == "M15_FORMATION" and pullback_valid and trend_following_valid and confluence_score >= 6.5:
+        verdict = "FORMATION M15 EN COURS (NE PAS ENTRER)"
+        verdict_badge = "badge-warning"
+        verdict_action = f"1ère bougie M15 en cours de formation ({timing['m15_candle_window']}). Interdiction formelle d'entrer pendant les 15 premières minutes. Attendre la clôture à {timing['m15_candle_window'].split(' - ')[1]} pour qualifier la manipulation."
+        entry_price = sniper_data["sniper_plan"]["entry"]
+        entry_label = f"{entry_price:.2f} {sym_currency} (Attendre clôture M15)"
+        alert_price = entry_price
+        action_plan = f"⏳ Formation M15 en cours : Ne pas acheter. Attendre {timing['m15_candle_window'].split(' - ')[1]} pour vérifier l'amplitude de manipulation de liquidité."
+    elif phase == "SNIPER_WINDOW" and has_sniper_signal and pullback_valid and trend_following_valid and confluence_score >= 7.0:
         verdict = "ACHAT SNIPER OUVERTURE VALIDÉ"
         verdict_badge = "badge-success"
         verdict_action = f"Signal Sniper validé (< 90 min) : {sniper_data['variant']}. Confluence ({confluence_score}/10) avec manipulation M15 ({sniper_data['ratio_atr_pct']}% ATR). [Analyse : {timing['analysis_time']} | Heure idéale d'exécution : {timing['ideal_execution_time']} | Heure max : {timing['max_execution_time']}]."
@@ -1119,6 +1235,14 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         entry_label = f"Achat Sniper immédiat (~{entry_price:.2f} {sym_currency})"
         alert_price = entry_price
         action_plan = f"🎯 Exécution Sniper d'Ouverture [Analyse : {timing['analysis_time']} | Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}] : Acheter à ~{entry_price:.2f} {sym_currency} | SL: {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%) | TP1: {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%) | TP2: {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%)."
+    elif phase == "SNIPER_WINDOW" and has_sniper_pending and pullback_valid and trend_following_valid:
+        verdict = "ATTENDRE REJET M5 (<90 MIN)"
+        verdict_badge = "badge-warning"
+        verdict_action = f"Manipulation d'ouverture M15 éligible ({sniper_data['ratio_atr_pct']}% ATR D1). [Analyse : {timing['analysis_time']} | Heure idéale : {timing['ideal_execution_time']} | Heure max : {timing['max_execution_time']}]. Attendre la formation d'un chandelier de rejet (Hammer / Engulfing en M5)."
+        entry_price = sniper_data["sniper_plan"]["entry"]
+        entry_label = f"{entry_price:.2f} {sym_currency} (Sur validation M5 <90 min)"
+        alert_price = entry_price
+        action_plan = f"🔔 Alerte Sniper [Analyse : {timing['analysis_time']} | Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}] : Placer une alerte sur réintégration de {entry_price:.2f} {sym_currency} avec chandelier de rejet M5 avant la fin de la fenêtre de 90 min ({timing['max_execution_time']})."
     elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
         verdict = "ACHAT VALIDÉ (SWING)"
         verdict_badge = "badge-success"
@@ -1127,14 +1251,6 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         entry_label = f"Achat Swing au marché (~{entry_price:.2f} {sym_currency})"
         alert_price = curr_price
         action_plan = f"🎯 Exécution Swing [Analyse: {timing['analysis_time']}] : Acheter à ~{entry_price:.2f} {sym_currency} | SL sous creux H1 à {stop_loss:.2f} {sym_currency} | TP: {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%)."
-    elif has_sniper_pending and pullback_valid and trend_following_valid:
-        verdict = "ATTENDRE REJET M5 (<90 MIN)"
-        verdict_badge = "badge-warning"
-        verdict_action = f"Manipulation d'ouverture M15 éligible ({sniper_data['ratio_atr_pct']}% ATR D1). [Analyse : {timing['analysis_time']} | Heure idéale : {timing['ideal_execution_time']} | Heure max : {timing['max_execution_time']}]. Attendre la formation d'un chandelier de rejet (Hammer / Engulfing en M5)."
-        entry_price = sniper_data["sniper_plan"]["entry"]
-        entry_label = f"{entry_price:.2f} {sym_currency} (Sur validation M5 <90 min)"
-        alert_price = entry_price
-        action_plan = f"🔔 Alerte Sniper [Analyse : {timing['analysis_time']} | Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}] : Placer une alerte sur réintégration de {entry_price:.2f} {sym_currency} avec chandelier de rejet M5 avant la fin de la fenêtre de 90 min ({timing['max_execution_time']})."
     elif trend_following_valid and pullback_valid:
         verdict = "ATTENDRE CONFIRMATION H1"
         verdict_badge = "badge-warning"
@@ -1213,8 +1329,8 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         {
             "step": 5,
             "title": "5. Timing, Order Flow & Protocole d'Ouverture",
-            "status": "Sniper Validé" if has_sniper_signal else ("Breakout Validé" if has_breakout else order_flow["status"]),
-            "badge": "badge-success" if (has_sniper_signal or has_breakout or order_flow["has_higher_lows"]) else "badge-warning",
+            "status": sniper_data["status"] if (has_sniper_signal or has_sniper_pending or "PRÉ-OUVERTURE" in sniper_data["status"] or "M15" in sniper_data["status"]) else ("Breakout Validé" if has_breakout else order_flow["status"]),
+            "badge": sniper_data["badge"] if (has_sniper_signal or has_sniper_pending or "PRÉ-OUVERTURE" in sniper_data["status"] or "M15" in sniper_data["status"]) else ("badge-success" if has_breakout else "badge-warning"),
             "items": [
                 f"**Horodatage de l'Analyse :** `{timing['analysis_time']}` ({timing['analysis_date']}) | Session de Marché : {timing['market_name']}",
                 f"**Créneaux d'Exécution Sniper (<90 min) :** Heure Idéale : `{timing['ideal_execution_time']}` | Heure Limite Max : `{timing['max_execution_time']}`",
