@@ -2,12 +2,23 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Trading Agent v2.0 - Swing Trading, Filtres Sectoriels/PEA & Conformité Sharia</title>
+    
+    <!-- PWA & Mobile Web App Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#080b11">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AgentTrading">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/static/icons/icon-512.png">
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     
     <style>
@@ -807,6 +818,348 @@
             margin-top: 0.3rem;
             color: var(--text-muted);
         }
+
+        /* ==========================================================================
+           MOBILE & PWA ADAPTIVE STYLES (iOS / Android Navigation & Mobile Cards)
+           ========================================================================== */
+        
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 62px;
+            background: rgba(11, 15, 25, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 9999;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+        }
+
+        .mobile-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .mobile-nav-item.active {
+            color: #60a5fa;
+        }
+
+        .mobile-nav-item.active .mobile-nav-icon {
+            transform: scale(1.15);
+            filter: drop-shadow(0 2px 8px rgba(96, 165, 250, 0.5));
+        }
+
+        .mobile-nav-icon {
+            font-size: 1.25rem;
+            transition: transform 0.2s ease;
+        }
+
+        .mobile-nav-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-top: 0.15rem;
+            letter-spacing: -0.01em;
+        }
+
+        .mobile-badge {
+            position: absolute;
+            top: 4px;
+            right: calc(50% - 16px);
+            background: var(--warning);
+            color: #000;
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 0.1rem 0.35rem;
+            border-radius: 999px;
+            min-width: 14px;
+            text-align: center;
+        }
+
+        #scan-mobile-cards-container {
+            display: none;
+            flex-direction: column;
+            gap: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .mobile-scan-card {
+            background: rgba(17, 25, 40, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 14px;
+            padding: 1rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+            cursor: pointer;
+        }
+
+        .mobile-scan-card:active {
+            transform: scale(0.985);
+            border-color: rgba(59, 130, 246, 0.6);
+        }
+
+        .m-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .m-card-title {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .m-symbol {
+            font-size: 1.15rem;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+            color: #fff;
+            letter-spacing: 0.02em;
+        }
+
+        .m-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            max-width: 170px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .m-badges {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .m-card-price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+        }
+
+        .m-price {
+            font-size: 1.15rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: #60a5fa;
+        }
+
+        .m-pills {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+        }
+
+        .m-pill {
+            font-size: 0.72rem;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+        }
+
+        .m-drop-red {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            font-weight: 700;
+        }
+
+        .m-drop-neutral {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+        }
+
+        .m-card-verdicts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .m-verdict-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.45rem 0.55rem;
+        }
+
+        .m-verdict-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .m-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 0.35rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .m-category {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .m-action-btn {
+            background: var(--accent-gradient);
+            border: none;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* MEDIA QUERIES MOBILE (< 768px) */
+        @media (max-width: 768px) {
+            body {
+                padding-bottom: 75px !important;
+            }
+
+            header {
+                padding: 0.75rem 1rem !important;
+            }
+
+            header nav {
+                display: none !important;
+            }
+
+            .mobile-bottom-nav {
+                display: flex !important;
+            }
+
+            .container {
+                padding: 0.75rem 0.6rem !important;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+
+            .table-container {
+                display: none !important;
+            }
+
+            #scan-mobile-cards-container {
+                display: flex !important;
+            }
+
+            .macro-barometer-banner {
+                padding: 0.85rem !important;
+            }
+
+            .macro-barometer-grid {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 0.5rem !important;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 0.6rem;
+            }
+
+            .popin-detail-box {
+                width: 98% !important;
+                max-width: 98% !important;
+                max-height: 94vh !important;
+                border-radius: 16px !important;
+            }
+
+            .popin-detail-body {
+                padding: 1rem 0.75rem !important;
+            }
+
+            #tv-chart-container {
+                height: 280px !important;
+                min-height: 280px !important;
+            }
+
+            .kpi-row {
+                grid-template-columns: 1fr 1fr !important;
+            }
+        }
+
+        /* OPTIMISATIONS IPHONE SE (375x667px) & SMARTPHONES COMPACTS */
+        @media (max-width: 385px) {
+            .mobile-bottom-nav {
+                height: 56px !important;
+            }
+            .mobile-nav-icon {
+                font-size: 1.1rem !important;
+            }
+            .mobile-nav-label {
+                font-size: 0.58rem !important;
+            }
+            .m-symbol {
+                font-size: 1.05rem !important;
+            }
+            .m-price {
+                font-size: 1.05rem !important;
+            }
+            .m-name {
+                max-width: 135px !important;
+                font-size: 0.7rem !important;
+            }
+            .m-card-price-row {
+                padding: 0.45rem 0.6rem !important;
+            }
+            .m-card-verdicts {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 0.35rem !important;
+            }
+            .m-verdict-item {
+                padding: 0.35rem 0.45rem !important;
+            }
+            .m-verdict-label {
+                font-size: 0.6rem !important;
+            }
+            .m-pill {
+                font-size: 0.68rem !important;
+                padding: 0.15rem 0.35rem !important;
+            }
+            #tv-chart-container {
+                height: 230px !important;
+                min-height: 230px !important;
+            }
+            .macro-barometer-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1052,7 +1405,7 @@
                         </div>
                     </div>
 
-                    <!-- Table (Pleine Largeur) -->
+                    <!-- Table (Pleine Largeur Desktop) -->
                     <div class="table-container">
                         <table id="scan-results-table">
                             <thead>
@@ -1079,6 +1432,13 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Cartes Tactiles (Affichage Mobile & Smartphone) -->
+                    <div id="scan-mobile-cards-container">
+                        <div style="text-align: center; color: var(--text-muted); padding: 2rem; background: rgba(17, 25, 40, 0.5); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
+                            📱 Aucun scan lancé.<br>Appuyez sur <strong>"⚡ Scanner la Watchlist"</strong> pour afficher les opportunités en cartes tactiles.
+                        </div>
                     </div>
                 </div>
 
@@ -2665,17 +3025,24 @@
         });
 
         // ---------------------------------------------------------------------
-        // TAB SWITCHING (INSTANT DISPLAY FROM CACHE)
+        // TAB SWITCHING (INSTANT DISPLAY FROM CACHE & MOBILE BOTTOM NAV SYNC)
         // ---------------------------------------------------------------------
         function switchTab(tabId) {
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-item').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
             const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
             if (btn) btn.classList.add('active');
+
+            const mBtn = document.querySelector(`.mobile-nav-item[data-tab="${tabId}"]`);
+            if (mBtn) mBtn.classList.add('active');
             
             const targetTab = document.getElementById(`${tabId}-tab`);
             if (targetTab) targetTab.classList.add('active');
+
+            // Scroll fluide vers le haut sur mobile
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
             if (tabId === 'portfolio') {
                 loadLivePortfolio(false);
@@ -3819,15 +4186,18 @@
                 alertsCountElem.style.color = (d.alerts_count || 0) > 0 ? '#fbbf24' : '#60a5fa';
             }
 
-            // Nav Alerts Badge
+            // Nav Alerts Badge (Desktop & Mobile Sync)
             const navBadge = document.getElementById('nav-alerts-badge');
+            const mobileNavBadge = document.getElementById('mobile-nav-alerts-badge');
+            const alertCount = d.alerts_count || 0;
+            
             if (navBadge) {
-                if ((d.alerts_count || 0) > 0) {
-                    navBadge.textContent = d.alerts_count;
-                    navBadge.style.display = 'inline-block';
-                } else {
-                    navBadge.style.display = 'none';
-                }
+                navBadge.textContent = alertCount;
+                navBadge.style.display = alertCount > 0 ? 'inline-block' : 'none';
+            }
+            if (mobileNavBadge) {
+                mobileNavBadge.textContent = alertCount;
+                mobileNavBadge.style.display = alertCount > 0 ? 'block' : 'none';
             }
 
             applyPositionFilters();
@@ -4706,10 +5076,20 @@
 
         function renderResultsTable(results) {
             const tbody = document.querySelector('#scan-results-table tbody');
+            const mobileCardsContainer = document.getElementById('scan-mobile-cards-container');
+            
             tbody.innerHTML = '';
+            if (mobileCardsContainer) mobileCardsContainer.innerHTML = '';
             
             if (!results || results.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Aucun résultat correspondant aux critères de filtre.</td></tr>`;
+                if (mobileCardsContainer) {
+                    mobileCardsContainer.innerHTML = `
+                        <div style="text-align: center; color: var(--text-muted); padding: 2rem; background: rgba(17, 25, 40, 0.5); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
+                            Aucun résultat correspondant aux critères.
+                        </div>
+                    `;
+                }
                 return;
             }
 
@@ -4724,11 +5104,10 @@
             });
 
             results.forEach(r => {
-                const tr = document.createElement('tr');
-                tr.style.cursor = 'pointer';
-                tr.onclick = () => showTickerDetail(r.symbol);
-
                 const symChar = r.currency === "EUR" ? "€" : "$";
+                const isPea = r.is_pea || (r.symbol && r.symbol.endsWith(".PA"));
+                const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : '<span class="badge badge-cto">🇺🇸 CTO</span>';
+                const catText = `${r.category_icon || '📦'} ${r.category || 'Autres'}`;
                 
                 // Verdict Swing (Standard H1/H4)
                 const vSwingText = r.verdict_swing || r.verdict || "ÉVITER";
@@ -4758,13 +5137,8 @@
                 
                 const score = r.confluence_score || 0;
                 const scoreClass = score >= 7 ? 'score-high' : score >= 4 ? 'score-med' : 'score-low';
-
                 const shariaBadge = r.sharia === "CONFORME" ? 'badge-success' : r.sharia === "NON CONFORME" ? 'badge-danger' : 'badge-warning';
 
-                const isPea = r.is_pea || (r.symbol && r.symbol.endsWith(".PA"));
-                const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : '<span class="badge badge-cto">🇺🇸 CTO</span>';
-                const catText = `${r.category_icon || '📦'} ${r.category || 'Autres'}`;
-                
                 let newsBadge = '';
                 if (r.news_analysis) {
                     const na = r.news_analysis;
@@ -4775,13 +5149,17 @@
                 const volM = r.avg_daily_volume ? (r.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar : '-';
                 const volColor = (r.avg_daily_volume && r.avg_daily_volume < 1e6) ? 'var(--danger)' : 'var(--text-main)';
 
+                // 1. Rendu Desktop Table Row
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => showTickerDetail(r.symbol);
                 tr.innerHTML = `
                     <td><strong>${r.symbol}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${r.name || ''}</span></td>
                     <td>${accountBadge}</td>
                     <td><span class="badge-cat">${catText}</span>${newsBadge ? '<br>' + newsBadge : ''}</td>
                     <td><span class="badge ${shariaBadge}">${r.sharia || 'DONNÉES INSUFFISANTES'}</span></td>
-                    <td><strong>${parseFloat(r.price).toFixed(2)} ${symChar}</strong></td>
-                    <td style="color:${parseFloat(r.drop) <= -3.0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight:600;">${r.drop ? parseFloat(r.drop).toFixed(2) + '%' : '-'}</td>
+                    <td><strong>${parseFloat(r.price || 0).toFixed(2)} ${symChar}</strong></td>
+                    <td style="color:${parseFloat(r.drop || 0) <= -3.0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight:600;">${r.drop ? parseFloat(r.drop).toFixed(2) + '%' : '-'}</td>
                     <td style="color: ${volColor}; font-weight: 500;">${volM}</td>
                     <td>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
                     <td>${r.rsi_divergence && r.rsi_divergence.includes('HAUSSIÈRE') ? '<span class="badge badge-primary">OUI 🔥</span>' : '<span style="color:var(--text-muted);">-</span>'}</td>
@@ -4790,6 +5168,51 @@
                     <td><span class="badge ${vSniperBadge}">${vSniperText}</span></td>
                 `;
                 tbody.appendChild(tr);
+
+                // 2. Rendu Mobile Tactile Card (Affichage optimisé smartphone)
+                if (mobileCardsContainer) {
+                    const card = document.createElement('div');
+                    card.className = 'mobile-scan-card';
+                    card.onclick = () => showTickerDetail(r.symbol);
+                    card.innerHTML = `
+                        <div class="m-card-header">
+                            <div class="m-card-title">
+                                <span class="m-symbol">${r.symbol}</span>
+                                <span class="m-name">${r.name || r.symbol}</span>
+                            </div>
+                            <div class="m-badges">
+                                ${accountBadge}
+                                <span class="badge ${shariaBadge}">${r.sharia === 'CONFORME' ? '✓ Sharia' : r.sharia || 'Sharia ?'}</span>
+                            </div>
+                        </div>
+
+                        <div class="m-card-price-row">
+                            <div class="m-price">${r.price ? parseFloat(r.price).toFixed(2) + ' ' + symChar : '-'}</div>
+                            <div class="m-pills">
+                                <span class="m-pill ${parseFloat(r.drop || 0) <= -3 ? 'm-drop-red' : 'm-drop-neutral'}">📉 ${r.drop ? parseFloat(r.drop).toFixed(2) + '%' : '0%'}</span>
+                                <span class="m-pill">RSI <strong>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</strong></span>
+                                <span class="m-pill ${scoreClass}">Score <strong>${score}/10</strong></span>
+                            </div>
+                        </div>
+
+                        <div class="m-card-verdicts">
+                            <div class="m-verdict-item">
+                                <span class="m-verdict-label">Swing H1/H4</span>
+                                <span class="badge ${vSwingBadge}" style="font-size:0.68rem; padding:0.25rem 0.4rem;">${vSwingText}</span>
+                            </div>
+                            <div class="m-verdict-item">
+                                <span class="m-verdict-label">Sniper M15</span>
+                                <span class="badge ${vSniperBadge}" style="font-size:0.68rem; padding:0.25rem 0.4rem;">${vSniperText}</span>
+                            </div>
+                        </div>
+
+                        <div class="m-card-footer">
+                            <span class="m-category">${catText}</span>
+                            <button class="m-action-btn" onclick="event.stopPropagation(); showTickerDetail('${r.symbol}');">Détail & Plan ➔</button>
+                        </div>
+                    `;
+                    mobileCardsContainer.appendChild(card);
+                }
             });
         }
 
@@ -5937,6 +6360,46 @@
                 tbody.appendChild(tr);
             });
         }
+
+        // ---------------------------------------------------------------------
+        // PWA SERVICE WORKER REGISTRATION
+        // ---------------------------------------------------------------------
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(reg => console.log('✅ PWA Service Worker actif (Scope:', reg.scope, ')'))
+                    .catch(err => console.log('⚠️ PWA Service Worker non enregistré:', err));
+            });
+        }
     </script>
+
+    <!-- BOTTOM NAVIGATION BAR (AFFICHAGE MOBILE / SMARTPHONE UNIQUE) -->
+    <nav class="mobile-bottom-nav">
+        <button class="mobile-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+            <span class="mobile-nav-icon">📊</span>
+            <span class="mobile-nav-label">Scanner</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="portfolio" onclick="switchTab('portfolio')">
+            <span class="mobile-nav-icon">💼</span>
+            <span class="mobile-nav-label">Positions</span>
+            <span id="mobile-nav-alerts-badge" class="mobile-badge" style="display:none;">0</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="diversification" onclick="switchTab('diversification')">
+            <span class="mobile-nav-icon">🥧</span>
+            <span class="mobile-nav-label">Diversif.</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="journal" onclick="switchTab('journal')">
+            <span class="mobile-nav-icon">📖</span>
+            <span class="mobile-nav-label">Journal</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="simulation" onclick="switchTab('simulation')">
+            <span class="mobile-nav-icon">🧮</span>
+            <span class="mobile-nav-label">R-Max</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="chat" onclick="switchTab('chat')">
+            <span class="mobile-nav-icon">💬</span>
+            <span class="mobile-nav-label">Chat</span>
+        </button>
+    </nav>
 </body>
 </html>
