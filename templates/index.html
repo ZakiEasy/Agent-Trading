@@ -4972,19 +4972,31 @@
         }
 
         async function showTickerDetail(symbol) {
-            const modal = document.getElementById('ticker-detail-modal');
-            const container = document.getElementById('ticker-detail-body');
+            const overlay = document.getElementById('ticker-detail-overlay');
+            const container = document.getElementById('ticker-detail-content');
             const scorePill = document.getElementById('detail-score-pill');
+            const titleElem = document.getElementById('detail-card-title');
             
-            modal.style.display = 'flex';
-            scorePill.textContent = '-/10';
-            scorePill.className = 'score-pill score-low';
-            container.innerHTML = `
-                <div style="text-align: center; padding: 3rem;">
-                    <div class="spinner" style="margin: 0 auto 1rem auto; width: 40px; height: 40px;"></div>
-                    <p style="color: var(--text-muted);">Génération de l'Analyse Tactique & Stratégie Institutionnelle V3 (${symbol})...</p>
-                </div>
-            `;
+            if (overlay) {
+                overlay.classList.add('active');
+                overlay.style.display = 'flex';
+            }
+            document.body.style.overflow = 'hidden';
+            if (titleElem) {
+                titleElem.innerHTML = `📋 Rapport Protocolaire — <strong style="color:#f8fafc;">${symbol}</strong>`;
+            }
+            if (scorePill) {
+                scorePill.textContent = '-/10';
+                scorePill.className = 'score-pill score-low';
+            }
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 3rem;">
+                        <div class="spinner" style="margin: 0 auto 1rem auto; width: 40px; height: 40px;"></div>
+                        <p style="color: var(--text-muted);">Génération de l'Analyse Tactique & Stratégie Institutionnelle V3 (${symbol})...</p>
+                    </div>
+                `;
+            }
 
             try {
                 // Détection de la stratégie sélectionnée
