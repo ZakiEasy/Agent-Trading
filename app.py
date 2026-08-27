@@ -477,7 +477,7 @@ def configure_trading212():
         "result": test_res
     })
 
-@app.route("/api/trading212/sync_history", methods=["POST"])
+@app.route("/api/trading212/sync_history", methods=["POST", "GET"])
 def sync_trading212_history_endpoint():
     """
     Récupère l'historique des ordres exécutés sur Trading 212 via l'API et les intègre au Journal de Trading Google Sheets.
@@ -487,21 +487,24 @@ def sync_trading212_history_endpoint():
         if not trades:
             return safe_jsonify({
                 "success": True,
-                "message": "Aucun nouvel ordre exécuté trouvé via l'API Trading 212 (ou aucun ordre de vente fermé).",
-                "imported": 0
+                "message": "Aucun nouvel ordre de vente exécuté trouvé sur Trading 212.",
+                "imported": 0,
+                "total_found": 0
             })
 
-        existing_journal = read_journal_from_sheets() or []
-        seen_ids = {t.get("id") for t in existing_journal if t.get("id")}
-        new_trades = [t for t in trades if t.get("id") not in seen_ids]
+        existing_journal = read_journal_from_sheets(force_refresh=True) or []
+        seen_ids = {str(t.get("id")) for t in existing_journal if t.get("id")}
+        new_trades = [t for t in trades if str(t.get("id")) not in seen_ids]
 
         if new_trades:
             combined = existing_journal + new_trades
             batch_import_journal_to_sheets(combined)
+            # Forcer le rechargement du cache
+            read_journal_from_sheets(force_refresh=True)
 
         return safe_jsonify({
             "success": True,
-            "message": f"Synchronisation Trading 212 réussie : {len(new_trades)} nouveau(x) trade(s) archivé(s) dans le Journal de Trading !",
+            "message": f"Synchronisation Trading 212 réussie : {len(new_trades)} nouveau(x) trade(s) archivé(s) dans le Journal !",
             "imported": len(new_trades),
             "total_found": len(trades)
         })
@@ -574,8 +577,25 @@ def get_portfolio_diversification():
 def get_journal_history():
     """
     Retourne l'historique complet des trades clôturés avec statistiques de performance (Win Rate, P&L, etc.).
+    Exécute automatiquement une synchronisation Trading 212 en tâche de fond pour toujours avoir le journal à jour.
     """
     force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    auto_sync = request.args.get("auto_sync", "true").lower() in ["true", "1", "yes"]
+    
+    if auto_sync:
+        try:
+            t212_trades = sync_trading212_history_to_journal()
+            if t212_trades:
+                existing = read_journal_from_sheets(force_refresh=False) or []
+                seen_ids = {str(t.get("id")) for t in existing if t.get("id")}
+                new_t = [t for t in t212_trades if str(t.get("id")) not in seen_ids]
+                if new_t:
+                    combined = existing + new_t
+                    batch_import_journal_to_sheets(combined)
+                    force = True
+        except Exception as err:
+            logger.warning(f"Auto-sync Trading 212 skipped or failed: {err}")
+
     trades = read_journal_from_sheets(force_refresh=force)
     stats = calculate_trading_performance_stats(trades)
     return safe_jsonify({
@@ -1629,5 +1649,5 @@ def handle_general_exception(e):
     return safe_jsonify({"success": False, "error": f"Erreur serveur inattendue: {str(e)}"}, status_code=500)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
+    port = int(os.environ.get("PORT", 5050))
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

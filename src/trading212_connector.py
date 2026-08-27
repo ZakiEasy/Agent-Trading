@@ -78,35 +78,62 @@ def get_trading212_headers(api_key=None, api_secret=None):
 
 def normalize_t212_ticker(t212_ticker):
     """
-    Convertit un ticker Trading 212 (ex: 'AAPL_US_EQ', 'SAN_FR_EQ', 'MC_FR_EQ', 'ASML_NL_EQ')
-    en symbole boursier universel Yahoo Finance / Google Sheets (ex: 'AAPL', 'SAN.PA', 'MC.PA', 'ASML.AS').
+    Convertit un ticker Trading 212 (ex: 'AAPL_US_EQ', 'SANp_EQ', 'ORp_EQ', 'LRp_EQ', 'STMpp_EQ', 'ASMLa_EQ')
+    en symbole boursier universel Yahoo Finance / Google Sheets (ex: 'AAPL', 'SAN.PA', 'OR.PA', 'LR.PA', 'STM.PA', 'ASML.AS').
     """
     if not t212_ticker:
         return ""
     
-    sym = str(t212_ticker).strip().upper()
+    sym = str(t212_ticker).strip()
     
-    # Remplacements de suffixes fréquents Trading 212
+    # Cas particuliers de tickers Euronext sur Yahoo Finance
+    if sym.startswith("STM") and ("_EQ" in sym or "pp_" in sym or "p_" in sym):
+        return "STMPA.PA"
+
+    # 1. Remplacements de suffixes explicites de pays
     if sym.endswith("_US_EQ"):
-        return sym.replace("_US_EQ", "")
+        return sym.replace("_US_EQ", "").upper()
     elif sym.endswith("_FR_EQ"):
-        return sym.replace("_FR_EQ", ".PA")
+        return sym.replace("_FR_EQ", ".PA").upper()
     elif sym.endswith("_DE_EQ"):
-        return sym.replace("_DE_EQ", ".DE")
+        return sym.replace("_DE_EQ", ".DE").upper()
     elif sym.endswith("_NL_EQ"):
-        return sym.replace("_NL_EQ", ".AS")
+        return sym.replace("_NL_EQ", ".AS").upper()
     elif sym.endswith("_UK_EQ"):
-        return sym.replace("_UK_EQ", ".L")
+        return sym.replace("_UK_EQ", ".L").upper()
     elif sym.endswith("_ES_EQ"):
-        return sym.replace("_ES_EQ", ".MC")
+        return sym.replace("_ES_EQ", ".MC").upper()
     elif sym.endswith("_IT_EQ"):
-        return sym.replace("_IT_EQ", ".MI")
+        return sym.replace("_IT_EQ", ".MI").upper()
     elif sym.endswith("_BE_EQ"):
-        return sym.replace("_BE_EQ", ".BR")
+        return sym.replace("_BE_EQ", ".BR").upper()
     elif sym.endswith("_CH_EQ"):
-        return sym.replace("_CH_EQ", ".SW")
+        return sym.replace("_CH_EQ", ".SW").upper()
+    
+    # 2. Suffixes compacts de places boursières Trading 212
+    if sym.endswith("pp_EQ"):
+        base = sym[:-5]
+        return f"{base}.PA".upper()
+    elif sym.endswith("p_EQ"):
+        base = sym[:-4]
+        return f"{base}.PA".upper()
+    elif sym.endswith("d_EQ"):
+        base = sym[:-4]
+        return f"{base}.DE".upper()
+    elif sym.endswith("a_EQ"):
+        base = sym[:-4]
+        return f"{base}.AS".upper()
+    elif sym.endswith("l_EQ"):
+        base = sym[:-4]
+        return f"{base}.L".upper()
+    elif sym.endswith("m_EQ"):
+        base = sym[:-4]
+        return f"{base}.MI".upper()
+    elif sym.endswith("_EQ"):
+        base = sym[:-3]
+        return base.upper()
         
-    return sym
+    return sym.upper()
 
 def test_trading212_connection(api_key=None, api_secret=None, environment=None):
     """
@@ -279,6 +306,9 @@ def get_trading212_open_positions(force_refresh=False):
                 if init_date:
                     init_date = init_date.split("T")[0]
 
+                is_eur = (".PA" in norm_symbol or ".DE" in norm_symbol or ".AS" in norm_symbol or "p_EQ" in t212_ticker or "pp_EQ" in t212_ticker)
+                currency = "EUR" if is_eur else "USD"
+
                 positions.append({
                     "id": f"T212_{t212_ticker}",
                     "symbol": norm_symbol,
@@ -297,7 +327,7 @@ def get_trading212_open_positions(force_refresh=False):
                     "tp2": pru * 1.0225,
                     "account": "Trading 212",
                     "broker": "Trading 212",
-                    "currency": "EUR" if ".PA" in norm_symbol or ".DE" in norm_symbol or ".AS" in norm_symbol else "USD",
+                    "currency": currency,
                     "status": "OUVERT",
                     "notes": "Synchronisé via API Trading 212"
                 })
@@ -311,26 +341,46 @@ def get_trading212_open_positions(force_refresh=False):
         print(f"⚠️ Erreur récupération positions Trading 212: {e}")
         return []
 
-def get_trading212_orders_history(limit=100):
+def get_trading212_orders_history(limit=50, max_pages=3):
     """
-    Récupère l'historique récent des ordres exécutés sur Trading 212.
+    Récupère l'historique des ordres exécutés sur Trading 212 via l'endpoint officiel v0
+    (/equity/history/orders) avec gestion de la pagination par curseur.
     """
     headers = get_trading212_headers()
     if not headers:
         return []
 
     base_url = get_trading212_base_url()
+    all_orders = []
+    current_url = f"{base_url}/equity/history/orders?limit={min(limit, 50)}"
+    page_count = 0
+
     try:
-        url = f"{base_url}/equity/orders/history?limit={limit}"
-        res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code == 200:
+        while current_url and page_count < max_pages:
+            res = requests.get(current_url, headers=headers, timeout=10)
+            if res.status_code != 200:
+                print(f"⚠️ Erreur récupération historique ordres Trading 212 (HTTP {res.status_code}): {res.text}")
+                break
+
             data = res.json()
-            orders = data.get("items", []) if isinstance(data, dict) else data
-            return orders if isinstance(orders, list) else []
-        return []
+            items = data.get("items", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            all_orders.extend(items)
+
+            # Pagination
+            next_path = data.get("nextPagePath") if isinstance(data, dict) else None
+            if next_path:
+                if next_path.startswith("http"):
+                    current_url = next_path
+                else:
+                    current_url = f"https://live.trading212.com/api/v0{next_path}" if "live" in base_url else f"https://demo.trading212.com/api/v0{next_path}"
+                page_count += 1
+            else:
+                current_url = None
+
+        return all_orders
     except Exception as e:
         print(f"⚠️ Erreur récupération ordres Trading 212: {e}")
-        return []
+        return all_orders
 
 def get_trading212_dividends_history(limit=50):
     """
@@ -356,41 +406,57 @@ def get_trading212_dividends_history(limit=50):
 def sync_trading212_history_to_journal():
     """
     Récupère l'historique des ordres exécutés via l'API Trading 212 et construit les entrées du Journal de Trading.
+    Gère à la fois le format structuré {order: ..., fill: ...} et les formats directs d'ordres.
     """
-    orders = get_trading212_orders_history(limit=100)
+    orders = get_trading212_orders_history(limit=50, max_pages=4)
     if not orders:
         return []
 
     closed_trades = []
-    for o in orders:
-        status = str(o.get("status", "")).upper()
+    for item in orders:
+        if not isinstance(item, dict):
+            continue
+
+        # Extraction de l'ordre et du fill
+        order = item.get("order", item)
+        fill = item.get("fill", {})
+
+        status = str(order.get("status", "")).upper()
         if status != "FILLED":
             continue
 
-        side = str(o.get("side", "")).upper()
+        side = str(order.get("side", "")).upper()
         if side != "SELL":
             continue
 
-        order_id = str(o.get("id", ""))
-        raw_ticker = str(o.get("ticker", ""))
+        order_id = str(order.get("id", fill.get("id", "")))
+        raw_ticker = str(order.get("ticker", item.get("ticker", "")))
         ticker = normalize_t212_ticker(raw_ticker)
-        qty = float(o.get("filledQuantity", o.get("orderedQuantity", 0.0)))
-        fill_price = float(o.get("fillPrice", 0.0))
-        fill_val = float(o.get("filledValue", fill_price * qty))
         
-        pnl = float(o.get("ppl", o.get("result", 0.0)))
-        invested = fill_val - pnl
+        instrument = order.get("instrument", {})
+        name = instrument.get("name") or ticker
+
+        qty = abs(float(fill.get("quantity", order.get("filledQuantity", order.get("quantity", 0.0)))))
+        fill_price = float(fill.get("price", order.get("fillPrice", order.get("limitPrice", 0.0))))
+        
+        wallet = fill.get("walletImpact", {})
+        currency = wallet.get("currency") or order.get("currency") or ("EUR" if (".PA" in ticker or ".DE" in ticker or ".AS" in ticker) else "USD")
+        
+        pnl = float(wallet.get("realisedProfitLoss", order.get("ppl", order.get("result", 0.0))))
+        net_val = float(wallet.get("netValue", fill_price * qty))
+        
+        invested = (net_val - pnl) if (net_val > 0 and pnl != 0) else (fill_price * qty)
         pru = (invested / qty) if (qty > 0 and invested > 0) else fill_price
         pnl_pct = (pnl / invested * 100) if invested > 0 else 0.0
         
-        exec_date = str(o.get("dateExecuted", o.get("dateCreated", time.strftime("%Y-%m-%d %H:%M:%S"))))
+        exec_date = str(fill.get("filledAt", order.get("createdAt", time.strftime("%Y-%m-%d %H:%M:%S"))))
         if "T" in exec_date:
-            exec_date = exec_date.replace("T", " ").split(".")[0]
+            exec_date = exec_date.replace("T", " ").split(".")[0].replace("Z", "")
 
         closed_trades.append({
-            "id": f"T212_API_{order_id}",
+            "id": f"T212_{order_id}",
             "symbol": ticker,
-            "name": ticker,
+            "name": name,
             "open_time": exec_date,
             "close_time": exec_date,
             "pru": round(pru, 2),
@@ -402,7 +468,7 @@ def sync_trading212_history_to_journal():
             "days_held": 1,
             "result": "GAIN 🟢" if pnl >= 0 else "PERTE 🔴",
             "account": "Trading 212",
-            "currency": "EUR" if ".PA" in ticker or ".DE" in ticker or ".AS" in ticker else "USD",
+            "currency": currency,
             "comment": "Synchronisé via API Trading 212"
         })
 

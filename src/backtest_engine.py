@@ -1055,45 +1055,69 @@ def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.2
 
     for c_key, c_info in HISTORICAL_PERIODS_1999_2026.items():
         print(f"\n▶️ Test en cours : {c_info['name']} ({c_info['start']} -> {c_info['end']})...")
-        engine = BacktestEngine(
-            symbols=base_engine.symbols,
-            period=c_key,
-            start_date=c_info['start'],
-            end_date=c_info['end'],
-            initial_capital=initial_capital,
-            tp1_pct=tp1_pct,
-            tp2_pct=tp2_pct,
-            max_holding_days=max_holding_days,
-            strategy=strategy
-        )
-        # Partager les données historiques déjà en mémoire
-        engine.historical_data = base_engine.historical_data
-        engine.macro_data = base_engine.macro_data
-        engine.sector_etf_data = base_engine.sector_etf_data
-        engine.macro_daily_regime = base_engine.macro_daily_regime
+        try:
+            engine = BacktestEngine(
+                symbols=base_engine.symbols,
+                period=c_key,
+                start_date=c_info['start'],
+                end_date=c_info['end'],
+                initial_capital=initial_capital,
+                tp1_pct=tp1_pct,
+                tp2_pct=tp2_pct,
+                max_holding_days=max_holding_days,
+                strategy=strategy
+            )
+            # Partager les données historiques déjà en mémoire
+            engine.historical_data = base_engine.historical_data
+            engine.macro_data = base_engine.macro_data
+            engine.sector_etf_data = base_engine.sector_etf_data
+            engine.macro_daily_regime = base_engine.macro_daily_regime
 
-        res = engine.run_simulation()
-        m = res.get('metrics', {})
-        results_by_crisis[c_key] = {
-            "name": c_info['name'],
-            "category": c_info.get('category', 'Général'),
-            "description": c_info['description'],
-            "start": c_info['start'],
-            "end": c_info['end'],
-            "initial_capital": initial_capital,
-            "final_capital": res.get('final_capital', initial_capital),
-            "net_pnl": m.get('total_net_pnl', 0.0),
-            "return_pct": m.get('total_return_pct', 0.0),
-            "win_rate": m.get('win_rate_pct', 0.0),
-            "total_trades": m.get('total_trades', 0),
-            "winning_trades": m.get('winning_trades', 0),
-            "losing_trades": m.get('losing_trades', 0),
-            "profit_factor": m.get('profit_factor', 0.0),
-            "max_drawdown": m.get('max_drawdown_pct', 0.0),
-            "avg_holding_days": m.get('avg_holding_days', 0.0),
-            "sharpe_ratio": m.get('sharpe_ratio', 0.0),
-            "exit_reasons": m.get('exit_reasons', {})
-        }
+            res = engine.run_simulation()
+            m = res.get('metrics', {})
+            results_by_crisis[c_key] = {
+                "name": c_info['name'],
+                "category": c_info.get('category', 'Général'),
+                "description": c_info['description'],
+                "start": c_info['start'],
+                "end": c_info['end'],
+                "initial_capital": float(initial_capital),
+                "final_capital": float(res.get('final_capital', initial_capital)),
+                "net_pnl": float(m.get('total_net_pnl', 0.0)),
+                "return_pct": float(m.get('total_return_pct', 0.0)),
+                "win_rate": float(m.get('win_rate_pct', 0.0)),
+                "total_trades": int(m.get('total_trades', 0)),
+                "winning_trades": int(m.get('winning_trades', 0)),
+                "losing_trades": int(m.get('losing_trades', 0)),
+                "profit_factor": float(m.get('profit_factor', 0.0)),
+                "max_drawdown": float(m.get('max_drawdown_pct', 0.0)),
+                "avg_holding_days": float(m.get('avg_holding_days', 0.0)),
+                "sharpe_ratio": float(m.get('sharpe_ratio', 0.0)),
+                "exit_reasons": m.get('exit_reasons', {})
+            }
+        except Exception as e:
+            print(f"⚠️ Erreur simulation période {c_key} ({c_info.get('name')}): {e}")
+            results_by_crisis[c_key] = {
+                "name": c_info['name'],
+                "category": c_info.get('category', 'Général'),
+                "description": c_info['description'],
+                "start": c_info['start'],
+                "end": c_info['end'],
+                "initial_capital": float(initial_capital),
+                "final_capital": float(initial_capital),
+                "net_pnl": 0.0,
+                "return_pct": 0.0,
+                "win_rate": 0.0,
+                "total_trades": 0,
+                "winning_trades": 0,
+                "losing_trades": 0,
+                "profit_factor": 0.0,
+                "max_drawdown": 0.0,
+                "avg_holding_days": 0.0,
+                "sharpe_ratio": 0.0,
+                "exit_reasons": {},
+                "error": str(e)
+            }
 
     return results_by_crisis
 

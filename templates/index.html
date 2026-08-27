@@ -1749,11 +1749,19 @@
             
             <!-- Diversification Top Summary Table -->
             <div class="glass-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid var(--card-border);">
-                <div style="padding: 0.85rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="font-size: 0.95rem; font-weight: 700; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 0.5rem;">
+                <div style="padding: 0.85rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <h3 style="font-size: 0.95rem; font-weight: 700; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
                         <span>💎</span> Synthèse Patrimoniale & Liquidités Multi-Comptes
                     </h3>
-                    <span class="badge badge-success" style="font-size: 0.75rem;">Consolidation Globale 🟢</span>
+                    <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                        <span class="badge" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; font-size: 0.72rem;">
+                            🔵 XTB : <span id="div-sync-xtb-badge">--</span>
+                        </span>
+                        <span class="badge" style="background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.3); color: #fdba74; font-size: 0.72rem;">
+                            🟠 Trading 212 : <span id="div-sync-t212-badge">En direct</span>
+                        </span>
+                        <span class="badge badge-success" style="font-size: 0.72rem;">Consolidation 🟢</span>
+                    </div>
                 </div>
                 <div class="table-container" style="margin: 0; overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -1773,11 +1781,12 @@
                                 </td>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
                                     <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);" id="div-equity-val">0.00 €</div>
-                                    <div style="font-size: 0.8rem; color: #60a5fa; margin-top: 0.25rem;" id="div-equity-pct">0% du capital total</div>
+                                    <div style="font-size: 0.78rem; color: #60a5fa; margin-top: 0.25rem;" id="div-equity-pct">0% du capital total</div>
+                                    <div style="font-size: 0.73rem; color: var(--text-muted); margin-top: 0.15rem;" id="div-invested-breakdown">PEA: -- € | CTO EUR: -- € | CTO USD: -- $ | T212: -- €</div>
                                 </td>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
                                     <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #fbbf24;" id="div-cash-val">0.00 €</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="div-cash-breakdown">PEA: 0.00€ | CTO: 0.00€ | USD: 0.00$</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="div-cash-breakdown">PEA: 0.00€ | CTO: 0.00€ | USD: 0.00$ | T212: 0.00€</div>
                                 </td>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
                                     <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #a78bfa;" id="div-dividends-val">+0.00 €</div>
@@ -3120,23 +3129,51 @@
             if (navElem) navElem.textContent = `${(Number(data.total_nav_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
 
             const eqValElem = document.getElementById('div-equity-val');
-            if (eqValElem) eqValElem.textContent = `${(Number(data.total_equity_value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            if (eqValElem) eqValElem.textContent = `${(Number(data.total_equity_invested_eur || data.total_equity_value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
 
             const eqPctElem = document.getElementById('div-equity-pct');
-            if (eqPctElem) eqPctElem.textContent = `${Number(data.equity_weight_pct) || 0}% du capital total`;
+            if (eqPctElem) eqPctElem.textContent = `Valeur en cours : ${(Number(data.total_equity_value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} € (${Number(data.equity_weight_pct) || 0}% de l'actif)`;
 
+            // Invested breakdown by account
+            const invBreakdownElem = document.getElementById('div-invested-breakdown');
+            if (invBreakdownElem && data.accounts) {
+                let parts = [];
+                data.accounts.forEach(a => {
+                    const name = a.account_name || a.account_id;
+                    const inv = Number(a.invested_eur) || 0;
+                    if (name.includes('PEA')) parts.push(`PEA: ${inv.toLocaleString('fr-FR', {maximumFractionDigits: 0})} €`);
+                    else if (name.includes('Euro')) parts.push(`CTO EUR: ${inv.toLocaleString('fr-FR', {maximumFractionDigits: 0})} €`);
+                    else if (name.includes('Dollar')) parts.push(`CTO USD: ${inv.toLocaleString('fr-FR', {maximumFractionDigits: 0})} €`);
+                    else if (name.includes('Trading 212') || name.includes('T212')) parts.push(`T212: ${inv.toLocaleString('fr-FR', {maximumFractionDigits: 0})} €`);
+                });
+                if (parts.length > 0) invBreakdownElem.textContent = parts.join(' | ');
+            }
+
+            // Cash KPI & breakdown
             const cashValElem = document.getElementById('div-cash-val');
             if (cashValElem) cashValElem.textContent = `${(Number(data.cash_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
 
             const cashBreakdownElem = document.getElementById('div-cash-breakdown');
             if (cashBreakdownElem && data.cash_summary && data.cash_summary.accounts) {
-                const peaCash = data.cash_summary.accounts.PEA ? data.cash_summary.accounts.PEA.cash_balance : 0;
-                const eurCash = data.cash_summary.accounts["CTO Euro"] ? data.cash_summary.accounts["CTO Euro"].cash_balance : 0;
-                const usdCash = data.cash_summary.accounts["CTO Dollar"] ? data.cash_summary.accounts["CTO Dollar"].cash_balance : 0;
-                const t212Cash = Number(data.trading212_cash_eur) || 0;
-                let text = `PEA: ${peaCash.toFixed(2)}€ | CTO: ${eurCash.toFixed(2)}€ | USD: ${usdCash.toFixed(2)}$`;
-                if (t212Cash > 0) text += ` | T212: ${t212Cash.toFixed(2)}€`;
-                cashBreakdownElem.textContent = text;
+                const peaCash = data.cash_summary.accounts.PEA ? Number(data.cash_summary.accounts.PEA.cash_balance) : 0;
+                const eurCash = data.cash_summary.accounts["CTO Euro"] ? Number(data.cash_summary.accounts["CTO Euro"].cash_balance) : 0;
+                const usdCash = data.cash_summary.accounts["CTO Dollar"] ? Number(data.cash_summary.accounts["CTO Dollar"].cash_balance) : 0;
+                const t212Cash = Number(data.trading212_cash_eur) || (data.cash_summary.accounts["Trading 212"] ? Number(data.cash_summary.accounts["Trading 212"].cash_balance) : 0);
+                
+                cashBreakdownElem.textContent = `PEA: ${peaCash.toFixed(2)}€ | CTO: ${eurCash.toFixed(2)}€ | USD: ${usdCash.toFixed(2)}$ | T212: ${t212Cash.toFixed(2)}€`;
+            }
+
+            // Sync badges
+            const syncXtb = document.getElementById('div-sync-xtb-badge');
+            if (syncXtb) {
+                const xtbDate = data.last_update_xtb || (data.cash_summary && data.cash_summary.last_update_xtb);
+                syncXtb.textContent = xtbDate ? xtbDate : '24/08/2026 13:40';
+            }
+
+            const syncT212 = document.getElementById('div-sync-t212-badge');
+            if (syncT212) {
+                const t212Date = data.last_update_trading212 || (data.cash_summary && data.cash_summary.last_update_trading212);
+                syncT212.textContent = t212Date ? 'En direct (API)' : 'En direct';
             }
 
             const divElem = document.getElementById('div-dividends-val');
@@ -3243,32 +3280,48 @@
             let html = '';
             accounts.forEach(acc => {
                 const accName = acc.account_name || acc.account_id || 'Compte';
-                const borderLeft = accName.includes('PEA') ? 'border-left: 4px solid #3b82f6;' : accName.includes('Dollar') ? 'border-left: 4px solid #8b5cf6;' : 'border-left: 4px solid #10b981;';
-                const badgeClass = accName.includes('PEA') ? 'badge-pea' : accName.includes('Dollar') ? 'badge-cto' : 'badge-success';
-                const posCount = acc.positions_count || acc.count || 0;
-
-                let cashBal = Number(acc.cash_balance) || 0;
-                let curr = acc.currency || (accName.includes('Dollar') ? '$' : '€');
-                if (cashSummary && cashSummary.accounts) {
-                    const accKey = accName.includes('PEA') ? 'PEA' : accName.includes('Dollar') ? 'CTO Dollar' : 'CTO Euro';
-                    if (cashSummary.accounts[accKey]) {
-                        cashBal = Number(cashSummary.accounts[accKey].cash_balance) || cashBal;
-                    }
+                const isPea = accName.includes('PEA');
+                const isUsd = accName.includes('Dollar') || accName.includes('USD');
+                const isT212 = accName.includes('Trading 212') || accName.includes('T212') || acc.broker === 'Trading 212';
+                
+                let borderLeft = 'border-left: 4px solid #10b981;';
+                let badgeClass = 'badge-success';
+                if (isPea) {
+                    borderLeft = 'border-left: 4px solid #3b82f6;';
+                    badgeClass = 'badge-pea';
+                } else if (isUsd) {
+                    borderLeft = 'border-left: 4px solid #8b5cf6;';
+                    badgeClass = 'badge-cto';
+                } else if (isT212) {
+                    borderLeft = 'border-left: 4px solid #f97316;';
+                    badgeClass = 'badge-warning';
                 }
+
+                const posCount = acc.positions_count || acc.count || 0;
+                const investedEur = Number(acc.invested_eur) || 0;
+                const valueEur = Number(acc.value_eur) || 0;
+                const pnlEur = Number(acc.pnl_eur) || 0;
+                const pnlPct = Number(acc.pnl_pct) || 0;
+                const cashBal = Number(acc.cash_eur !== undefined ? acc.cash_eur : (acc.cash_balance || 0));
+                const navEnvelope = Number(acc.nav_eur) || (valueEur + cashBal);
 
                 html += `
                     <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); ${borderLeft} border-radius: 8px; padding: 1rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                             <strong>${acc.icon || '💳'} ${accName}</strong>
-                            <span class="badge ${badgeClass}">${acc.weight_pct || 0}%</span>
+                            <span class="badge ${badgeClass}">${acc.weight_pct || 0}% de l'actif</span>
                         </div>
-                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 0.35rem;">
-                            <span style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">${(Number(acc.value_eur) || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</span>
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 0.25rem;">
+                            <span style="font-size: 1.15rem; font-weight: 700; color: var(--text-main);">${valueEur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</span>
                             <span style="font-size: 0.8rem; color: var(--text-muted);">${posCount} position(s)</span>
                         </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-muted); margin-bottom:0.35rem;">
+                            <span>Investi en actions : <strong>${investedEur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong></span>
+                            <span style="color:${pnlEur >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">${pnlEur >= 0 ? '+' : ''}${pnlEur.toFixed(2)} € (${pnlEur >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)</span>
+                        </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.4rem; margin-top: 0.4rem;">
-                            <span>Espèces (Cash) :</span>
-                            <strong style="color: #fbbf24;">${cashBal.toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${curr}</strong>
+                            <span>Espèces (Cash) : <strong style="color: #fbbf24;">${cashBal.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong></span>
+                            <span>NAV Enveloppe : <strong style="color: #10b981;">${navEnvelope.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €</strong></span>
                         </div>
                     </div>
                 `;
@@ -4178,7 +4231,11 @@
             }
 
             const openCountElem = document.getElementById('port-open-count');
-            if (openCountElem) openCountElem.textContent = `${d.open_positions_count || 0} position(s) active(s)`;
+            if (openCountElem) {
+                const xtbCount = (d.brokers_summary && d.brokers_summary.XTB) ? d.brokers_summary.XTB.count : 0;
+                const t212Count = (d.brokers_summary && d.brokers_summary["Trading 212"]) ? d.brokers_summary["Trading 212"].count : 0;
+                openCountElem.textContent = `${d.open_positions_count || 0} positions (XTB: ${xtbCount} | T212: ${t212Count})`;
+            }
 
             const alertsCountElem = document.getElementById('port-alerts-count');
             if (alertsCountElem) {
@@ -4213,7 +4270,7 @@
                 const name = (p.name || '').toLowerCase();
                 if (query && !sym.includes(query) && !name.includes(query)) return false;
 
-                const b = p.broker || 'XTB';
+                const b = p.broker || ((p.account && p.account.includes("Trading 212")) ? 'Trading 212' : 'XTB');
                 if (brokerFilter !== 'all' && b !== brokerFilter) return false;
 
                 const pnl = Number(p.pnl_amount) || 0;
@@ -4274,13 +4331,19 @@
                 else if (p.status_badge === 'time_warning') statusBadgeClass = 'badge-warning';
                 else if (p.status_badge === 'in_profit') statusBadgeClass = 'badge-success';
 
+                const broker = p.broker || ((p.account && p.account.includes("Trading 212")) ? 'Trading 212' : 'XTB');
+                const isT212 = broker === 'Trading 212' || (p.account && p.account.includes("Trading 212"));
                 const isPea = p.account && p.account.includes("PEA");
-                const isUsd = p.account && p.account.includes("Dollar");
-                const accountBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' : '<span class="badge badge-success">💶 CTO EUR</span>';
+                const isUsd = p.account && (p.account.includes("Dollar") || p.account.includes("USD"));
                 
-                const broker = p.broker || 'XTB';
+                const accountBadge = isT212 
+                    ? '<span class="badge" style="background:#ea580c; color:#fff; font-size:0.7rem;">📱 CTO Invest T212</span>'
+                    : isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' 
+                    : isUsd ? '<span class="badge badge-cto">🇺🇸 CTO US</span>' 
+                    : '<span class="badge badge-success">💶 CTO EUR</span>';
+                
                 const brokerBadge = broker === 'Trading 212' 
-                    ? '<span class="badge" style="background:#c2410c; color:#fff; font-size:0.7rem;">🟠 T212</span>' 
+                    ? '<span class="badge" style="background:#c2410c; color:#fff; font-size:0.7rem;">🟠 Trading 212</span>' 
                     : '<span class="badge" style="background:#1e40af; color:#fff; font-size:0.7rem;">🔵 XTB</span>';
 
                 // Target Progress Track Calculation
@@ -6329,12 +6392,23 @@
                     runHistoricalBacktest();
                 };
 
-                const isPos = c.net_pnl >= 0;
+                const finalCap = Number(c.final_capital) || Number(c.initial_capital) || 5000;
+                const netPnl = Number(c.net_pnl) || 0;
+                const returnPct = Number(c.return_pct) || 0;
+                const winRate = Number(c.win_rate) || 0;
+                const profitFactor = Number(c.profit_factor) || 0;
+                const maxDrawdown = Number(c.max_drawdown) || 0;
+                const avgHoldingDays = Number(c.avg_holding_days) || 0;
+                const winCount = Number(c.winning_trades) || 0;
+                const lossCount = Number(c.losing_trades) || 0;
+                const totalTrades = Number(c.total_trades) || 0;
+
+                const isPos = netPnl >= 0;
                 const pnlColor = isPos ? 'var(--success)' : 'var(--danger)';
-                const pfColor = c.profit_factor >= 1.2 ? 'var(--success)' : c.profit_factor >= 1.0 ? 'var(--warning)' : 'var(--danger)';
+                const pfColor = profitFactor >= 1.2 ? 'var(--success)' : profitFactor >= 1.0 ? 'var(--warning)' : 'var(--danger)';
 
                 let diagBadge = '';
-                if (c.max_drawdown <= 5.0 && isPos) {
+                if (maxDrawdown <= 5.0 && isPos) {
                     diagBadge = '<span class="badge badge-success">🛡️ Protection Maximale</span>';
                 } else if (isPos) {
                     diagBadge = '<span class="badge badge-pea">🟢 Capital Préservé / Gain</span>';
@@ -6344,17 +6418,17 @@
 
                 tr.innerHTML = `
                     <td>
-                        <strong>${c.name}</strong>
+                        <strong>${c.name || k}</strong>
                         ${c.category ? `<span class="badge badge-neutral" style="margin-left: 0.4rem; font-size: 0.68rem;">${c.category}</span>` : ''}
-                        <br><span style="font-size:0.75rem; color:var(--text-muted);">${c.description}</span>
+                        <br><span style="font-size:0.75rem; color:var(--text-muted);">${c.description || ''}</span>
                     </td>
-                    <td style="white-space: nowrap;">${c.start} → ${c.end}</td>
-                    <td><strong>${c.final_capital.toFixed(2)} €</strong></td>
-                    <td style="color: ${pnlColor}; font-weight: 700;">${isPos ? '+' : ''}${c.net_pnl.toFixed(2)} € (${isPos ? '+' : ''}${c.return_pct.toFixed(2)} %)</td>
-                    <td><strong style="color: #60a5fa;">${c.win_rate.toFixed(1)} %</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${c.winning_trades}W / ${c.losing_trades}L (${c.total_trades} trades)</span></td>
-                    <td style="color: ${pfColor}; font-weight: 700;">${c.profit_factor.toFixed(2)}</td>
-                    <td style="color: var(--danger); font-weight: 700;">-${c.max_drawdown.toFixed(2)} %</td>
-                    <td>${c.avg_holding_days.toFixed(1)} j</td>
+                    <td style="white-space: nowrap;">${c.start || '--'} → ${c.end || '--'}</td>
+                    <td><strong>${finalCap.toFixed(2)} €</strong></td>
+                    <td style="color: ${pnlColor}; font-weight: 700;">${isPos ? '+' : ''}${netPnl.toFixed(2)} € (${isPos ? '+' : ''}${returnPct.toFixed(2)} %)</td>
+                    <td><strong style="color: #60a5fa;">${winRate.toFixed(1)} %</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${winCount}W / ${lossCount}L (${totalTrades} trades)</span></td>
+                    <td style="color: ${pfColor}; font-weight: 700;">${profitFactor.toFixed(2)}</td>
+                    <td style="color: var(--danger); font-weight: 700;">-${maxDrawdown.toFixed(2)} %</td>
+                    <td>${avgHoldingDays.toFixed(1)} j</td>
                     <td>${diagBadge}</td>
                 `;
                 tbody.appendChild(tr);

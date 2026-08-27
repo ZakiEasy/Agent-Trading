@@ -231,14 +231,34 @@ def get_live_portfolio_summary(force_refresh=False):
     if not raw_positions:
         raw_positions = read_positions_from_sheets(force_refresh=force_refresh) or []
     
-    # Taguer les positions Google Sheets avec broker XTB par défaut
+    # Taguer et normaliser les positions XTB
     for p in raw_positions:
-        if "broker" not in p or not p["broker"]:
-            p["broker"] = "Trading 212" if "Trading 212" in p.get("account", "") else "XTB"
+        raw_b = str(p.get("broker") or "").strip()
+        if "Trading 212" in raw_b or "Trading 212" in str(p.get("account", "")):
+            p["broker"] = "Trading 212"
+        else:
+            p["broker"] = "XTB"
 
     # Récupérer les positions Trading 212 en direct si configuré
-    t212_positions = get_trading212_open_positions() or []
-    all_raw_positions = raw_positions + t212_positions
+    t212_positions = get_trading212_open_positions(force_refresh=force_refresh) or []
+    
+    # Déduplication intelligente basée sur l'ID ou le couple broker/symbole
+    seen_ids = set()
+    all_raw_positions = []
+    
+    for p in raw_positions:
+        pid = p.get("id") or f"{p.get('broker')}_{p.get('symbol')}"
+        if pid not in seen_ids:
+            seen_ids.add(pid)
+            all_raw_positions.append(p)
+            
+    for p in t212_positions:
+        p["broker"] = "Trading 212"
+        p["account"] = "Trading 212"
+        pid = p.get("id") or f"T212_{p.get('symbol')}"
+        if pid not in seen_ids:
+            seen_ids.add(pid)
+            all_raw_positions.append(p)
 
     if not all_raw_positions:
         res = {
@@ -272,7 +292,10 @@ def get_live_portfolio_summary(force_refresh=False):
         "Trading 212": {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0}
     }
     for p in positions_live:
-        b = p.get("broker", "XTB")
+        raw_b = p.get("broker", "XTB")
+        b = "Trading 212" if ("Trading 212" in raw_b or "Trading 212" in p.get("account", "")) else "XTB"
+        p["broker"] = b
+        
         if b not in brokers_summary:
             brokers_summary[b] = {"count": 0, "invested": 0.0, "value": 0.0, "pnl": 0.0}
         brokers_summary[b]["count"] += 1
@@ -842,12 +865,14 @@ def calculate_trading_performance_stats(closed_trades):
 def calculate_cash_and_treasury_summary(cash_ops_list):
     """
     Agrège les opérations de trésorerie par compte et calcule les liquidités disponibles (Cash),
-    les dépôts cumulés, les retraits, les dividendes perçus et les intérêts.
+    les dépôts cumulés, les retraits, les dividendes perçus et les intérêts pour XTB et Trading 212.
     """
     usd_to_eur = get_usd_to_eur_rate()
     
     accounts = {
         "PEA": {
+            "name": "PEA (XTB)",
+            "broker": "XTB",
             "currency": "EUR",
             "deposits": 0.0,
             "withdrawals": 0.0,
@@ -860,6 +885,8 @@ def calculate_cash_and_treasury_summary(cash_ops_list):
             "cash_balance": 0.0
         },
         "CTO Euro": {
+            "name": "CTO Euro (XTB)",
+            "broker": "XTB",
             "currency": "EUR",
             "deposits": 0.0,
             "withdrawals": 0.0,
@@ -872,7 +899,23 @@ def calculate_cash_and_treasury_summary(cash_ops_list):
             "cash_balance": 0.0
         },
         "CTO Dollar": {
+            "name": "CTO Dollar (XTB)",
+            "broker": "XTB",
             "currency": "USD",
+            "deposits": 0.0,
+            "withdrawals": 0.0,
+            "dividends": 0.0,
+            "interest": 0.0,
+            "taxes": 0.0,
+            "purchases": 0.0,
+            "sales": 0.0,
+            "transfers": 0.0,
+            "cash_balance": 0.0
+        },
+        "Trading 212": {
+            "name": "CTO Invest (Trading 212)",
+            "broker": "Trading 212",
+            "currency": "EUR",
             "deposits": 0.0,
             "withdrawals": 0.0,
             "dividends": 0.0,
@@ -885,69 +928,100 @@ def calculate_cash_and_treasury_summary(cash_ops_list):
         }
     }
 
-    for op in cash_ops_list:
-        acc_key = op.get("account", "CTO Euro")
+    last_xtb_times = []
+    for op in (cash_ops_list or []):
+        acc_key = str(op.get("account", "CTO Euro"))
         if "PEA" in acc_key:
             target_acc = "PEA"
+            last_xtb_times.append(op.get("time") or op.get("date"))
+        elif "Trading 212" in acc_key or "T212" in acc_key:
+            target_acc = "Trading 212"
         elif "USD" in acc_key or "Dollar" in acc_key:
             target_acc = "CTO Dollar"
+            last_xtb_times.append(op.get("time") or op.get("date"))
         else:
             target_acc = "CTO Euro"
+            last_xtb_times.append(op.get("time") or op.get("date"))
 
         t = op.get("type", "").lower()
         amt = safe_float(op.get("amount", 0.0))
 
-        if "deposit" in t or "pea deposit" in t:
+        if "deposit" in t or "pea deposit" in t or "dépôt" in t:
             if amt > 0:
                 accounts[target_acc]["deposits"] += amt
             else:
                 accounts[target_acc]["transfers"] += amt
-        elif "withdrawal" in t:
+        elif "withdrawal" in t or "retrait" in t:
             accounts[target_acc]["withdrawals"] += abs(amt)
-        elif "dividend" in t:
+        elif "dividend" in t or "dividende" in t:
             accounts[target_acc]["dividends"] += amt
-        elif "interest" in t:
+        elif "interest" in t or "intérêt" in t or "interet" in t:
             accounts[target_acc]["interest"] += amt
-        elif "tax" in t or "fee" in t:
+        elif "tax" in t or "fee" in t or "frais" in t:
             accounts[target_acc]["taxes"] += abs(amt)
         elif "purchase" in t or "achat" in t:
             accounts[target_acc]["purchases"] += abs(amt)
         elif "sell" in t or "vente" in t:
             accounts[target_acc]["sales"] += amt
-        elif "transfer" in t:
+        elif "transfer" in t or "virement" in t:
             accounts[target_acc]["transfers"] += amt
 
         # Calcul cumulatif du solde de cash
         if t != "total":
             accounts[target_acc]["cash_balance"] += amt
 
+    # Intégration en direct du cash et statut Trading 212
+    from src.trading212_connector import get_trading212_cash
+    t212_cash_data = get_trading212_cash()
+    last_update_t212 = None
+    if t212_cash_data and t212_cash_data.get("connected"):
+        t212_free = safe_float(t212_cash_data.get("free", 0.0))
+        t212_total = safe_float(t212_cash_data.get("total", 0.0))
+        t212_invested = safe_float(t212_cash_data.get("invested", 0.0))
+        t212_ppl = safe_float(t212_cash_data.get("ppl", 0.0))
+        accounts["Trading 212"]["cash_balance"] = t212_free
+        accounts["Trading 212"]["live_invested"] = t212_invested
+        accounts["Trading 212"]["live_total"] = t212_total
+        accounts["Trading 212"]["live_ppl"] = t212_ppl
+        last_update_t212 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Calcul de la dernière date de mise à jour XTB
+    valid_xtb_dates = [d for d in last_xtb_times if d]
+    last_update_xtb = max(valid_xtb_dates) if valid_xtb_dates else None
+
     # Convertir en EUR global
-    total_deposits_eur = accounts["PEA"]["deposits"] + accounts["CTO Euro"]["deposits"] + (accounts["CTO Dollar"]["deposits"] * usd_to_eur)
-    total_withdrawals_eur = accounts["PEA"]["withdrawals"] + accounts["CTO Euro"]["withdrawals"] + (accounts["CTO Dollar"]["withdrawals"] * usd_to_eur)
-    total_dividends_eur = accounts["PEA"]["dividends"] + accounts["CTO Euro"]["dividends"] + (accounts["CTO Dollar"]["dividends"] * usd_to_eur)
-    total_interest_eur = accounts["PEA"]["interest"] + accounts["CTO Euro"]["interest"] + (accounts["CTO Dollar"]["interest"] * usd_to_eur)
+    total_deposits_eur = accounts["PEA"]["deposits"] + accounts["CTO Euro"]["deposits"] + (accounts["CTO Dollar"]["deposits"] * usd_to_eur) + accounts["Trading 212"]["deposits"]
+    total_withdrawals_eur = accounts["PEA"]["withdrawals"] + accounts["CTO Euro"]["withdrawals"] + (accounts["CTO Dollar"]["withdrawals"] * usd_to_eur) + accounts["Trading 212"]["withdrawals"]
+    total_dividends_eur = accounts["PEA"]["dividends"] + accounts["CTO Euro"]["dividends"] + (accounts["CTO Dollar"]["dividends"] * usd_to_eur) + accounts["Trading 212"]["dividends"]
+    total_interest_eur = accounts["PEA"]["interest"] + accounts["CTO Euro"]["interest"] + (accounts["CTO Dollar"]["interest"] * usd_to_eur) + accounts["Trading 212"]["interest"]
     
-    total_cash_eur = accounts["PEA"]["cash_balance"] + accounts["CTO Euro"]["cash_balance"] + (accounts["CTO Dollar"]["cash_balance"] * usd_to_eur)
+    xtb_cash_eur = accounts["PEA"]["cash_balance"] + accounts["CTO Euro"]["cash_balance"] + (accounts["CTO Dollar"]["cash_balance"] * usd_to_eur)
+    t212_cash_eur = accounts["Trading 212"]["cash_balance"]
+    total_cash_eur = xtb_cash_eur + t212_cash_eur
     net_inflows_eur = total_deposits_eur - total_withdrawals_eur
 
     return {
         "accounts": accounts,
         "total_cash_eur": round(safe_float(total_cash_eur), 2),
+        "xtb_cash_eur": round(safe_float(xtb_cash_eur), 2),
+        "trading212_cash_eur": round(safe_float(t212_cash_eur), 2),
         "total_deposits_eur": round(safe_float(total_deposits_eur), 2),
         "total_withdrawals_eur": round(safe_float(total_withdrawals_eur), 2),
         "net_inflows_eur": round(safe_float(net_inflows_eur), 2),
         "total_dividends_eur": round(safe_float(total_dividends_eur), 2),
         "total_interest_eur": round(safe_float(total_interest_eur), 2),
+        "last_update_xtb": last_update_xtb,
+        "last_update_trading212": last_update_t212,
         "usd_to_eur_rate": round(safe_float(usd_to_eur), 4)
     }
 
 def calculate_portfolio_diversification(live_positions, cash_summary=None):
     """
     Calcule la diversification sectorielle par catégorie (Tech & IA, Santé, Luxe, etc.)
-    et par enveloppe fiscale (PEA, CTO Euro, CTO Dollar) ainsi que le ratio Actions vs Cash.
+    et par enveloppe fiscale (PEA, CTO Euro, CTO Dollar, Trading 212) ainsi que le ratio Actions vs Cash.
     """
     from src.market_data import categorize_ticker, get_ticker_info
-    usd_to_eur = safe_float(get_usd_to_eur_rate(), 0.92)
+    usd_to_eur = safe_float(get_usd_to_eur_rate(), 0.8545)
 
     # 1. Analyse par Catégorie
     categories_map = {}
@@ -996,6 +1070,7 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             "symbol": sym,
             "name": pos.get("name", sym),
             "account": pos.get("account", "CTO"),
+            "broker": pos.get("broker", "XTB"),
             "value_eur": round(safe_float(val_eur), 2),
             "pnl_eur": round(safe_float(pnl_eur), 2),
             "pnl_pct": round(safe_float(pos.get("pnl_pct", 0.0)), 2)
@@ -1034,16 +1109,67 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
 
     categories_list.sort(key=lambda x: x["value_eur"], reverse=True)
 
-    # 2. Analyse par Compte
+    # 2. Analyse par Enveloppe Fiscale (PEA, CTO Euro XTB, CTO Dollar XTB, Trading 212 Invest)
+    cash_accs = (cash_summary.get("accounts", {}) if cash_summary else {})
+    pea_cash = safe_float(cash_accs.get("PEA", {}).get("cash_balance", 0.0))
+    cto_eur_cash = safe_float(cash_accs.get("CTO Euro", {}).get("cash_balance", 0.0))
+    cto_usd_cash = safe_float(cash_accs.get("CTO Dollar", {}).get("cash_balance", 0.0)) * usd_to_eur
+    t212_cash = safe_float(cash_accs.get("Trading 212", {}).get("cash_balance", 0.0))
+
     accounts_map = {
-        "PEA": {"name": "PEA (Europe)", "icon": "🇫🇷", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0},
-        "CTO Euro": {"name": "CTO Euro", "icon": "💶", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0},
-        "CTO Dollar": {"name": "CTO Dollar", "icon": "🇺🇸", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0}
+        "PEA": {
+            "name": "PEA (XTB)",
+            "broker": "XTB",
+            "icon": "🇫🇷",
+            "invested_eur": 0.0,
+            "value_eur": 0.0,
+            "pnl_eur": 0.0,
+            "count": 0,
+            "cash_eur": pea_cash,
+            "currency": "EUR"
+        },
+        "CTO Euro": {
+            "name": "CTO Euro (XTB)",
+            "broker": "XTB",
+            "icon": "💶",
+            "invested_eur": 0.0,
+            "value_eur": 0.0,
+            "pnl_eur": 0.0,
+            "count": 0,
+            "cash_eur": cto_eur_cash,
+            "currency": "EUR"
+        },
+        "CTO Dollar": {
+            "name": "CTO Dollar (XTB)",
+            "broker": "XTB",
+            "icon": "🇺🇸",
+            "invested_eur": 0.0,
+            "value_eur": 0.0,
+            "pnl_eur": 0.0,
+            "count": 0,
+            "cash_eur": cto_usd_cash,
+            "currency": "USD"
+        },
+        "Trading 212": {
+            "name": "CTO Invest (Trading 212)",
+            "broker": "Trading 212",
+            "icon": "🟠",
+            "invested_eur": 0.0,
+            "value_eur": 0.0,
+            "pnl_eur": 0.0,
+            "count": 0,
+            "cash_eur": t212_cash,
+            "currency": "EUR"
+        }
     }
 
     for pos in live_positions:
-        acc_raw = pos.get("account", "CTO Euro")
-        if "PEA" in acc_raw:
+        b = str(pos.get("broker", "XTB")).strip()
+        acc_raw = str(pos.get("account", "CTO Euro")).strip()
+        
+        if b == "Trading 212" or "Trading 212" in acc_raw or "T212" in acc_raw:
+            target_acc = "Trading 212"
+        elif "PEA" in acc_raw:
             target_acc = "PEA"
         elif "USD" in acc_raw or "Dollar" in acc_raw:
             target_acc = "CTO Dollar"
@@ -1060,52 +1186,65 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
         accounts_map[target_acc]["value_eur"] += val_eur
         accounts_map[target_acc]["pnl_eur"] += pnl_eur
 
+    # Compléter Trading 212 si positions non encore en direct mais solde API existant
+    if accounts_map["Trading 212"]["count"] == 0 and cash_accs.get("Trading 212", {}).get("live_invested", 0) > 0:
+        inv_t = safe_float(cash_accs["Trading 212"]["live_invested"])
+        ppl_t = safe_float(cash_accs["Trading 212"]["live_ppl"])
+        accounts_map["Trading 212"]["invested_eur"] = inv_t
+        accounts_map["Trading 212"]["value_eur"] = inv_t + ppl_t
+        accounts_map["Trading 212"]["pnl_eur"] = ppl_t
+
     accounts_list = []
     for acc_id, acc_data in accounts_map.items():
         weight = (acc_data["value_eur"] / total_equity_value_eur * 100) if total_equity_value_eur > 0 else 0.0
         pnl_pct = (acc_data["pnl_eur"] / acc_data["invested_eur"] * 100) if acc_data["invested_eur"] > 0 else 0.0
+        nav_envelope = acc_data["value_eur"] + acc_data["cash_eur"]
+        
         accounts_list.append({
             "account_id": acc_id,
             "account_name": acc_data["name"],
+            "broker": acc_data["broker"],
             "icon": acc_data["icon"],
             "positions_count": int(acc_data["count"]),
             "invested_eur": round(safe_float(acc_data["invested_eur"]), 2),
             "value_eur": round(safe_float(acc_data["value_eur"]), 2),
             "pnl_eur": round(safe_float(acc_data["pnl_eur"]), 2),
             "pnl_pct": round(safe_float(pnl_pct), 2),
+            "cash_eur": round(safe_float(acc_data["cash_eur"]), 2),
+            "nav_eur": round(safe_float(nav_envelope), 2),
+            "currency": acc_data["currency"],
             "weight_pct": round(safe_float(weight), 1)
         })
 
     # 3. Analyse par Courtier (Broker)
-    from src.trading212_connector import get_trading212_cash
-    cash_eur = safe_float(cash_summary.get("total_cash_eur", 0.0) if cash_summary else 0.0, 0.0)
-    t212_cash_data = get_trading212_cash()
-    t212_cash_eur = safe_float(t212_cash_data.get("free", 0.0) if t212_cash_data.get("connected") else 0.0, 0.0)
-
+    xtb_cash = pea_cash + cto_eur_cash + cto_usd_cash
     brokers_map = {
-        "XTB": {"name": "XTB", "icon": "🔵", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": cash_eur},
-        "Trading 212": {"name": "Trading 212", "icon": "🟠", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": t212_cash_eur}
+        "XTB": {
+            "name": "XTB",
+            "icon": "🔵",
+            "invested_eur": accounts_map["PEA"]["invested_eur"] + accounts_map["CTO Euro"]["invested_eur"] + accounts_map["CTO Dollar"]["invested_eur"],
+            "value_eur": accounts_map["PEA"]["value_eur"] + accounts_map["CTO Euro"]["value_eur"] + accounts_map["CTO Dollar"]["value_eur"],
+            "pnl_eur": accounts_map["PEA"]["pnl_eur"] + accounts_map["CTO Euro"]["pnl_eur"] + accounts_map["CTO Dollar"]["pnl_eur"],
+            "count": accounts_map["PEA"]["count"] + accounts_map["CTO Euro"]["count"] + accounts_map["CTO Dollar"]["count"],
+            "cash_eur": xtb_cash
+        },
+        "Trading 212": {
+            "name": "Trading 212",
+            "icon": "🟠",
+            "invested_eur": accounts_map["Trading 212"]["invested_eur"],
+            "value_eur": accounts_map["Trading 212"]["value_eur"],
+            "pnl_eur": accounts_map["Trading 212"]["pnl_eur"],
+            "count": accounts_map["Trading 212"]["count"],
+            "cash_eur": t212_cash
+        }
     }
-
-    for pos in live_positions:
-        b = pos.get("broker", "XTB")
-        if b not in brokers_map:
-            brokers_map[b] = {"name": b, "icon": "💼", "invested_eur": 0.0, "value_eur": 0.0, "pnl_eur": 0.0, "count": 0, "cash_eur": 0.0}
-
-        rate = usd_to_eur if pos.get("currency") == "USD" else 1.0
-        val_eur = safe_float(pos.get("current_value", 0.0)) * rate
-        inv_eur = safe_float(pos.get("invested_amount", 0.0)) * rate
-        pnl_eur = safe_float(pos.get("pnl_amount", 0.0)) * rate
-
-        brokers_map[b]["count"] += 1
-        brokers_map[b]["invested_eur"] += inv_eur
-        brokers_map[b]["value_eur"] += val_eur
-        brokers_map[b]["pnl_eur"] += pnl_eur
 
     brokers_list = []
     for b_id, b_data in brokers_map.items():
         weight = (b_data["value_eur"] / total_equity_value_eur * 100) if total_equity_value_eur > 0 else 0.0
         pnl_pct = (b_data["pnl_eur"] / b_data["invested_eur"] * 100) if b_data["invested_eur"] > 0 else 0.0
+        nav_broker = b_data["value_eur"] + b_data["cash_eur"]
+        
         brokers_list.append({
             "broker_id": b_id,
             "broker_name": b_data["name"],
@@ -1116,14 +1255,18 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
             "pnl_eur": round(safe_float(b_data["pnl_eur"]), 2),
             "pnl_pct": round(safe_float(pnl_pct), 2),
             "cash_eur": round(safe_float(b_data["cash_eur"]), 2),
+            "nav_eur": round(safe_float(nav_broker), 2),
             "weight_pct": round(safe_float(weight), 1)
         })
 
-    # 4. Allocation d'Actifs (Actions vs Cash)
-    total_cash_all_brokers = cash_eur + t212_cash_eur
+    # 4. Allocation d'Actifs Consolidée (Actions vs Cash)
+    total_cash_all_brokers = xtb_cash + t212_cash
     total_nav_eur = total_equity_value_eur + total_cash_all_brokers
     equity_weight = (total_equity_value_eur / total_nav_eur * 100) if total_nav_eur > 0 else 100.0
     cash_weight = (total_cash_all_brokers / total_nav_eur * 100) if total_nav_eur > 0 else 0.0
+
+    last_update_xtb = cash_summary.get("last_update_xtb") if cash_summary else None
+    last_update_t212 = cash_summary.get("last_update_trading212") if cash_summary else None
 
     return {
         "total_nav_eur": round(safe_float(total_nav_eur), 2),
@@ -1132,10 +1275,12 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
         "total_pnl_latent_eur": round(safe_float(total_pnl_latent_eur), 2),
         "total_pnl_latent_pct": round(safe_float((total_pnl_latent_eur / total_equity_invested_eur * 100) if total_equity_invested_eur > 0 else 0.0), 2),
         "cash_eur": round(safe_float(total_cash_all_brokers), 2),
-        "xtb_cash_eur": round(safe_float(cash_eur), 2),
-        "trading212_cash_eur": round(safe_float(t212_cash_eur), 2),
+        "xtb_cash_eur": round(safe_float(xtb_cash), 2),
+        "trading212_cash_eur": round(safe_float(t212_cash), 2),
         "equity_weight_pct": round(safe_float(equity_weight), 1),
         "cash_weight_pct": round(safe_float(cash_weight), 1),
+        "last_update_xtb": last_update_xtb,
+        "last_update_trading212": last_update_t212,
         "categories": categories_list,
         "accounts": accounts_list,
         "brokers": brokers_list,
