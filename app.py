@@ -1247,11 +1247,12 @@ def scan_market():
 @app.route("/api/analyze/<ticker>")
 def analyze_ticker_endpoint(ticker):
     capital = request.args.get("capital", default=CAPITAL_REFERENCE_DEFAULT, type=float)
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"] or request.args.get("refresh", "false").lower() in ["true", "1", "yes"]
     strategy = request.args.get("strategy", "ALL").upper()
     if strategy == "V2":
         res = get_detailed_analysis(ticker, capital=capital)
     else:
-        res = generate_8_step_protocol_analysis(ticker, capital_total=capital)
+        res = generate_8_step_protocol_analysis(ticker, capital_total=capital, force_refresh=force)
     if not res or "error" in res:
         return safe_jsonify({"success": False, "error": (res or {}).get("error", "Analyse impossible")}), 400
     return safe_jsonify({"success": True, "data": res})
@@ -1301,9 +1302,11 @@ def get_v3_macro_sentiment():
 def get_v3_protocol8_analysis(ticker):
     """
     Retourne l'analyse institutionnelle complète en 8 étapes pour un ticker.
+    Accepte ?force=true pour forcer l'actualisation en temps réel (invalidation du cache).
     """
     capital = request.args.get("capital", default=CAPITAL_REFERENCE_DEFAULT, type=float)
-    res = generate_8_step_protocol_analysis(ticker, capital_total=capital)
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"] or request.args.get("refresh", "false").lower() in ["true", "1", "yes"]
+    res = generate_8_step_protocol_analysis(ticker, capital_total=capital, force_refresh=force)
     return safe_jsonify({"success": True, "data": res})
 
 @app.route("/api/v3/risk/calculator", methods=["POST"])

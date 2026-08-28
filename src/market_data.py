@@ -338,7 +338,7 @@ HIST_CACHE_TTL = 300  # 5 minutes
 INFO_CACHE_TTL = 900  # 15 minutes
 FX_CACHE_TTL = 1800   # 30 minutes
 
-def get_ticker_info(ticker_symbol):
+def get_ticker_info(ticker_symbol, force_refresh=False):
     """
     Récupère les informations fondamentales et sectorielles avec cache TTL de 15 minutes.
     """
@@ -347,7 +347,7 @@ def get_ticker_info(ticker_symbol):
         return {}
         
     now = time.time()
-    if symbol in _INFO_CACHE and (now - _INFO_CACHE[symbol]["ts"]) < INFO_CACHE_TTL:
+    if not force_refresh and symbol in _INFO_CACHE and (now - _INFO_CACHE[symbol]["ts"]) < INFO_CACHE_TTL:
         return _INFO_CACHE[symbol]["info"]
         
     info = {}
@@ -413,7 +413,7 @@ def get_usd_to_eur_rate():
     eur_usd = get_usd_conversion_rate("EUR")
     return (1.0 / eur_usd) if eur_usd > 0 else 0.92
 
-def fetch_market_data(ticker_symbol):
+def fetch_market_data(ticker_symbol, force_refresh=False):
     """
     Récupère les données historiques de cours avec cache TTL de 5 minutes et gestion de reprise en cas de rate-limit.
     """
@@ -422,7 +422,7 @@ def fetch_market_data(ticker_symbol):
         return None, "Symbole invalide."
         
     now = time.time()
-    if symbol in _HIST_CACHE and (now - _HIST_CACHE[symbol]["ts"]) < HIST_CACHE_TTL:
+    if not force_refresh and symbol in _HIST_CACHE and (now - _HIST_CACHE[symbol]["ts"]) < HIST_CACHE_TTL:
         cached = _HIST_CACHE[symbol]
         return cached["ticker"], cached["hist"].copy()
 
@@ -892,11 +892,11 @@ def check_earnings_blackout(ticker_obj):
     except Exception as e:
         return False, f"Vérification calendrier indisponible ({str(e)})."
 
-def get_ticker_data(ticker_symbol, period="1y", interval="1d"):
+def get_ticker_data(ticker_symbol, period="1y", interval="1d", force_refresh=False):
     """
     Récupère le DataFrame historique d'un ticker avec fallback et mise en cache.
     """
-    ticker_obj, hist = fetch_market_data(ticker_symbol)
+    ticker_obj, hist = fetch_market_data(ticker_symbol, force_refresh=force_refresh)
     if hist is not None and isinstance(hist, pd.DataFrame) and not hist.empty:
         return hist
     try:
