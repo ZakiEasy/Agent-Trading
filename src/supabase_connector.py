@@ -125,19 +125,38 @@ def add_or_update_watchlist_item(symbol, name=None, category=None, category_icon
 
 
 def delete_from_watchlist(symbol):
-    """Supprime définitivement une action de la Watchlist Supabase."""
+    """Supprime définitivement une action de la Watchlist Supabase et nettoie Google Sheets & caches."""
     s = str(symbol or "").upper().strip()
     if not s:
         return False
+    from src.market_data import resolve_ticker_symbol
+    resolved = resolve_ticker_symbol(s)
+    
+    db_success = False
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM public.watchlist WHERE UPPER(symbol) = %s;", (s,))
+                cur.execute("""
+                    DELETE FROM public.watchlist 
+                    WHERE UPPER(symbol) = %s 
+                       OR UPPER(symbol) = %s 
+                       OR UPPER(name) ILIKE %s;
+                """, (s, resolved, f"%{s}%"))
                 conn.commit()
-                return True
+                db_success = True
     except Exception as e:
-        print(f"⚠️ Erreur delete_from_watchlist ({symbol}): {e}")
-        return False
+        print(f"⚠️ Erreur delete_from_watchlist BDD ({symbol}): {e}")
+        
+    # Nettoyer également Google Sheets et les caches locaux en mémoire
+    try:
+        from src.sheets_connector import delete_ticker_from_sheets
+        delete_ticker_from_sheets(s)
+        if resolved != s:
+            delete_ticker_from_sheets(resolved)
+    except Exception as e:
+        print(f"⚠️ Erreur delete_ticker_from_sheets ({symbol}): {e}")
+
+    return True
 
 
 # ==============================================================================

@@ -415,7 +415,7 @@ def add_watchlist_ticker():
 @app.route("/api/watchlist/remove", methods=["POST", "DELETE"])
 def remove_watchlist_ticker():
     """
-    Endpoint pour retirer une action de la Watchlist Supabase.
+    Endpoint pour retirer une action de la Watchlist (Supabase + Google Sheets + Caches).
     """
     data = request.json or {}
     symbol = (data.get("ticker") or data.get("symbol") or request.args.get("ticker") or request.args.get("symbol") or "").upper().strip()
@@ -424,9 +424,14 @@ def remove_watchlist_ticker():
 
     deleted = delete_from_watchlist(symbol)
     if not deleted:
-        return safe_jsonify({"success": False, "error": f"Impossible de supprimer l'action {symbol} de la base de données."}), 500
+        return safe_jsonify({"success": False, "error": f"Impossible de supprimer l'action {symbol}."}), 500
 
+    # Récupérer le nombre restant
     current_wl = get_supabase_watchlist(only_active=True)
+    if not current_wl:
+        from src.sheets_connector import read_watchlist_from_sheets
+        current_wl = [{"symbol": s} for s in (read_watchlist_from_sheets() or [])]
+
     return safe_jsonify({
         "success": True,
         "symbol": symbol,
