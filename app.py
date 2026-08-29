@@ -295,13 +295,55 @@ def home():
 @app.route("/api/watchlist")
 def get_watchlist():
     """
-    Retourne la liste des actions de la Watchlist depuis la base de données Supabase.
+    Retourne la liste complète des actions de la Watchlist depuis Supabase avec fallback automatique
+    sur Google Sheets ou la configuration locale si Supabase est vide ou inaccessible.
     """
     try:
+        force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
         sb_wl = get_supabase_watchlist(only_active=True)
+        if not sb_wl:
+            from src.sheets_connector import read_watchlist_from_sheets, read_sharia_statuses_from_sheets
+            sheet_tickers = read_watchlist_from_sheets(force_refresh=force) or []
+            sharia_map = read_sharia_statuses_from_sheets(force_refresh=force) or {}
+            
+            if sheet_tickers:
+                sb_wl = []
+                for sym in sheet_tickers:
+                    s = str(sym).strip().upper()
+                    if not s or s.startswith("TOTAL") or s.startswith("TABLEAU"):
+                        continue
+                    cat_info = categorize_ticker(s)
+                    is_pea = cat_info.get("is_pea", s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS"))
+                    sb_wl.append({
+                        "symbol": s,
+                        "name": get_company_name(s),
+                        "category": cat_info.get("category", "Autres"),
+                        "category_icon": cat_info.get("category_icon", "📦"),
+                        "is_pea": is_pea,
+                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                        "sharia_status": sharia_map.get(s, "CONFORME"),
+                        "currency": "EUR" if is_pea else "USD",
+                        "is_active": True
+                    })
+            else:
+                sb_wl = []
+                for sym in list(dict.fromkeys(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL)):
+                    cat_info = categorize_ticker(sym)
+                    is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE") or sym.endswith(".AS"))
+                    sb_wl.append({
+                        "symbol": sym,
+                        "name": get_company_name(sym),
+                        "category": cat_info.get("category", "Autres"),
+                        "category_icon": cat_info.get("category_icon", "📦"),
+                        "is_pea": is_pea,
+                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                        "sharia_status": "CONFORME",
+                        "currency": "EUR" if is_pea else "USD",
+                        "is_active": True
+                    })
         return safe_jsonify({"success": True, "watchlist": sb_wl, "count": len(sb_wl)})
     except Exception as e:
-        logger.error(f"Erreur get_watchlist Supabase: {e}")
+        logger.error(f"Erreur get_watchlist: {e}")
         return safe_jsonify({"success": False, "error": str(e), "watchlist": []}, 500)
 
 @app.route("/api/watchlist/add", methods=["POST"])

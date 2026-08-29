@@ -6115,21 +6115,39 @@
         async function loadManageWatchlistData(force = false) {
             const tbody = document.getElementById('manage-wl-tbody');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">⏳ Chargement de la Watchlist Supabase...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);"><div style="margin-bottom:0.5rem; font-size:1.5rem;">⏳</div>Chargement de la Watchlist...</td></tr>';
 
             try {
-                const res = await fetch(`${API_URL}/watchlist`);
-                const payload = await res.json();
-                if (payload.success && Array.isArray(payload.watchlist)) {
-                    cachedWatchlistItems = payload.watchlist;
+                let items = [];
+                const res = await fetch(`${API_URL}/watchlist${force ? '?force=true' : ''}`);
+                if (res.ok) {
+                    const payload = await res.json();
+                    if (payload && payload.success && Array.isArray(payload.watchlist) && payload.watchlist.length > 0) {
+                        items = payload.watchlist;
+                    }
+                }
+                
+                // Fallback direct sur /api/watchlist/tickers si nécessaire
+                if (!items || items.length === 0) {
+                    const resTickers = await fetch(`${API_URL}/watchlist/tickers${force ? '?force=true' : ''}`);
+                    if (resTickers.ok) {
+                        const payloadTickers = await resTickers.json();
+                        if (payloadTickers && payloadTickers.tickers && Array.isArray(payloadTickers.tickers) && payloadTickers.tickers.length > 0) {
+                            items = payloadTickers.tickers;
+                        }
+                    }
+                }
+
+                if (items && items.length > 0) {
+                    cachedWatchlistItems = items;
                     updateWatchlistCounterBadge(cachedWatchlistItems.length);
                     renderManageWatchlistTable(cachedWatchlistItems);
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--danger); padding: 1.5rem;">Erreur lors du chargement des actions.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 2rem;">Aucune action trouvée dans la Watchlist.<br><button class="btn btn-primary" style="margin-top:0.75rem;" onclick="openAddStockModal()">➕ Ajouter une action</button></td></tr>';
                 }
             } catch (e) {
-                console.error(e);
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--danger); padding: 1.5rem;">Erreur réseau BDD.</td></tr>';
+                console.error("Erreur chargement watchlist modal:", e);
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--danger); padding: 1.5rem;">Erreur de connexion.<br><button class="btn btn-outline" style="margin-top:0.5rem;" onclick="loadManageWatchlistData(true)">🔄 Réessayer</button></td></tr>';
             }
         }
 
@@ -6144,11 +6162,11 @@
             tbody.innerHTML = items.map(item => {
                 const sym = item.symbol || '';
                 const name = item.name || sym;
-                const isPea = item.is_pea || sym.endsWith('.PA');
+                const isPea = item.is_pea !== undefined ? item.is_pea : ((item.account_type && item.account_type.includes('PEA')) || (sym.endsWith('.PA') || sym.endsWith('.DE') || sym.endsWith('.AS')));
                 const accBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : '<span class="badge badge-cto">🇺🇸 CTO</span>';
                 const cat = item.category || 'Autres';
                 const icon = item.category_icon || '📦';
-                const sharia = item.sharia_status || 'À VÉRIFIER';
+                const sharia = item.sharia_status || item.sharia || 'À VÉRIFIER';
                 const shariaBadge = sharia === 'CONFORME' ? 'badge-success' : sharia === 'NON CONFORME' ? 'badge-danger' : 'badge-neutral';
 
                 return `
