@@ -2442,6 +2442,103 @@
                 </div>
             </div>
 
+            <!-- ================= PROTOCOL AUDIT & FEEDBACK EXECUTIVE DASHBOARD ================= -->
+            <div class="glass-card" id="protocol-feedback-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid rgba(59, 130, 246, 0.35); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+                <div style="padding: 1rem 1.25rem; background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(16, 185, 129, 0.08)); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="font-size: 1.4rem;">🎯</div>
+                        <div>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                                Audit & Diagnostic Post-Trade vs Protocole
+                                <span class="badge badge-success" id="feedback-discipline-badge" style="font-size: 0.75rem;">Score: 86.5/100 (Exécution Solide 🟢)</span>
+                            </h3>
+                            <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Analyse algorithmique de vos 436+ trades réels selon les règles du protocole en 8 étapes (Durée, TP1/TP2, Cassures)</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;" onclick="loadProtocolFeedback(true)" title="Recalculer les statistiques de feedback">
+                            🔄 Réanalyser
+                        </button>
+                        <button class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;" onclick="toggleProtocolFeedbackCollapse()">
+                            <span id="feedback-collapse-icon">🔼</span> <span id="feedback-collapse-text">Réduire</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="protocol-feedback-content" style="padding: 1.25rem; transition: all 0.3s ease;">
+                    <!-- Top 4 KPIs Scorecard -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="glass-card" style="padding: 1rem; background: rgba(255,255,255,0.02); border-left: 3px solid #3b82f6;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">🏆 Score de Discipline</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #60a5fa; margin-top: 0.25rem;" id="fb-kpi-score">86.5 / 100</div>
+                            <div style="font-size: 0.75rem; color: #10b981; margin-top: 0.2rem;" id="fb-kpi-rank">Exécution Solide 🟢</div>
+                        </div>
+                        <div class="glass-card" style="padding: 1rem; background: rgba(255,255,255,0.02); border-left: 3px solid #10b981;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">⏱️ Fenêtre Idéale de Durée</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #10b981; margin-top: 0.25rem;" id="fb-kpi-duration">0 à 5 jours</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="fb-kpi-duration-wr">Win Rate : <strong>94.6%</strong> (vs 74.2% à >10j)</div>
+                        </div>
+                        <div class="glass-card" style="padding: 1rem; background: rgba(255,255,255,0.02); border-left: 3px solid #f59e0b;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">🎯 Manque à Gagner (< TP1)</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #fbbf24; margin-top: 0.25rem;" id="fb-kpi-early-tp">+54.80 €</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="fb-kpi-early-count">30 sorties prématurées (< +1.0%)</div>
+                        </div>
+                        <div class="glass-card" style="padding: 1rem; background: rgba(255,255,255,0.02); border-left: 3px solid #ef4444;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">🛡️ Cassures Non Coupées (> -4%)</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #f87171; margin-top: 0.25rem;" id="fb-kpi-sl-savings">+368.64 €</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="fb-kpi-sl-count">19 dépassements de Stop Loss</div>
+                        </div>
+                    </div>
+
+                    <!-- 2 Columns Grid: Duration Diagnostics (Left) & TP/SL Diagnostics (Right) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;" class="screener-metrics-grid">
+                        <!-- Left: Duration & Overholding Table -->
+                        <div class="glass-card" style="padding: 1rem; background: rgba(0,0,0,0.2);">
+                            <div style="font-size: 0.88rem; font-weight: 700; color: #93c5fd; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                                <span>⏱️ Impact de la Durée de Détention sur le Win Rate</span>
+                                <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-size: 0.7rem;">Time Stop Conseillé: J+5</span>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted); text-align: left;">
+                                            <th style="padding: 0.4rem 0.5rem;">Tranche Durée</th>
+                                            <th style="padding: 0.4rem 0.5rem; text-align: center;">Trades</th>
+                                            <th style="padding: 0.4rem 0.5rem; text-align: center;">Win Rate</th>
+                                            <th style="padding: 0.4rem 0.5rem; text-align: right;">P&L (€)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="fb-duration-tbody">
+                                        <!-- Filled dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Right: TP1 / TP2 & Stop Loss Execution Breakdown -->
+                        <div class="glass-card" style="padding: 1rem; background: rgba(0,0,0,0.2);">
+                            <div style="font-size: 0.88rem; font-weight: 700; color: #a78bfa; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                                <span>🎯 Prises de Profit (TP1/TP2) & 🛡️ Coupure des Pertes</span>
+                                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.7rem;">Règles Protocole</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem;" id="fb-exits-breakdown-container">
+                                <!-- Filled dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actionable Recommendations Cards -->
+                    <div>
+                        <div style="font-size: 0.88rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>💡</span> Recommandations Prioritaires d'Amélioration & Règles d'Or
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem;" id="fb-recommendations-container">
+                            <!-- Filled dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Filters & Actions Toolbar -->
             <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
@@ -2528,12 +2625,13 @@
                                     <th>P&L Net Réalisé</th>
                                     <th>P&L (%)</th>
                                     <th>Durée</th>
-                                    <th style="text-align: right;">Résultat</th>
+                                    <th>Audit Protocole</th>
+                                    <th style="text-align: right;">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="journal-table-body">
                                 <tr>
-                                    <td colspan="11" style="text-align:center; color:var(--text-muted); padding:3rem;">
+                                    <td colspan="12" style="text-align:center; color:var(--text-muted); padding:3rem;">
                                         Chargement du Journal de Trading...
                                     </td>
                                 </tr>
@@ -3608,6 +3706,78 @@
         </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- MODAL : AUDIT INDIVIDUEL DE TRADE VS PROTOCOLE -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="trade-audit-modal" style="z-index: 2200 !important; display: none;">
+        <div class="modal-box" style="max-width: 650px; max-height: 88vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: rgba(15, 23, 42, 0.98); border-bottom: 1px solid var(--card-border);">
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0; color: #f8fafc;">
+                        🔬 Audit Protocole : <span id="audit-modal-symbol" style="color: #60a5fa;">TICKER</span>
+                    </h3>
+                    <span id="audit-modal-badge" class="badge badge-success">Conforme</span>
+                </div>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeTradeAuditModal()">✕</button>
+            </div>
+            
+            <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div style="font-size: 0.85rem; color: var(--text-muted);" id="audit-modal-name">Company Name</div>
+
+                <!-- 3 Scorecard Cards -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+                    <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Discipline</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: #60a5fa;" id="audit-modal-score">100 / 100</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">P&L Réalisé</div>
+                        <div style="font-size: 1.25rem; font-weight: 800;" id="audit-modal-pnl">+0.00 €</div>
+                        <div style="font-size: 0.72rem;" id="audit-modal-pnl-pct">+0.00%</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Durée Détention</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: #a78bfa;" id="audit-modal-duration">1.5 j</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">Mean Reversion</div>
+                    </div>
+                </div>
+
+                <!-- Execution Details -->
+                <div class="glass-card" style="padding: 0.85rem; background: rgba(0,0,0,0.2);">
+                    <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;">
+                        <tbody>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);"><td style="padding: 0.35rem 0; color: var(--text-muted);">📅 Date d'Achat (Entrée) :</td><td style="padding: 0.35rem 0; text-align: right; font-weight: 600;" id="audit-modal-entry-date">--</td></tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);"><td style="padding: 0.35rem 0; color: var(--text-muted);">📅 Date de Clôture (Sortie) :</td><td style="padding: 0.35rem 0; text-align: right; font-weight: 600;" id="audit-modal-exit-date">--</td></tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);"><td style="padding: 0.35rem 0; color: var(--text-muted);">💶 PRU Achat vs Prix Sortie :</td><td style="padding: 0.35rem 0; text-align: right; font-weight: 600;" id="audit-modal-prices">--</td></tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);"><td style="padding: 0.35rem 0; color: var(--text-muted);">📊 Quantité & Capital :</td><td style="padding: 0.35rem 0; text-align: right; font-weight: 600;" id="audit-modal-qty-cap">--</td></tr>
+                            <tr><td style="padding: 0.35rem 0; color: var(--text-muted);">🏛️ Compte & Courtier :</td><td style="padding: 0.35rem 0; text-align: right; font-weight: 600;" id="audit-modal-account">--</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Points Forts -->
+                <div class="glass-card" style="padding: 0.85rem; border-left: 3px solid #10b981; background: rgba(16, 185, 129, 0.04);">
+                    <div style="font-size: 0.8rem; font-weight: 700; color: #10b981; margin-bottom: 0.35rem;">✅ Points Forts d'Exécution :</div>
+                    <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.78rem; color: var(--text-main); display: flex; flex-direction: column; gap: 0.2rem;" id="audit-modal-points-forts">
+                        <li>Conforme aux règles du protocole.</li>
+                    </ul>
+                </div>
+
+                <!-- Axes d'Amélioration -->
+                <div class="glass-card" style="padding: 0.85rem; border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, 0.04);">
+                    <div style="font-size: 0.8rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.35rem;">💡 Axes d'Amélioration & Règle Protocole :</div>
+                    <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.78rem; color: var(--text-main); display: flex; flex-direction: column; gap: 0.2rem;" id="audit-modal-axes-amelioration">
+                        <li>Aucune anomalie détectée.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="background: rgba(15, 23, 42, 0.98); justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeTradeAuditModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
         const API_URL = '/api';
@@ -4620,6 +4790,7 @@
             const now = Date.now();
             if (!force && FRONTEND_CACHE.journal.data && (now - FRONTEND_CACHE.journal.ts < FRONTEND_CACHE.journal.ttl)) {
                 renderJournalAll(FRONTEND_CACHE.journal.data);
+                loadProtocolFeedback(false);
                 return;
             }
 
@@ -4630,6 +4801,7 @@
 
                 FRONTEND_CACHE.journal = { data: payload, ts: Date.now(), ttl: 600000 };
                 renderJournalAll(payload);
+                loadProtocolFeedback(force);
             } catch (e) {
                 console.error("Erreur chargement Journal:", e);
             }
@@ -4714,7 +4886,7 @@
             if (nextBtn) nextBtn.disabled = journalCurrentPage >= totalPages;
 
             if (total === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:3rem;">Aucun trade trouvé pour ces critères de recherche.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:var(--text-muted); padding:3rem;">Aucun trade trouvé pour ces critères de recherche.</td></tr>`;
                 return;
             }
 
@@ -4739,6 +4911,36 @@
 
                 const closeDateStr = t.close_time ? String(t.close_time).substring(0, 10) : (t.open_time ? String(t.open_time).substring(0, 10) : '--');
 
+                // Calcul durée exacte
+                let durDays = t.days_held;
+                if (durDays === undefined || durDays === null) {
+                    if (t.close_time && t.open_time) {
+                        try {
+                            const d1 = new Date(t.open_time.replace(' ', 'T'));
+                            const d2 = new Date(t.close_time.replace(' ', 'T'));
+                            const diffMs = d2 - d1;
+                            if (!isNaN(diffMs) && diffMs >= 0) {
+                                durDays = Math.max(0.1, (diffMs / 86400000)).toFixed(1);
+                            }
+                        } catch(e) { durDays = '1.0'; }
+                    }
+                }
+                if (!durDays) durDays = '1.0';
+
+                // Audit Protocole Badge
+                let auditBadge = '';
+                if (pnlPct >= 2.25) {
+                    auditBadge = '<span class="badge badge-success" style="font-size:0.72rem;">TP2 Optimal 🟢</span>';
+                } else if (pnlPct >= 1.0) {
+                    auditBadge = '<span class="badge badge-success" style="font-size:0.72rem;">TP1 Validé 🟢</span>';
+                } else if (pnlPct > 0) {
+                    auditBadge = '<span class="badge badge-warning" style="font-size:0.72rem;">Sortie < TP1 🟡</span>';
+                } else if (pnlPct >= -2.5) {
+                    auditBadge = '<span class="badge badge-warning" style="font-size:0.72rem;">Stop Contrôlé 🟡</span>';
+                } else {
+                    auditBadge = '<span class="badge badge-danger" style="font-size:0.72rem;">Cassure Dépassée 🔴</span>';
+                }
+
                 tr.innerHTML = `
                     <td style="font-size:0.85rem; white-space:nowrap;">${closeDateStr}</td>
                     <td>
@@ -4756,15 +4958,302 @@
                     <td>
                         <span style="color:${pnlColor}; font-weight:600; font-size:0.85rem;">${isWin ? '+' : ''}${pnlPct.toFixed(2)}%</span>
                     </td>
-                    <td style="font-size:0.8rem; color:var(--text-muted);">
-                        ${t.days_held ? `${t.days_held} j` : '--'}
+                    <td style="font-size:0.8rem; color:var(--text-muted); white-space:nowrap;">
+                        ${durDays} j
                     </td>
-                    <td style="text-align: right;">
-                        <span class="badge ${isWin ? 'badge-success' : 'badge-danger'}">${t.result || (isWin ? 'GAIN 🟢' : 'PERTE 🔴')}</span>
+                    <td>${auditBadge}</td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button class="btn btn-secondary" style="font-size:0.72rem; padding:0.22rem 0.5rem;" onclick="openTradeAuditModal('${t.id || ''}')" title="Voir l'audit protocole détaillé">🔬 Audit</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        // ---------------------------------------------------------------------
+        // PROTOCOL FEEDBACK & AUDIT POST-TRADE
+        // ---------------------------------------------------------------------
+        let protocolFeedbackData = null;
+        let isProtocolFeedbackCollapsed = false;
+
+        function toggleProtocolFeedbackCollapse() {
+            isProtocolFeedbackCollapsed = !isProtocolFeedbackCollapsed;
+            const content = document.getElementById('protocol-feedback-content');
+            const icon = document.getElementById('feedback-collapse-icon');
+            const text = document.getElementById('feedback-collapse-text');
+
+            if (!content) return;
+            if (isProtocolFeedbackCollapsed) {
+                content.style.display = 'none';
+                if (icon) icon.textContent = '🔽';
+                if (text) text.textContent = 'Développer';
+            } else {
+                content.style.display = 'block';
+                if (icon) icon.textContent = '🔼';
+                if (text) text.textContent = 'Réduire';
+            }
+        }
+
+        async function loadProtocolFeedback(force = false) {
+            try {
+                const url = force ? `${API_URL}/journal/protocol_feedback?force=true` : `${API_URL}/journal/protocol_feedback`;
+                const payload = await fetchJsonSafely(url);
+                if (!payload || !payload.success) return;
+
+                protocolFeedbackData = payload;
+                renderProtocolFeedback(payload);
+            } catch (e) {
+                console.error("Erreur chargement protocol feedback:", e);
+            }
+        }
+
+        function renderProtocolFeedback(data) {
+            if (!data) return;
+
+            // 1. Top Badges & Scorecard
+            const scoreElem = document.getElementById('fb-kpi-score');
+            if (scoreElem) scoreElem.textContent = `${data.discipline_score} / 100`;
+
+            const rankElem = document.getElementById('fb-kpi-rank');
+            if (rankElem) rankElem.textContent = data.discipline_rank || 'Exécution Solide 🟢';
+
+            const badgeElem = document.getElementById('feedback-discipline-badge');
+            if (badgeElem) {
+                badgeElem.textContent = `Score: ${data.discipline_score}/100 (${data.discipline_rank})`;
+                badgeElem.className = `badge ${data.discipline_badge || 'badge-success'}`;
+            }
+
+            const durWrElem = document.getElementById('fb-kpi-duration-wr');
+            if (durWrElem && data.duration_metrics) {
+                durWrElem.innerHTML = `Win Rate : <strong>${data.duration_metrics.fast_trades_win_rate}%</strong> (vs ${data.duration_metrics.slow_trades_win_rate}% à >10j)`;
+            }
+
+            const earlyTpElem = document.getElementById('fb-kpi-early-tp');
+            if (earlyTpElem && data.tp_metrics) {
+                earlyTpElem.textContent = `+${data.tp_metrics.money_left_on_table_eur.toFixed(2)} €`;
+            }
+
+            const earlyCountElem = document.getElementById('fb-kpi-early-count');
+            if (earlyCountElem && data.tp_metrics) {
+                earlyCountElem.textContent = `${data.tp_metrics.premature_count} sorties prématurées (< +1.0%)`;
+            }
+
+            const slSavingsElem = document.getElementById('fb-kpi-sl-savings');
+            if (slSavingsElem && data.sl_metrics) {
+                slSavingsElem.textContent = `+${data.sl_metrics.potential_loss_savings_eur.toFixed(2)} €`;
+            }
+
+            const slCountElem = document.getElementById('fb-kpi-sl-count');
+            if (slCountElem && data.sl_metrics) {
+                slCountElem.textContent = `${data.sl_metrics.excessive_count} dépassements de Stop Loss`;
+            }
+
+            // 2. Duration Table (Left Column)
+            const durTbody = document.getElementById('fb-duration-tbody');
+            if (durTbody && data.duration_metrics && data.duration_metrics.buckets) {
+                durTbody.innerHTML = '';
+                const buckets = data.duration_metrics.buckets;
+                Object.keys(buckets).forEach(k => {
+                    const b = buckets[k];
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+                    const isOptimal = k === 'infra_1d' || k === '1_to_3d' || k === '3_to_5d';
+                    const wrColor = b.win_rate_pct >= 90 ? '#10b981' : (b.win_rate_pct >= 80 ? '#60a5fa' : '#f59e0b');
+                    tr.innerHTML = `
+                        <td style="padding: 0.45rem 0.5rem; font-weight: ${isOptimal ? '700' : '400'}; color: ${isOptimal ? '#60a5fa' : 'var(--text-main)'};">
+                            ${isOptimal ? '⭐ ' : ''}${b.label}
+                        </td>
+                        <td style="padding: 0.45rem 0.5rem; text-align: center; color: var(--text-muted);">${b.count}</td>
+                        <td style="padding: 0.45rem 0.5rem; text-align: center; font-weight: 700; color: ${wrColor};">${b.win_rate_pct}%</td>
+                        <td style="padding: 0.45rem 0.5rem; text-align: right; font-weight: 600; color: var(--success);">+${b.pnl_eur.toFixed(2)} €</td>
+                    `;
+                    durTbody.appendChild(tr);
+                });
+            }
+
+            // 3. TP / SL Breakdown Visual Bars (Right Column)
+            const exitsContainer = document.getElementById('fb-exits-breakdown-container');
+            if (exitsContainer && data.tp_metrics && data.sl_metrics) {
+                const tp = data.tp_metrics;
+                const sl = data.sl_metrics;
+                exitsContainer.innerHTML = `
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
+                            <span style="color: #10b981;">🚀 TP2 / Capture Momentum (≥ +2.0%) :</span>
+                            <strong>${tp.tp2_count} trades (${tp.tp2_pct}%)</strong>
+                        </div>
+                        <div style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden;">
+                            <div style="height: 100%; width: ${tp.tp2_pct}%; background: #10b981;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
+                            <span style="color: #60a5fa;">🎯 TP1 Validé (+1.0% à +2.0%) :</span>
+                            <strong>${tp.tp1_count} trades (${tp.tp1_pct}%)</strong>
+                        </div>
+                        <div style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden;">
+                            <div style="height: 100%; width: ${tp.tp1_pct}%; background: #60a5fa;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
+                            <span style="color: #fbbf24;">⚠️ Sorties Prématurées (< +1.0%) :</span>
+                            <strong>${tp.premature_count} trades (${tp.premature_pct}%) - Manque: +${tp.money_left_on_table_eur.toFixed(2)}€</strong>
+                        </div>
+                        <div style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden;">
+                            <div style="height: 100%; width: ${tp.premature_pct}%; background: #fbbf24;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
+                            <span style="color: #f87171;">🛡️ Pertes Contrôlées vs Cassures :</span>
+                            <strong>${sl.controlled_count} maîtrisées / ${sl.excessive_count} cassures non coupées</strong>
+                        </div>
+                        <div style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; display: flex;">
+                            <div style="height: 100%; width: ${sl.controlled_pct}%; background: #fbbf24;" title="Pertes Contrôlées"></div>
+                            <div style="height: 100%; width: ${sl.excessive_pct}%; background: #ef4444;" title="Cassures"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 4. Actionable Recommendations
+            const recoContainer = document.getElementById('fb-recommendations-container');
+            if (recoContainer && data.recommendations) {
+                recoContainer.innerHTML = '';
+                data.recommendations.forEach(r => {
+                    const card = document.createElement('div');
+                    const isHigh = r.severity === 'CRITIQUE' || r.severity === 'HAUTE';
+                    const isPositive = r.severity === 'POSITIF';
+                    const borderCol = isPositive ? '#10b981' : (isHigh ? '#ef4444' : '#f59e0b');
+                    const bgCol = isPositive ? 'rgba(16, 185, 129, 0.04)' : (isHigh ? 'rgba(239, 68, 68, 0.04)' : 'rgba(245, 158, 11, 0.04)');
+                    const badgeClass = isPositive ? 'badge-success' : (isHigh ? 'badge-danger' : 'badge-warning');
+
+                    card.className = 'glass-card';
+                    card.style.padding = '0.85rem 1rem';
+                    card.style.borderLeft = `3px solid ${borderCol}`;
+                    card.style.background = bgCol;
+
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem;">
+                            <strong style="font-size: 0.85rem; color: #f8fafc; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>${r.icon}</span> ${r.topic}
+                            </strong>
+                            <span class="badge ${badgeClass}" style="font-size: 0.68rem;">${r.severity}</span>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #93c5fd; margin-bottom: 0.35rem; font-weight: 600;">
+                            📊 Constat : ${r.stat}
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.35;">
+                            ${r.action}
+                        </div>
+                    `;
+                    recoContainer.appendChild(card);
+                });
+            }
+        }
+
+        async function openTradeAuditModal(tradeId) {
+            if (!tradeId) return;
+            const modal = document.getElementById('trade-audit-modal');
+            if (!modal) return;
+
+            // Fetch individual audit from backend
+            try {
+                const payload = await fetchJsonSafely(`${API_URL}/journal/trade_audit/${tradeId}`);
+                if (!payload || !payload.success || !payload.audit) {
+                    alert("Impossible de charger l'audit de ce trade.");
+                    return;
+                }
+                const a = payload.audit;
+
+                // Populate modal
+                const symElem = document.getElementById('audit-modal-symbol');
+                if (symElem) symElem.textContent = a.symbol;
+
+                const nameElem = document.getElementById('audit-modal-name');
+                if (nameElem) nameElem.textContent = `${a.name || a.symbol} (${a.account} - ${a.broker})`;
+
+                const badgeElem = document.getElementById('audit-modal-badge');
+                if (badgeElem) {
+                    badgeElem.textContent = a.status_label;
+                    badgeElem.className = `badge ${a.badge_class}`;
+                }
+
+                const scoreElem = document.getElementById('audit-modal-score');
+                if (scoreElem) scoreElem.textContent = `${a.discipline_score} / 100`;
+
+                const pnlElem = document.getElementById('audit-modal-pnl');
+                const symChar = a.currency === 'USD' ? '$' : '€';
+                const isWin = a.pnl_amount >= 0;
+                if (pnlElem) {
+                    pnlElem.textContent = `${isWin ? '+' : ''}${a.pnl_amount.toFixed(2)} ${symChar}`;
+                    pnlElem.style.color = isWin ? 'var(--success)' : 'var(--danger)';
+                }
+
+                const pnlPctElem = document.getElementById('audit-modal-pnl-pct');
+                if (pnlPctElem) {
+                    pnlPctElem.textContent = `${isWin ? '+' : ''}${a.pnl_pct.toFixed(2)}%`;
+                    pnlPctElem.style.color = isWin ? 'var(--success)' : 'var(--danger)';
+                }
+
+                const durElem = document.getElementById('audit-modal-duration');
+                if (durElem) durElem.textContent = `${a.duration_days} j`;
+
+                const entryDateElem = document.getElementById('audit-modal-entry-date');
+                if (entryDateElem) entryDateElem.textContent = a.entry_date || '--';
+
+                const exitDateElem = document.getElementById('audit-modal-exit-date');
+                if (exitDateElem) exitDateElem.textContent = a.exit_date || '--';
+
+                const pricesElem = document.getElementById('audit-modal-prices');
+                if (pricesElem) pricesElem.textContent = `${a.pru.toFixed(2)} ${symChar} ➡️ ${a.exit_price.toFixed(2)} ${symChar}`;
+
+                const qtyCapElem = document.getElementById('audit-modal-qty-cap');
+                if (qtyCapElem) qtyCapElem.textContent = `${a.quantity} actions (${(a.pru * a.quantity).toFixed(2)} ${symChar} investis)`;
+
+                const accElem = document.getElementById('audit-modal-account');
+                if (accElem) accElem.textContent = `${a.account} (${a.broker})`;
+
+                // Points forts
+                const pfElem = document.getElementById('audit-modal-points-forts');
+                if (pfElem) {
+                    pfElem.innerHTML = '';
+                    if (a.points_forts && a.points_forts.length > 0) {
+                        a.points_forts.forEach(pt => {
+                            const li = document.createElement('li');
+                            li.textContent = pt;
+                            pfElem.appendChild(li);
+                        });
+                    } else {
+                        pfElem.innerHTML = '<li>Aucun point fort spécifique relevé.</li>';
+                    }
+                }
+
+                // Axes d'amélioration
+                const axElem = document.getElementById('audit-modal-axes-amelioration');
+                if (axElem) {
+                    axElem.innerHTML = '';
+                    if (a.axes_amelioration && a.axes_amelioration.length > 0) {
+                        a.axes_amelioration.forEach(pt => {
+                            const li = document.createElement('li');
+                            li.textContent = pt;
+                            axElem.appendChild(li);
+                        });
+                    } else {
+                        axElem.innerHTML = '<li>✅ Exécution irréprochable conforme aux règles.</li>';
+                    }
+                }
+
+                modal.style.display = 'flex';
+            } catch (e) {
+                console.error("Erreur ouverture audit modal:", e);
+            }
+        }
+
+        function closeTradeAuditModal() {
+            const modal = document.getElementById('trade-audit-modal');
+            if (modal) modal.style.display = 'none';
         }
 
         function changeJournalPage(delta) {
@@ -4780,14 +5269,14 @@
             if (!confirm("Voulez-vous synchroniser l'ensemble des fichiers Excel XTB historiques (positions fermées et ouvertes) ?")) return;
 
             const tbody = document.getElementById('journal-table-body');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#60a5fa; padding:3rem;">⏳ Resynchronisation des 6 fichiers d'historique en cours...</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#60a5fa; padding:3rem;">⏳ Resynchronisation des 6 fichiers d'historique en cours...</td></tr>`;
 
             try {
                 const res = await fetch(`${API_URL}/portfolio/import_all_history`, { method: 'POST' });
                 const payload = await res.json();
                 if (payload.success) {
                     alert(`✅ ${payload.message}`);
-                    loadJournalHistory();
+                    loadJournalHistory(true);
                     loadLivePortfolio();
                 } else {
                     alert(`❌ Erreur: ${payload.error || 'Erreur lors de la synchronisation.'}`);

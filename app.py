@@ -649,6 +649,49 @@ def get_journal_history():
         "trades": trades
     })
 
+_PROTOCOL_FEEDBACK_CACHE = {"data": None, "ts": 0}
+
+@app.route("/api/journal/protocol_feedback")
+def get_journal_protocol_feedback():
+    """
+    Analyse post-trade avancée des positions exécutées vs le Protocole en 8 étapes.
+    Fournit le score de discipline, la décomposition par durée, les diagnostics TP1/TP2,
+    l'analyse des cassures et les recommandations d'optimisation.
+    """
+    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    now = time.time()
+    if not force and _PROTOCOL_FEEDBACK_CACHE["data"] and (now - _PROTOCOL_FEEDBACK_CACHE["ts"] < 300):
+        return safe_jsonify(_PROTOCOL_FEEDBACK_CACHE["data"])
+
+    try:
+        from src.protocol_feedback_engine import analyze_executed_trades_against_protocol
+        trades = get_supabase_trade_journal()
+        analysis = analyze_executed_trades_against_protocol(trades)
+        _PROTOCOL_FEEDBACK_CACHE["data"] = analysis
+        _PROTOCOL_FEEDBACK_CACHE["ts"] = now
+        return safe_jsonify(analysis)
+    except Exception as e:
+        logger.error(f"Erreur protocol feedback: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": f"Erreur calcul feedback: {str(e)}"}, status_code=500)
+
+@app.route("/api/journal/trade_audit/<trade_id>")
+def get_trade_protocol_audit(trade_id):
+    """
+    Renvoie l'audit protocole détaillé pour un trade spécifique du journal.
+    """
+    try:
+        from src.protocol_feedback_engine import audit_single_trade
+        trades = get_supabase_trade_journal()
+        target = next((t for t in trades if str(t.get("id")) == str(trade_id)), None)
+        if not target:
+            return safe_jsonify({"success": False, "error": "Trade introuvable."}), 404
+
+        audit = audit_single_trade(target)
+        return safe_jsonify({"success": True, "audit": audit})
+    except Exception as e:
+        logger.error(f"Erreur audit trade {trade_id}: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": f"Erreur audit trade: {str(e)}"}, status_code=500)
+
 @app.route("/api/portfolio/add", methods=["POST"])
 def add_portfolio_position():
     """
