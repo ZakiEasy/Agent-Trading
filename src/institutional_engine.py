@@ -30,7 +30,10 @@ from src.market_data import (
     check_sharia_compliance,
     check_fundamental_quality,
     get_usd_to_eur_rate,
-    COMPANY_NAMES
+    COMPANY_NAMES,
+    resolve_ticker_symbol,
+    get_company_name,
+    categorize_ticker
 )
 
 # Cache mémoire pour les données Macro (TTL 5 minutes)
@@ -548,8 +551,15 @@ def detect_order_flow_exhaustion(df):
     - Compression et absorption par les flux institutionnels.
     """
     if df is None or len(df) < 5:
+        last_l = 0.0
+        if df is not None and not df.empty and "Low" in df.columns:
+            valid_lows = df["Low"].dropna()
+            if not valid_lows.empty:
+                last_l = float(valid_lows.iloc[-1])
         return {
             "has_higher_lows": True,
+            "last_low": round(last_l, 2),
+            "prev_low": round(last_l, 2),
             "status": "Higher Lows en Formation",
             "badge": "badge-success",
             "description": "Stabilisation des flux vendeurs et maintien des creux récents."
@@ -1151,19 +1161,22 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     """
     sym = sym.strip().upper()
     cap = float(capital_total or REFERENCE_CAPITAL)
+    lookup_sym = resolve_ticker_symbol(sym)
     
     if force_refresh:
         global _NEWS_CACHE, _INTRADAY_SNIPER_CACHE
         _NEWS_CACHE.pop(sym, None)
+        _NEWS_CACHE.pop(lookup_sym, None)
         _INTRADAY_SNIPER_CACHE.pop(sym, None)
+        _INTRADAY_SNIPER_CACHE.pop(lookup_sym, None)
 
-    info = get_ticker_info(sym, force_refresh=force_refresh) or {}
-    df = get_ticker_data(sym, period="1y", interval="1d", force_refresh=force_refresh)
-    company_name = info.get("shortName") or info.get("longName") or COMPANY_NAMES.get(sym, sym)
+    info = get_ticker_info(lookup_sym, force_refresh=force_refresh) or {}
+    df = get_ticker_data(lookup_sym, period="1y", interval="1d", force_refresh=force_refresh)
+    company_name = info.get("shortName") or info.get("longName") or get_company_name(sym)
     market_cap = float(info.get("marketCap") or 0.0)
 
     # 1. Conformité Sharia (Normes AAOIFI)
-    sharia_data = check_sharia_compliance(sym, info)
+    sharia_data = check_sharia_compliance(lookup_sym, info)
     is_sharia = sharia_data.get("compliant", False)
     sharia_status = "CONFORME" if is_sharia else "NON CONFORME"
     sharia_reasons = sharia_data.get("reasons", ["Conformité financière validée"])
@@ -1397,7 +1410,8 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
 
     # 6. Plans de Trade Swing Standard (Option A) & Sniper Ouverture (Option B)
     take_profit = round(entry_price * 1.022, 2)
-    raw_sl = min(order_flow["last_low"] * 0.998, min(support_lvl * 0.998, entry_price * 0.986))
+    last_l = order_flow.get("last_low") if order_flow.get("last_low") is not None else (entry_price * 0.985)
+    raw_sl = min(last_l * 0.998, min(support_lvl * 0.998, entry_price * 0.986))
     stop_loss = round(max(entry_price * 0.985, min(entry_price * 0.987, raw_sl)), 2)
 
     dist_stop_pct = round(((entry_price - stop_loss) / entry_price) * 100, 2) if entry_price > 0 else 1.5

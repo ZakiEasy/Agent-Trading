@@ -1028,19 +1028,20 @@ def scan_batch():
             else:
                 # Stratégie V3 Institutionnelle (Par Défaut)
                 future_to_sym = {executor.submit(generate_8_step_protocol_analysis, sym, CAPITAL_REFERENCE_DEFAULT): sym for sym in symbols}
-                for future in concurrent.futures.as_completed(future_to_sym, timeout=20):
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
+                    sym = future_to_sym[future]
                     try:
                         analysis = future.result()
                         if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-                            continue
+                            raise ValueError((analysis or {}).get("error", "Données indisponibles"))
                             
-                        symbol = analysis.get("symbol")
+                        symbol = analysis.get("symbol", sym)
                         plan = analysis.get("pricing_plan") or {}
                         sizing = analysis.get("sizing") or {}
                         
                         results.append({
                             "symbol": symbol,
-                            "name": analysis.get("name", symbol),
+                            "name": analysis.get("name", get_company_name(symbol)),
                             "category": analysis.get("category", "Autres"),
                             "category_icon": analysis.get("category_icon", "📦"),
                             "is_pea": analysis.get("is_pea", False),
@@ -1071,7 +1072,41 @@ def scan_batch():
                             "currency": analysis.get("currency", "EUR")
                         })
                     except Exception:
-                        pass
+                        # Fallback garanti pour que 100% des actions demandées s'affichent
+                        cat_info = categorize_ticker(sym)
+                        is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE"))
+                        results.append({
+                            "symbol": sym,
+                            "name": get_company_name(sym),
+                            "category": cat_info.get("category", "Autres"),
+                            "category_icon": cat_info.get("category_icon", "📦"),
+                            "is_pea": is_pea,
+                            "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                            "sharia": "DONNÉES INSUFFISANTES",
+                            "price": 0.0,
+                            "drop": 0.0,
+                            "drop_nature": "DONNÉES INDISPONIBLES",
+                            "avg_daily_volume": 0.0,
+                            "has_min_liquidity": True,
+                            "sector_rel": "EN LIGNE",
+                            "sector_etf": "SPY",
+                            "rsi": 50.0,
+                            "rsi_divergence": "AUCUNE",
+                            "confluence_score": 0.0,
+                            "verdict": "ÉVITER - DONNÉES INSUFFISANTES",
+                            "verdict_badge": "badge-neutral",
+                            "verdict_action": "Données Yahoo Finance temporairement indisponibles.",
+                            "verdict_swing": "ÉVITER",
+                            "verdict_swing_badge": "badge-neutral",
+                            "verdict_swing_action": "",
+                            "verdict_sniper": "NON ÉLIGIBLE",
+                            "verdict_sniper_badge": "badge-neutral",
+                            "verdict_sniper_action": "",
+                            "action_plan": "🛑 Vérifier le symbole sur Yahoo Finance ou mettre à jour la Watchlist.",
+                            "execution_timing": None,
+                            "pricing_plan_sniper": None,
+                            "currency": "EUR" if is_pea else "USD"
+                        })
                         
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:

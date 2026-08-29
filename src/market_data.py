@@ -118,24 +118,60 @@ COMPANY_NAMES = {
     'BAS.DE': 'BASF SE',
     'IS3R.DE': 'iShares MSCI World Momentum',
     'IS3E.DE': 'iShares MSCI EM Islamic',
+    'IS3R.DE': 'iShares MSCI World Momentum',
     'SPY': 'SPDR S&P 500 ETF',
     'QQQ': 'Invesco QQQ Trust',
     'GOLD': 'Barrick Gold Corporation',
+    'DELL': 'Dell Technologies Inc.',
     'ACIW.US': 'ACI Worldwide Inc.',
     'CARR.US': 'Carrier Global Corp.',
     'VRT.US': 'Vertiv Holdings Co.',
     'BA': 'Boeing Company',
     'LMT': 'Lockheed Martin Corporation',
     'RTX': 'RTX Corporation',
-    'SPCX.US': 'SpaceX Private'
+    'SPCX.US': 'SpaceX Private',
+    'MERCK KGAA': 'Merck KGaA'
 }
+
+TICKER_ALIASES = {
+    'MERCK KGAA': 'MRK.DE',
+    'MERCK_KGAA': 'MRK.DE',
+    'MERCK': 'MRK.DE',
+    'SNDK': 'WDC',
+    'IS3E.DE': 'IS3R.DE',  # Repli vers ETF islamique actif si IS3E n'a pas de cotation intraday
+    'LIN.PA': 'LIN.DE',
+    'AIR.FR': 'AIR.PA',
+    'OR.FR': 'OR.PA',
+    'RMS.FR': 'RMS.PA',
+    'MC.FR': 'MC.PA',
+    'SU.FR': 'SU.PA',
+    'LR.FR': 'LR.PA',
+    'AI.FR': 'AI.PA',
+    'ENGI.FR': 'ENGI.PA',
+    'GTT.FR': 'GTT.PA',
+    'SAN.FR': 'SAN.PA',
+    'STM.FR': 'STMPA.PA',
+    'TTE.FR': 'TTE.PA'
+}
+
+def resolve_ticker_symbol(ticker_symbol):
+    """
+    Résout les alias, fautes courantes ou variantes de symboles boursiers vers leur ticker Yahoo Finance standard.
+    """
+    if not ticker_symbol:
+        return ""
+    s = str(ticker_symbol).strip().upper()
+    return TICKER_ALIASES.get(s, s)
 
 def get_company_name(symbol, info=None):
     sym = str(symbol or "").strip().upper()
     if sym in COMPANY_NAMES:
         return COMPANY_NAMES[sym]
+    resolved = resolve_ticker_symbol(sym)
+    if resolved in COMPANY_NAMES:
+        return COMPANY_NAMES[resolved]
     if isinstance(info, dict):
-        name = info.get("shortname") or info.get("longname")
+        name = info.get("shortName") or info.get("longName") or info.get("shortname") or info.get("longname")
         if name:
             return name
     return sym
@@ -346,13 +382,14 @@ def get_ticker_info(ticker_symbol, force_refresh=False):
     if not symbol:
         return {}
         
+    lookup_sym = resolve_ticker_symbol(symbol)
     now = time.time()
     if not force_refresh and symbol in _INFO_CACHE and (now - _INFO_CACHE[symbol]["ts"]) < INFO_CACHE_TTL:
         return _INFO_CACHE[symbol]["info"]
         
     info = {}
     try:
-        t = yf.Ticker(symbol)
+        t = yf.Ticker(lookup_sym)
         raw_info = getattr(t, 'info', None)
         if isinstance(raw_info, dict) and raw_info:
             info = raw_info
@@ -421,12 +458,13 @@ def fetch_market_data(ticker_symbol, force_refresh=False):
     if not symbol:
         return None, "Symbole invalide."
         
+    lookup_sym = resolve_ticker_symbol(symbol)
     now = time.time()
     if not force_refresh and symbol in _HIST_CACHE and (now - _HIST_CACHE[symbol]["ts"]) < HIST_CACHE_TTL:
         cached = _HIST_CACHE[symbol]
         return cached["ticker"], cached["hist"].copy()
 
-    ticker_obj = yf.Ticker(symbol)
+    ticker_obj = yf.Ticker(lookup_sym)
     hist = None
     
     # 2 essais avec backoff
@@ -900,7 +938,8 @@ def get_ticker_data(ticker_symbol, period="1y", interval="1d", force_refresh=Fal
     if hist is not None and isinstance(hist, pd.DataFrame) and not hist.empty:
         return hist
     try:
-        df = yf.Ticker(ticker_symbol).history(period=period, interval=interval)
+        lookup_sym = resolve_ticker_symbol(ticker_symbol)
+        df = yf.Ticker(lookup_sym).history(period=period, interval=interval)
         if df is not None and not df.empty:
             return df
     except Exception:
