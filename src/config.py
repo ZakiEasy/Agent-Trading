@@ -11,9 +11,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # --- 1. Paramètres de Trading & Univers d'Actifs (Version 2.0) ---
 # ==============================================================================
 
-# Watchlist par défaut si Google Sheets n'est pas configuré ou est vide
+# Watchlist complète (49 actions suivies et qualifiées)
 DEFAULT_WATCHLIST = [
-    "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "ASML", "MC.PA", "OR.PA"
+    # Hyperscalers & Géants Cloud/IA
+    "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "UBER", "BABA", "BKNG", "BYDDY",
+    # Éditeurs de Logiciels & SaaS
+    "CRM", "SAP", "ESTC", "ASAN",
+    # Semi-conducteurs & Équipements
+    "NVDA", "TSM", "AVGO", "ASML", "ASML.AS", "ARM", "QCOM", "INTC", "STMPA.PA",
+    # Mémoire & Stockage de Données
+    "DELL", "005930.KS", "SNDK",
+    # Luxe & Cosmétique Prestige (PEA)
+    "MC.PA", "OR.PA", "RMS.PA",
+    # Santé & Pharmacie
+    "SAN.PA", "LLY", "MRK", "MRK.DE",
+    # Industrie, Défense & Aéro
+    "AIR.PA", "SU.PA", "LR.PA",
+    # Énergie & Transition
+    "TTE.PA", "ENGI.PA", "GTT.PA", "XOM",
+    # Matériaux & Chimie
+    "AI.PA", "LIN.PA", "GOLD",
+    # Télécoms & Réseaux
+    "CSCO", "ERIC", "NOK", "RYAAY",
+    # ETFs & Indices Factoriels
+    "IS3E.DE", "IS3R.DE"
 ]
 
 # Market Pool élargi pour le scan de marché (Large & Mid Caps US & EU)

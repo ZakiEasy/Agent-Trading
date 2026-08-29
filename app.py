@@ -972,12 +972,52 @@ def close_portfolio_position():
 def get_watchlist_tickers():
     """
     Retourne la liste des tickers de la Watchlist avec leurs métadonnées depuis Supabase
+    (avec fallback automatique sur Google Sheets et DEFAULT_WATCHLIST)
     pour initialiser l'affichage instantanément avant le scan par lots.
     """
     try:
+        force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
         sb_wl = get_supabase_watchlist(only_active=True)
         if not sb_wl:
-            sb_wl = [{"symbol": sym, "name": get_company_name(sym)} for sym in DEFAULT_WATCHLIST]
+            from src.sheets_connector import read_watchlist_from_sheets, read_sharia_statuses_from_sheets
+            sheet_tickers = read_watchlist_from_sheets(force_refresh=force) or []
+            sharia_map = read_sharia_statuses_from_sheets(force_refresh=force) or {}
+            
+            if sheet_tickers:
+                sb_wl = []
+                for sym in sheet_tickers:
+                    s = str(sym).strip().upper()
+                    if not s or s.startswith("TOTAL") or s.startswith("TABLEAU"):
+                        continue
+                    cat_info = categorize_ticker(s)
+                    is_pea = cat_info.get("is_pea", s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS"))
+                    sb_wl.append({
+                        "symbol": s,
+                        "name": get_company_name(s),
+                        "category": cat_info.get("category", "Autres"),
+                        "category_icon": cat_info.get("category_icon", "📦"),
+                        "is_pea": is_pea,
+                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                        "sharia_status": sharia_map.get(s, "CONFORME"),
+                        "currency": "EUR" if is_pea else "USD",
+                        "is_active": True
+                    })
+            else:
+                sb_wl = []
+                for sym in DEFAULT_WATCHLIST:
+                    cat_info = categorize_ticker(sym)
+                    is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE") or sym.endswith(".AS"))
+                    sb_wl.append({
+                        "symbol": sym,
+                        "name": get_company_name(sym),
+                        "category": cat_info.get("category", "Autres"),
+                        "category_icon": cat_info.get("category_icon", "📦"),
+                        "is_pea": is_pea,
+                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                        "sharia_status": "CONFORME",
+                        "currency": "EUR" if is_pea else "USD",
+                        "is_active": True
+                    })
             
         tickers_data = []
         for item in sb_wl:
@@ -994,7 +1034,7 @@ def get_watchlist_tickers():
                 "category_icon": item.get("category_icon") or cat.get("category_icon", "📦"),
                 "is_pea": is_pea,
                 "account_type": acc_type,
-                "sharia": item.get("sharia_status", "DONNÉES INSUFFISANTES")
+                "sharia": item.get("sharia_status") or item.get("sharia") or "CONFORME"
             })
             
         return safe_jsonify({"success": True, "tickers": tickers_data, "count": len(tickers_data)})
