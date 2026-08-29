@@ -2536,6 +2536,38 @@
                             <!-- Filled dynamically -->
                         </div>
                     </div>
+
+                    <!-- Tickers Breakdown Section -->
+                    <div style="margin-top: 1.25rem; border-top: 1px solid var(--card-border); padding-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <div style="font-size: 0.88rem; font-weight: 700; color: #60a5fa; display: flex; align-items: center; gap: 0.4rem;">
+                                    <span>📊</span> Audit Protocole Détaillé par Action (<span id="fb-tickers-count">0</span> actions tradées)
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Cliquez sur une action pour examiner l'ensemble de ses trades et son diagnostic d'exécution</div>
+                            </div>
+                            <input type="text" id="fb-tickers-search" class="text-input" placeholder="🔍 Filtrer une action..." oninput="filterFbTickers()" style="max-width: 220px; font-size: 0.78rem; padding: 0.3rem 0.6rem;">
+                        </div>
+                        <div style="overflow-x: auto; max-height: 320px; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                <thead>
+                                    <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); color: var(--text-muted); text-align: left; position: sticky; top: 0; z-index: 1;">
+                                        <th style="padding: 0.5rem 0.75rem;">Action / Société</th>
+                                        <th style="padding: 0.5rem 0.75rem; text-align: center;">Trades</th>
+                                        <th style="padding: 0.5rem 0.75rem; text-align: center;">Win Rate</th>
+                                        <th style="padding: 0.5rem 0.75rem; text-align: right;">P&L Réalisé</th>
+                                        <th style="padding: 0.5rem 0.75rem; text-align: center;">Durée Moy.</th>
+                                        <th style="padding: 0.5rem 0.75rem; text-align: center;">Discipline</th>
+                                        <th style="padding: 0.5rem 0.75rem;">Répartition Sorties</th>
+                                        <th style="padding: 0.5rem 0.75rem; text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fb-tickers-tbody">
+                                    <tr><td colspan="8" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">Chargement de l'audit par action...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3774,6 +3806,98 @@
 
             <div class="modal-footer" style="background: rgba(15, 23, 42, 0.98); justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeTradeAuditModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL : AUDIT PROTOCOLE PAR ACTION & HISTORIQUE COMPLET -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="ticker-audit-modal" style="z-index: 2250 !important; display: none;">
+        <div class="modal-box" style="max-width: 850px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: rgba(15, 23, 42, 0.98); border-bottom: 1px solid var(--card-border);">
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <h3 style="font-size: 1.2rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0; color: #f8fafc;">
+                        📊 Audit Protocole de l'Action : <span id="ticker-modal-symbol" style="color: #60a5fa;">NVDA</span>
+                    </h3>
+                    <span id="ticker-modal-badge" class="badge badge-success">85.0/100</span>
+                </div>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeTickerAuditModal()">✕</button>
+            </div>
+            
+            <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <strong id="ticker-modal-name" style="font-size: 1rem; color: #f8fafc;">Company Name</strong>
+                        <div style="font-size: 0.78rem; color: var(--text-muted);" id="ticker-modal-accounts">Comptes : CTO Dollar (XTB)</div>
+                    </div>
+                    <span id="ticker-modal-count-badge" class="badge badge-primary">24 Trades Exécutés</span>
+                </div>
+
+                <!-- 4 Scorecard Cards for this Ticker -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem;">
+                    <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Win Rate</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: #10b981;" id="ticker-modal-winrate">83.3 %</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);" id="ticker-modal-winloss">20W / 4L</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">P&L Total Réalisé</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: var(--success);" id="ticker-modal-pnl">+251.67 $</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);" id="ticker-modal-avg-pnl">+2.4% moy / trade</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Durée Moyenne</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: #a78bfa;" id="ticker-modal-duration">24.9 j</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Temps de détention</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Score Discipline</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: #60a5fa;" id="ticker-modal-score">90.8 / 100</div>
+                        <div style="font-size: 0.7rem; color: #10b981;">Discipline Protocole</div>
+                    </div>
+                </div>
+
+                <!-- Strengths & Improvements Specific to this Stock -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;" class="screener-metrics-grid">
+                    <div class="glass-card" style="padding: 0.85rem; border-left: 3px solid #10b981; background: rgba(16, 185, 129, 0.04);">
+                        <div style="font-size: 0.8rem; font-weight: 700; color: #10b981; margin-bottom: 0.35rem;">✅ Points Forts sur ce Titre :</div>
+                        <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.78rem; color: var(--text-main); display: flex; flex-direction: column; gap: 0.2rem;" id="ticker-modal-strengths"></ul>
+                    </div>
+                    <div class="glass-card" style="padding: 0.85rem; border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, 0.04);">
+                        <div style="font-size: 0.8rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.35rem;">💡 Axes d'Amélioration & Vigilance :</div>
+                        <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.78rem; color: var(--text-main); display: flex; flex-direction: column; gap: 0.2rem;" id="ticker-modal-improvements"></ul>
+                    </div>
+                </div>
+
+                <!-- Complete Trades Journal for this Stock -->
+                <div class="glass-card" style="padding: 0.85rem; background: rgba(0,0,0,0.25);">
+                    <div style="font-size: 0.85rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📜 Tous les Trades Exécutés sur ce Titre</span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted);">Ordre chronologique</span>
+                    </div>
+                    <div style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); color: var(--text-muted); text-align: left; position: sticky; top: 0; z-index: 1;">
+                                    <th style="padding: 0.4rem 0.5rem;">Date Sortie</th>
+                                    <th style="padding: 0.4rem 0.5rem;">PRU Achat</th>
+                                    <th style="padding: 0.4rem 0.5rem;">Sortie</th>
+                                    <th style="padding: 0.4rem 0.5rem; text-align: right;">P&L Net</th>
+                                    <th style="padding: 0.4rem 0.5rem; text-align: right;">P&L %</th>
+                                    <th style="padding: 0.4rem 0.5rem; text-align: center;">Durée</th>
+                                    <th style="padding: 0.4rem 0.5rem;">Audit Protocole</th>
+                                    <th style="padding: 0.4rem 0.5rem; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ticker-modal-trades-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="background: rgba(15, 23, 42, 0.98); justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeTickerAuditModal()">Fermer</button>
             </div>
         </div>
     </div>
@@ -5151,6 +5275,206 @@
                     recoContainer.appendChild(card);
                 });
             }
+
+            // 5. Tickers Breakdown Table
+            allFbTickers = data.ticker_audits || [];
+            const countFbTickers = document.getElementById('fb-tickers-count');
+            if (countFbTickers) countFbTickers.textContent = allFbTickers.length;
+            renderFbTickersTable(allFbTickers);
+        }
+
+        let allFbTickers = [];
+
+        function renderFbTickersTable(tickersList) {
+            const tbody = document.getElementById('fb-tickers-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (!tickersList || tickersList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">Aucune action trouvée.</td></tr>`;
+                return;
+            }
+
+            tickersList.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+                const symChar = t.currency === 'USD' ? '$' : '€';
+                const isWin = t.total_pnl >= 0;
+                const wrColor = t.win_rate_pct >= 85 ? '#10b981' : (t.win_rate_pct >= 70 ? '#60a5fa' : '#f59e0b');
+                const discBadge = t.discipline_score >= 90 ? 'badge-success' : (t.discipline_score >= 75 ? 'badge-primary' : 'badge-warning');
+
+                tr.innerHTML = `
+                    <td style="padding: 0.5rem 0.75rem;">
+                        <strong style="color: #60a5fa; cursor: pointer;" onclick="openTickerAuditModal('${t.symbol}')">${t.symbol}</strong><br>
+                        <span style="font-size: 0.72rem; color: var(--text-muted);">${t.name}</span>
+                    </td>
+                    <td style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.85rem; font-weight: 700;">
+                        ${t.total_trades}
+                    </td>
+                    <td style="padding: 0.5rem 0.75rem; text-align: center; font-weight: 700; color: ${wrColor};">
+                        ${t.win_rate_pct}% <span style="font-size: 0.7rem; color: var(--text-muted);">(${t.winning_trades}W/${t.losing_trades}L)</span>
+                    </td>
+                    <td style="padding: 0.5rem 0.75rem; text-align: right; font-weight: 700; color: ${isWin ? 'var(--success)' : 'var(--danger)'};">
+                        ${isWin ? '+' : ''}${t.total_pnl.toFixed(2)} ${symChar}
+                    </td>
+                    <td style="padding: 0.5rem 0.75rem; text-align: center; color: var(--text-muted);">
+                        ${t.avg_duration_days} j
+                    </td>
+                    <td style="padding: 0.5rem 0.75rem; text-align: center;">
+                        <span class="badge ${discBadge}" style="font-size: 0.7rem;">${t.discipline_score}/100</span>
+                    </td>
+                    <td style="padding: 0.5rem 0.75rem;">
+                        <div style="display: flex; gap: 0.3rem; flex-wrap: wrap; font-size: 0.68rem;">
+                            ${t.tp2_count > 0 ? `<span class="badge badge-success" title="TP2 Optimal">🚀 ${t.tp2_count}</span>` : ''}
+                            ${t.tp1_count > 0 ? `<span class="badge badge-primary" title="TP1 Validé">🎯 ${t.tp1_count}</span>` : ''}
+                            ${t.premature_count > 0 ? `<span class="badge badge-warning" title="Sortie < TP1">⚠️ ${t.premature_count}</span>` : ''}
+                            ${t.controlled_loss_count > 0 ? `<span class="badge badge-neutral" title="Stop Propre">🛡️ ${t.controlled_loss_count}</span>` : ''}
+                            ${t.excessive_loss_count > 0 ? `<span class="badge badge-danger" title="Cassure Non Coupée">🔴 ${t.excessive_loss_count}</span>` : ''}
+                        </div>
+                    </td>
+                    <td style="padding: 0.5rem 0.75rem; text-align: right; white-space: nowrap;">
+                        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" onclick="openTickerAuditModal('${t.symbol}')">
+                            🔍 Examiner
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterFbTickers() {
+            const query = (document.getElementById('fb-tickers-search')?.value || '').trim().toLowerCase();
+            if (!query) {
+                renderFbTickersTable(allFbTickers);
+                return;
+            }
+            const filtered = allFbTickers.filter(t => {
+                return (t.symbol || '').toLowerCase().includes(query) || (t.name || '').toLowerCase().includes(query);
+            });
+            renderFbTickersTable(filtered);
+        }
+
+        async function openTickerAuditModal(symbol) {
+            if (!symbol) return;
+            const modal = document.getElementById('ticker-audit-modal');
+            if (!modal) return;
+
+            try {
+                const payload = await fetchJsonSafely(`${API_URL}/journal/ticker_audit/${symbol}`);
+                if (!payload || !payload.success || !payload.ticker_audit) {
+                    alert(`Impossible de charger l'audit pour ${symbol}.`);
+                    return;
+                }
+                const ta = payload.ticker_audit;
+
+                const symChar = ta.currency === 'USD' ? '$' : '€';
+                const isWin = ta.total_pnl >= 0;
+
+                const symElem = document.getElementById('ticker-modal-symbol');
+                if (symElem) symElem.textContent = ta.symbol;
+
+                const badgeElem = document.getElementById('ticker-modal-badge');
+                if (badgeElem) {
+                    badgeElem.textContent = `Score: ${ta.discipline_score}/100`;
+                    badgeElem.className = `badge ${ta.discipline_score >= 85 ? 'badge-success' : 'badge-warning'}`;
+                }
+
+                const nameElem = document.getElementById('ticker-modal-name');
+                if (nameElem) nameElem.textContent = ta.name;
+
+                const accElem = document.getElementById('ticker-modal-accounts');
+                if (accElem) accElem.textContent = `Comptes : ${ta.accounts && ta.accounts.length ? ta.accounts.join(', ') : 'N/A'}`;
+
+                const cntBadge = document.getElementById('ticker-modal-count-badge');
+                if (cntBadge) cntBadge.textContent = `${ta.total_trades} Trades Exécutés`;
+
+                const wrElem = document.getElementById('ticker-modal-winrate');
+                if (wrElem) wrElem.textContent = `${ta.win_rate_pct} %`;
+
+                const winlossElem = document.getElementById('ticker-modal-winloss');
+                if (winlossElem) winlossElem.textContent = `${ta.winning_trades} Gagnants / ${ta.losing_trades} Perdants`;
+
+                const pnlElem = document.getElementById('ticker-modal-pnl');
+                if (pnlElem) {
+                    pnlElem.textContent = `${isWin ? '+' : ''}${ta.total_pnl.toFixed(2)} ${symChar}`;
+                    pnlElem.style.color = isWin ? 'var(--success)' : 'var(--danger)';
+                }
+
+                const avgPnlElem = document.getElementById('ticker-modal-avg-pnl');
+                if (avgPnlElem) avgPnlElem.textContent = `${ta.avg_pnl_pct >= 0 ? '+' : ''}${ta.avg_pnl_pct.toFixed(2)}% moy / trade`;
+
+                const durElem = document.getElementById('ticker-modal-duration');
+                if (durElem) durElem.textContent = `${ta.avg_duration_days} j`;
+
+                const scoreElem = document.getElementById('ticker-modal-score');
+                if (scoreElem) scoreElem.textContent = `${ta.discipline_score} / 100`;
+
+                // Strengths
+                const strElem = document.getElementById('ticker-modal-strengths');
+                if (strElem) {
+                    strElem.innerHTML = '';
+                    (ta.strengths || []).forEach(s => {
+                        const li = document.createElement('li');
+                        li.textContent = s;
+                        strElem.appendChild(li);
+                    });
+                }
+
+                // Improvements
+                const impElem = document.getElementById('ticker-modal-improvements');
+                if (impElem) {
+                    impElem.innerHTML = '';
+                    (ta.improvements || []).forEach(i => {
+                        const li = document.createElement('li');
+                        li.textContent = i;
+                        impElem.appendChild(li);
+                    });
+                }
+
+                // Trades table
+                const tbody = document.getElementById('ticker-modal-trades-tbody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    (ta.trades || []).forEach(trItem => {
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+                        const tWin = trItem.pnl_amount >= 0;
+                        const pColor = tWin ? 'var(--success)' : 'var(--danger)';
+                        const closeD = trItem.exit_date ? String(trItem.exit_date).substring(0, 10) : '--';
+
+                        tr.innerHTML = `
+                            <td style="padding: 0.4rem 0.5rem; white-space: nowrap;">${closeD}</td>
+                            <td style="padding: 0.4rem 0.5rem;">${trItem.pru.toFixed(2)} ${symChar}</td>
+                            <td style="padding: 0.4rem 0.5rem;">${trItem.exit_price.toFixed(2)} ${symChar}</td>
+                            <td style="padding: 0.4rem 0.5rem; text-align: right; font-weight: 700; color: ${pColor};">
+                                ${tWin ? '+' : ''}${trItem.pnl_amount.toFixed(2)} ${symChar}
+                            </td>
+                            <td style="padding: 0.4rem 0.5rem; text-align: right; font-weight: 600; color: ${pColor};">
+                                ${tWin ? '+' : ''}${trItem.pnl_pct.toFixed(2)}%
+                            </td>
+                            <td style="padding: 0.4rem 0.5rem; text-align: center; color: var(--text-muted);">
+                                ${trItem.duration_days} j
+                            </td>
+                            <td style="padding: 0.4rem 0.5rem;">
+                                <span class="badge ${trItem.badge_class}" style="font-size: 0.68rem;">${trItem.status_label}</span>
+                            </td>
+                            <td style="padding: 0.4rem 0.5rem; text-align: right; white-space: nowrap;">
+                                <button class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;" onclick="openTradeAuditModal('${trItem.trade_id || ''}')">🔬</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                modal.style.display = 'flex';
+            } catch (e) {
+                console.error("Erreur ouverture ticker audit modal:", e);
+            }
+        }
+
+        function closeTickerAuditModal() {
+            const modal = document.getElementById('ticker-audit-modal');
+            if (modal) modal.style.display = 'none';
         }
 
         async function openTradeAuditModal(tradeId) {

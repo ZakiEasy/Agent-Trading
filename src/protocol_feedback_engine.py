@@ -318,6 +318,9 @@ def analyze_executed_trades_against_protocol(trades_list):
     net_pnl_eur_optimise = round(net_pnl_eur_actuel + potential_loss_savings_eur + (money_left_on_table_eur * 0.7), 2)
     gain_optimisation_total = round(net_pnl_eur_optimise - net_pnl_eur_actuel, 2)
 
+    # 6. Audit détaillé par Action (Ticker Level Breakdown)
+    ticker_audits = audit_by_ticker(trades_list)
+
     return {
         "success": True,
         "total_trades": total_trades,
@@ -363,5 +366,114 @@ def analyze_executed_trades_against_protocol(trades_list):
             "potential_gain_eur": gain_optimisation_total
         },
         "recommendations": recommendations,
+        "ticker_audits": ticker_audits,
         "audited_trades": audited_trades
     }
+
+
+def audit_by_ticker(trades_list):
+    """
+    Regroupe et audite l'ensemble des trades exécutés par action/symbole.
+    Fournit les statistiques agrégées (Win Rate, PnL, Score de Discipline, Durée)
+    et la liste complète des trades pour chaque titre.
+    """
+    if not trades_list:
+        return []
+    
+    from collections import defaultdict
+    by_sym = defaultdict(list)
+    for t in trades_list:
+        sym = str(t.get("symbol", "")).upper().strip()
+        if sym:
+            by_sym[sym].append(t)
+            
+    ticker_summaries = []
+    for sym, t_list in by_sym.items():
+        audits = [audit_single_trade(t) for t in t_list]
+        audits.sort(key=lambda x: str(x.get("exit_date") or x.get("entry_date") or ""), reverse=True)
+        
+        total_t = len(audits)
+        wins = [a for a in audits if a["pnl_pct"] >= 0]
+        losses = [a for a in audits if a["pnl_pct"] < 0]
+        win_rate = round(len(wins) / total_t * 100, 1) if total_t > 0 else 0.0
+        
+        total_pnl = round(sum(a["pnl_amount"] for a in audits), 2)
+        avg_pnl_pct = round(sum(a["pnl_pct"] for a in audits) / total_t, 2) if total_t > 0 else 0.0
+        avg_dur = round(sum(a["duration_days"] for a in audits) / total_t, 1) if total_t > 0 else 0.0
+        
+        # Discipline Score moyen
+        disc_score = round(sum(a["discipline_score"] for a in audits) / total_t, 1) if total_t > 0 else 0.0
+        
+        # Sorties
+        tp2_cnt = len([a for a in audits if a["status_code"] == "TP2_OPTIMAL"])
+        tp1_cnt = len([a for a in audits if a["status_code"] == "TP1_CONFORME"])
+        premature_cnt = len([a for a in audits if a["status_code"] == "SORTIE_PREMATUREE"])
+        controlled_loss_cnt = len([a for a in audits if a["status_code"] == "STOP_CONTROLE"])
+        excessive_loss_cnt = len([a for a in audits if a["status_code"] == "CASSURE_NON_COUPEE"])
+        
+        currency = audits[0]["currency"] if audits else "EUR"
+        name = audits[0]["name"] if audits else sym
+        accounts = list(set(a["account"] for a in audits if a.get("account")))
+        
+        # Diagnostic personnalisé pour cette action
+        strengths = []
+        improvements = []
+        if win_rate >= 85.0:
+            strengths.append(f"Taux de réussite remarquable ({win_rate}% sur {total_t} trades).")
+        if avg_dur <= 5.0:
+            strengths.append(f"Durée moyenne conforme au mean reversion ({avg_dur}j).")
+        if tp2_cnt >= total_t * 0.4:
+            strengths.append(f"Excellente capture des extensions TP2 ({tp2_cnt} trades sur {total_t}).")
+            
+        if avg_dur > 15.0:
+            improvements.append(f"Durée moyenne excessive ({avg_dur}j). Risque d'usure de capital.")
+        if premature_cnt > total_t * 0.3:
+            improvements.append(f"{premature_cnt} sorties prématurées sous les +1.0% (gains coupés trop tôt).")
+        if excessive_loss_cnt > 0:
+            improvements.append(f"{excessive_loss_cnt} cassures de support non coupées (> -2.5%).")
+            
+        if not strengths:
+            strengths.append("Historique de trading régulier.")
+        if not improvements:
+            improvements.append("Exécution irréprochable sur cette action.")
+            
+        ticker_summaries.append({
+            "symbol": sym,
+            "name": name,
+            "currency": currency,
+            "accounts": accounts,
+            "total_trades": total_t,
+            "winning_trades": len(wins),
+            "losing_trades": len(losses),
+            "win_rate_pct": win_rate,
+            "total_pnl": total_pnl,
+            "avg_pnl_pct": avg_pnl_pct,
+            "avg_duration_days": avg_dur,
+            "discipline_score": disc_score,
+            "tp2_count": tp2_cnt,
+            "tp1_count": tp1_cnt,
+            "premature_count": premature_cnt,
+            "controlled_loss_count": controlled_loss_cnt,
+            "excessive_loss_count": excessive_loss_cnt,
+            "strengths": strengths,
+            "improvements": improvements,
+            "trades": audits
+        })
+        
+    ticker_summaries.sort(key=lambda x: (x["total_trades"], x["total_pnl"]), reverse=True)
+    return ticker_summaries
+
+
+def get_ticker_deep_audit(symbol, trades_list):
+    """
+    Renvoie l'audit approfondi d'une action spécifique à partir de son symbole.
+    """
+    if not symbol or not trades_list:
+        return None
+    sym_upper = str(symbol).upper().strip()
+    all_summaries = audit_by_ticker(trades_list)
+    for s in all_summaries:
+        if s["symbol"] == sym_upper:
+            return s
+    return None
+

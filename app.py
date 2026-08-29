@@ -692,6 +692,23 @@ def get_trade_protocol_audit(trade_id):
         logger.error(f"Erreur audit trade {trade_id}: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": f"Erreur audit trade: {str(e)}"}, status_code=500)
 
+@app.route("/api/journal/ticker_audit/<symbol>")
+def get_ticker_protocol_audit(symbol):
+    """
+    Renvoie l'audit approfondi de l'ensemble des trades exécutés sur une action spécifique.
+    """
+    try:
+        from src.protocol_feedback_engine import get_ticker_deep_audit
+        trades = get_supabase_trade_journal()
+        audit = get_ticker_deep_audit(symbol, trades)
+        if not audit:
+            return safe_jsonify({"success": False, "error": f"Aucun trade trouvé pour le symbole {symbol}."}), 404
+
+        return safe_jsonify({"success": True, "ticker_audit": audit})
+    except Exception as e:
+        logger.error(f"Erreur audit ticker {symbol}: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": f"Erreur audit ticker: {str(e)}"}, status_code=500)
+
 @app.route("/api/portfolio/add", methods=["POST"])
 def add_portfolio_position():
     """
