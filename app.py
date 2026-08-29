@@ -1602,6 +1602,56 @@ EXPANDED_SCREENER_UNIVERSE = list(dict.fromkeys(
 
 _SCREENER_SEARCH_CACHE = {}
 _SCREENER_10Y_CACHE = {}
+_TICKER_10Y_STATS_CACHE = {}
+
+def get_ticker_10y_quick_stats(symbol):
+    """
+    Récupère ou calcule les statistiques réelles du backtest 10 ans pour un ticker individuel.
+    Met en cache le résultat pour des performances ultra-rapides.
+    """
+    from src.market_data import resolve_ticker_symbol
+    sym = resolve_ticker_symbol(str(symbol or "").upper().strip())
+    now = time.time()
+    if sym in _TICKER_10Y_STATS_CACHE:
+        entry = _TICKER_10Y_STATS_CACHE[sym]
+        if (now - entry["ts"]) < 86400:  # 24h de cache
+            return entry["data"]
+
+    try:
+        bt_res = run_single_ticker_10y_backtest(sym, strategy="v3_institutional", initial_capital=5000.0)
+        if bt_res.get("success"):
+            m = bt_res.get("metrics", {})
+            comp = bt_res.get("comparison", {})
+            stats = {
+                "win_rate_pct": float(m.get("win_rate_pct", 0.0)),
+                "total_trades": int(m.get("total_trades", 0)),
+                "winning_trades": int(m.get("winning_trades", 0)),
+                "losing_trades": int(m.get("losing_trades", 0)),
+                "profit_factor": float(m.get("profit_factor", 0.0)),
+                "avg_holding_days": float(m.get("avg_holding_days", 0.0)),
+                "max_drawdown_pct": float(m.get("max_drawdown_pct", 0.0)),
+                "total_net_pnl": float(m.get("total_net_pnl", 0.0)),
+                "total_return_pct": float(m.get("total_return_pct", 0.0)),
+                "buy_hold_pct": float(comp.get("buy_and_hold_return_pct", 0.0) or 0.0)
+            }
+            _TICKER_10Y_STATS_CACHE[sym] = {"data": stats, "ts": now}
+            _SCREENER_10Y_CACHE[f"{sym}_v3_institutional_5000.0"] = {"data": bt_res, "ts": now}
+            return stats
+    except Exception as e:
+        logger.warning(f"Erreur calcul 10y stats pour {sym}: {e}")
+
+    return {
+        "win_rate_pct": 0.0,
+        "total_trades": 0,
+        "winning_trades": 0,
+        "losing_trades": 0,
+        "profit_factor": 0.0,
+        "avg_holding_days": 0.0,
+        "max_drawdown_pct": 0.0,
+        "total_net_pnl": 0.0,
+        "total_return_pct": 0.0,
+        "buy_hold_pct": 0.0
+    }
 
 @app.route("/api/screener/search", methods=["GET", "POST"])
 def screener_search_endpoint():
@@ -1702,13 +1752,8 @@ def screener_search_endpoint():
                 sizing = analysis.get("sizing") or {}
                 macro = str(analysis.get("macro_regime") or "NEUTRE")
 
-                # Récupération ou estimation rapide des stats 10 ans
-                backtest_quick = {
-                    "win_rate_pct": 74.2,
-                    "profit_factor": 1.48,
-                    "avg_holding_days": 2.6,
-                    "max_drawdown_pct": 4.5
-                }
+                # Récupération des vraies stats 10 ans calculées pour ce titre
+                backtest_quick = get_ticker_10y_quick_stats(sym)
 
                 return {
                     "symbol": sym,

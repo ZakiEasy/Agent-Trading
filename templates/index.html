@@ -7612,12 +7612,17 @@
                 const oppCount = screenerData.filter(x => (x.verdict || '').includes('ACHETER') || (x.score || 0) >= 6).length;
                 const shariaCount = screenerData.filter(x => (x.sharia_status || '').includes('CONFORME')).length;
 
+                const validWinRates = screenerData.map(x => x.backtest_quick?.win_rate_pct).filter(w => typeof w === 'number' && w > 0);
+                const avgWinRate = validWinRates.length > 0 ? (validWinRates.reduce((a, b) => a + b, 0) / validWinRates.length).toFixed(1) : '0.0';
+
                 const kpiTotal = document.getElementById('screener-kpi-total');
                 if (kpiTotal) kpiTotal.textContent = totalCount;
                 const kpiOpp = document.getElementById('screener-kpi-opportunities');
                 if (kpiOpp) kpiOpp.textContent = oppCount;
                 const kpiSharia = document.getElementById('screener-kpi-sharia');
                 if (kpiSharia) kpiSharia.textContent = shariaCount;
+                const kpiWinRate = document.getElementById('screener-kpi-winrate');
+                if (kpiWinRate) kpiWinRate.textContent = `${avgWinRate}%`;
 
                 if (resultsTitle) {
                     resultsTitle.innerHTML = `<span>📋</span> Résultats du Screener (${totalCount} action${totalCount > 1 ? 's' : ''} trouvée${totalCount > 1 ? 's' : ''})`;
@@ -7677,6 +7682,8 @@
                 const verdictClass = isBuy ? 'badge-success' : (isWait ? 'badge-warning' : 'badge-neutral');
                 const chgColor = (item.price_change_pct || 0) >= 0 ? '#10b981' : '#ef4444';
                 const rsiColor = item.rsi < 35 ? '#10b981' : (item.rsi > 70 ? '#ef4444' : '#94a3b8');
+                const wr = item.backtest_quick?.win_rate_pct;
+                const wrColor = (wr || 0) >= 65 ? '#10b981' : ((wr || 0) >= 50 ? '#f59e0b' : '#ef4444');
 
                 tr.innerHTML = `
                     <td>
@@ -7726,8 +7733,8 @@
                         </div>
                     </td>
                     <td style="text-align: center;">
-                        <div style="font-weight: 700; color: #10b981; font-size: 0.88rem;">${item.backtest_quick?.win_rate_pct || 74.2}%</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">${item.backtest_quick?.avg_holding_days || 2.6}j moyen</div>
+                        <div style="font-weight: 700; color: ${wrColor}; font-size: 0.88rem;">${typeof wr === 'number' && wr > 0 ? wr.toFixed(1) + '%' : '--%'}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">${item.backtest_quick?.total_trades || 0} tr (${(item.backtest_quick?.avg_holding_days || 0).toFixed(1)}j)</div>
                     </td>
                     <td style="text-align: center;">
                         <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: center;">
@@ -7765,6 +7772,8 @@
                 const isWait = (item.verdict || '').includes('ATTENDRE') || (item.verdict || '').includes('PULLBACK');
                 const verdictClass = isBuy ? 'badge-success' : (isWait ? 'badge-warning' : 'badge-neutral');
                 const chgColor = (item.price_change_pct || 0) >= 0 ? '#10b981' : '#ef4444';
+                const wr = item.backtest_quick?.win_rate_pct;
+                const wrColor = (wr || 0) >= 65 ? '#10b981' : ((wr || 0) >= 50 ? '#f59e0b' : '#ef4444');
 
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
@@ -7785,7 +7794,7 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: rgba(0,0,0,0.25); padding: 0.6rem; border-radius: 6px; font-size: 0.78rem; margin-bottom: 0.75rem;">
                         <div>Score Confluence : <strong style="color: #60a5fa;">${(item.score || 0).toFixed(1)}/10</strong></div>
                         <div>RSI 14 : <strong>${(item.rsi || 50).toFixed(1)}</strong></div>
-                        <div>Win Rate 10 Ans : <strong style="color: #10b981;">${item.backtest_quick?.win_rate_pct || 74.2}%</strong></div>
+                        <div>Win Rate 10 Ans : <strong style="color: ${wrColor};">${typeof wr === 'number' && wr > 0 ? wr.toFixed(1) + '%' : '--%'}</strong> (${item.backtest_quick?.total_trades || 0} tr)</div>
                         <div>TP1 Cible : <strong style="color: #10b981;">+1.25%</strong></div>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
