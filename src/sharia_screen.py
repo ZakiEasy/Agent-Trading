@@ -184,12 +184,12 @@ def screen_ticker(ticker_symbol):
     if ticker_symbol in _SHARIA_CACHE and (now - _SHARIA_CACHE[ticker_symbol]["ts"]) < _SHARIA_CACHE_TTL:
         return _SHARIA_CACHE[ticker_symbol]["data"]
         
-    # 0. Tenter de lire le statut pré-défini dans Google Sheets
+    # 0. Tenter de lire le statut pré-défini dans la Watchlist Supabase
     try:
-        from src.sheets_connector import read_sharia_statuses_from_sheets
-        sheet_statuses = read_sharia_statuses_from_sheets()
-        if ticker_symbol in sheet_statuses:
-            status_val = str(sheet_statuses[ticker_symbol]).strip().upper()
+        from src.supabase_connector import get_watchlist_item
+        wl_item = get_watchlist_item(ticker_symbol)
+        if wl_item and wl_item.get("sharia_status"):
+            status_val = str(wl_item["sharia_status"]).strip().upper()
             if status_val in ["CONFORME", "NON CONFORME", "DONNÉES INSUFFISANTES", "HALAL", "HARAM", "TRUE", "FALSE"]:
                 if status_val in ["CONFORME", "HALAL", "TRUE"]:
                     normalized_status = "CONFORME"
@@ -201,7 +201,7 @@ def screen_ticker(ticker_symbol):
                 res = {
                     "symbol": ticker_symbol,
                     "status": normalized_status,
-                    "reason": f"Statut lu depuis votre Google Sheet",
+                    "reason": f"Statut AAOIFI officiel enregistré en base de données",
                     "details": {}
                 }
                 _SHARIA_CACHE[ticker_symbol] = {"data": res, "ts": now}

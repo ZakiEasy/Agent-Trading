@@ -331,6 +331,66 @@ def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, shar
         print(f"⚠️ Erreur lors de l'écriture sur Google Sheets : {str(e)}")
         return True, f"Action {ticker_symbol} ajoutée à la watchlist active (Erreur écriture Google Sheets: {str(e)})."
 
+def delete_ticker_from_sheets(ticker_symbol):
+    """
+    Supprime un ticker de la feuille 'Watchlist' de Google Sheets et met à jour les caches locaux.
+    """
+    global _local_watchlist_cache, _WATCHLIST_SHEETS_CACHE, _SHARIA_STATUSES_SHEETS_CACHE
+    ticker_symbol = ticker_symbol.upper().strip()
+    if not ticker_symbol:
+        return False, "Le symbole de l'action ne peut pas être vide."
+
+    # 1. Mise à jour du cache local en mémoire
+    if ticker_symbol in _local_watchlist_cache:
+        _local_watchlist_cache[:] = [t for t in _local_watchlist_cache if t != ticker_symbol]
+    
+    _WATCHLIST_SHEETS_CACHE = {"data": list(_local_watchlist_cache), "ts": 0}
+    if "data" in _SHARIA_STATUSES_SHEETS_CACHE and isinstance(_SHARIA_STATUSES_SHEETS_CACHE["data"], dict):
+        _SHARIA_STATUSES_SHEETS_CACHE["data"].pop(ticker_symbol, None)
+
+    client, error = get_sheets_client()
+    if error or not client:
+        return True, f"Action {ticker_symbol} retirée de la watchlist active (Mode local)."
+
+    try:
+        sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        try:
+            worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
+        except gspread.exceptions.WorksheetNotFound:
+            return True, f"Action {ticker_symbol} retirée du cache local (Feuille Watchlist introuvable sur Sheets)."
+
+        all_rows = worksheet.get_all_values()
+        if not all_rows:
+            return True, f"Action {ticker_symbol} retirée."
+
+        # Trouver la colonne du ticker
+        header_row_idx = -1
+        col_ticker = 0
+        for r_idx, row in enumerate(all_rows):
+            for c_idx, cell in enumerate(row):
+                if str(cell).strip().lower() in ["ticker", "symbole"]:
+                    header_row_idx = r_idx
+                    col_ticker = c_idx
+                    break
+            if header_row_idx != -1:
+                break
+
+        # Parcourir et supprimer les lignes correspondantes (du bas vers le haut pour préserver les index)
+        deleted_count = 0
+        start_search_idx = header_row_idx + 1 if header_row_idx != -1 else 0
+        for r_idx in range(len(all_rows) - 1, start_search_idx - 1, -1):
+            row = all_rows[r_idx]
+            if len(row) > col_ticker and str(row[col_ticker]).strip().upper() == ticker_symbol:
+                sheet_row_num = r_idx + 1  # 1-indexed pour gspread
+                worksheet.delete_rows(sheet_row_num)
+                deleted_count += 1
+
+        print(f"🗑️ Action {ticker_symbol} supprimée de la feuille '{GOOGLE_SHEET_NAME_WATCHLIST}' ({deleted_count} ligne(s)).")
+        return True, f"Action {ticker_symbol} retirée avec succès de votre Watchlist Google Sheets !"
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la suppression sur Google Sheets : {str(e)}")
+        return True, f"Action {ticker_symbol} retirée du cache local (Erreur Google Sheets: {str(e)})."
+
 def write_signals_to_sheets(signals):
     """
     Écrit les opportunités détectées dans la feuille 'Signaux' de Google Sheets (v2.0) en batch.

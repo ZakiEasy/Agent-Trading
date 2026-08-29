@@ -314,6 +314,16 @@
             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
 
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        }
+
         .input-group {
             display: flex;
             gap: 0.5rem;
@@ -676,6 +686,121 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
+        /* Modern Danger / Delete Buttons & Animations */
+        .btn-icon-danger {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #f87171;
+            padding: 0.35rem 0.55rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            font-size: 0.8rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-icon-danger:hover {
+            background: rgba(239, 68, 68, 0.22);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+            transform: scale(1.06);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+        }
+        .btn-icon-danger:active {
+            transform: scale(0.95);
+        }
+
+        .btn-danger-soft {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: #f87171;
+            padding: 0.4rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: all 0.2s ease;
+        }
+        .btn-danger-soft:hover {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: rgba(239, 68, 68, 0.6);
+            color: #ffffff;
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Row delete animation */
+        .row-deleting {
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            opacity: 0 !important;
+            transform: translateX(35px) scale(0.96) !important;
+            background: rgba(239, 68, 68, 0.15) !important;
+        }
+
+        /* Sleek Toast Notification Container */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast-item {
+            pointer-events: auto;
+            min-width: 280px;
+            max-width: 420px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 0.85rem 1.15rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.2);
+            color: #f8fafc;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transition: all 0.3s ease;
+        }
+        .toast-item.toast-success {
+            border-left: 4px solid #10b981;
+        }
+        .toast-item.toast-danger {
+            border-left: 4px solid #ef4444;
+        }
+        .toast-item.toast-info {
+            border-left: 4px solid #3b82f6;
+        }
+        .toast-item.toast-hiding {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+        }
+        @keyframes toastSlideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Confirmation Delete Popin Modal */
+        .confirm-delete-box {
+            background: #0f172a;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            border-radius: 1rem;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 20px rgba(239, 68, 68, 0.15);
+            overflow: hidden;
+            text-align: center;
+            padding: 1.75rem;
+        }
+
         /* Chat Assistant Tab */
         .chat-container {
             display: flex;
@@ -898,6 +1023,67 @@
             text-align: center;
         }
 
+        /* Barre de Tri Rapide Tactile Mobile */
+        .mobile-sort-bar {
+            display: none;
+            align-items: center;
+            gap: 0.4rem;
+            overflow-x: auto;
+            padding: 0.5rem 0.2rem 0.65rem 0.2rem;
+            margin-bottom: 0.6rem;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .mobile-sort-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .mobile-sort-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding-right: 0.25rem;
+        }
+
+        .sort-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            padding: 0.35rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .sort-chip:active {
+            transform: scale(0.96);
+        }
+
+        .sort-chip.active {
+            background: rgba(59, 130, 246, 0.25);
+            border-color: rgba(59, 130, 246, 0.6);
+            color: #93c5fd;
+            font-weight: 700;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+        }
+
+        .sort-chip .sort-arrow {
+            font-size: 0.7rem;
+            color: #60a5fa;
+        }
+
         #scan-mobile-cards-container {
             display: none;
             flex-direction: column;
@@ -1077,6 +1263,10 @@
 
             .table-container {
                 display: none !important;
+            }
+
+            .mobile-sort-bar {
+                display: flex !important;
             }
 
             #scan-mobile-cards-container {
@@ -1287,9 +1477,14 @@
                 <div class="glass-card" style="padding: 1.25rem;">
                     <div class="card-header" style="margin-bottom: 1rem;">
                         <h2 class="card-title">🔍 Moteur de Scan & Screening Quantitatif</h2>
-                        <button class="btn btn-success" onclick="openAddStockModal()">
-                            ➕ Ajouter une action au Google Sheet
-                        </button>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" onclick="openManageWatchlistModal()" style="display: flex; align-items: center; gap: 0.4rem; border-color: rgba(96, 165, 250, 0.4); background: rgba(59, 130, 246, 0.08); color: #93c5fd;" title="Gérer la liste des actions surveillées">
+                                📋 Gérer la Watchlist <span id="wl-count-badge" style="background: rgba(59, 130, 246, 0.25); color: #60a5fa; padding: 0.1rem 0.45rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">--</span>
+                            </button>
+                            <button class="btn btn-success" onclick="openAddStockModal()" title="Ajouter une nouvelle action à la Watchlist">
+                                ➕ Ajouter une action
+                            </button>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                         <button class="btn" onclick="runWatchlistScan()">
@@ -1382,11 +1577,35 @@
                             <select id="filter-verdict-sniper" class="filter-select" onchange="applyFilters()">
                                 <option value="ALL">Tous statuts Sniper</option>
                                 <option value="ACHAT_SNIPER">🟢 Achat Sniper Validé</option>
-                                <option value="ATTENDRE_M5">🟡 Attendre Rejet M5 (< 90 min)</option>
+                                <option value="ATTENDRE_M5">🟡 Attendre Rejet M5 (&lt; 90 min)</option>
                                 <option value="PRE_MARKET">🔵 Plan Pré-Ouverture (M15)</option>
                                 <option value="FORMATION_M15">🟠 Formation M15</option>
-                                <option value="EXPIRED">⚪ Fenêtre Expirée (> 90 min)</option>
+                                <option value="EXPIRED">⚪ Fenêtre Expirée (&gt; 90 min)</option>
                                 <option value="NON_ELIGIBLE">🔘 Non Éligible</option>
+                            </select>
+                        </div>
+
+                        <!-- Sélecteur de Tri Global (Desktop & Mobile) -->
+                        <div class="filter-group">
+                            <label>🔃 Tri :</label>
+                            <select id="filter-sort" class="filter-select" onchange="onSortSelectChange(this.value)">
+                                <option value="confluence_score_desc">🏆 Score Confluence (9 ➔ 0)</option>
+                                <option value="confluence_score_asc">🏆 Score Confluence (0 ➔ 9)</option>
+                                <option value="verdict_swing_asc">⚖️ Verdict Swing (A ➔ Z)</option>
+                                <option value="verdict_sniper_asc">🎯 Verdict Sniper (A ➔ Z)</option>
+                                <option value="symbol_asc">🔤 Ticker (A ➔ Z)</option>
+                                <option value="symbol_desc">🔤 Ticker (Z ➔ A)</option>
+                                <option value="price_desc">💶 Cours (Plus cher)</option>
+                                <option value="price_asc">💶 Cours (Moins cher)</option>
+                                <option value="drop_asc">📉 Dip % (Plus forte baisse)</option>
+                                <option value="drop_desc">📉 Dip % (Moins forte baisse)</option>
+                                <option value="avg_daily_volume_desc">📊 Volume/j (Plus élevé)</option>
+                                <option value="avg_daily_volume_asc">📊 Volume/j (Plus faible)</option>
+                                <option value="rsi_asc">📈 RSI (Survente en 1er)</option>
+                                <option value="rsi_desc">📈 RSI (Surachat en 1er)</option>
+                                <option value="category_asc">🏷️ Catégorie (A ➔ Z)</option>
+                                <option value="sharia_asc">🕌 Sharia (Conforme en 1er)</option>
+                                <option value="is_pea_desc">💳 Compte (PEA en 1er)</option>
                             </select>
                         </div>
 
@@ -1415,28 +1634,67 @@
                         <table id="scan-results-table">
                             <thead>
                                 <tr>
-                                    <th onclick="sortBy('symbol')" style="cursor: pointer; user-select: none;">Ticker ↕</th>
-                                    <th onclick="sortBy('is_pea')" style="cursor: pointer; user-select: none;">Compte ↕</th>
-                                    <th onclick="sortBy('category')" style="cursor: pointer; user-select: none;">Catégorie & ETF ↕</th>
-                                    <th onclick="sortBy('sharia')" style="cursor: pointer; user-select: none;">Sharia ↕</th>
-                                    <th onclick="sortBy('price')" style="cursor: pointer; user-select: none;">Cours ↕</th>
-                                    <th onclick="sortBy('drop')" style="cursor: pointer; user-select: none;">Dip (%) ↕</th>
-                                    <th onclick="sortBy('avg_daily_volume')" style="cursor: pointer; user-select: none;">Vol/j (€/$) ↕</th>
-                                    <th onclick="sortBy('rsi')" style="cursor: pointer; user-select: none;">RSI ↕</th>
+                                    <th onclick="sortBy('symbol')" id="th-symbol" style="cursor: pointer; user-select: none;">Ticker ↕</th>
+                                    <th onclick="sortBy('is_pea')" id="th-is_pea" style="cursor: pointer; user-select: none;">Compte ↕</th>
+                                    <th onclick="sortBy('sharia')" id="th-sharia" style="cursor: pointer; user-select: none;">Sharia ↕</th>
+                                    <th onclick="sortBy('confluence_score')" id="th-confluence_score" style="cursor: pointer; user-select: none;">Score ↕</th>
+                                    <th onclick="sortBy('verdict_swing')" id="th-verdict_swing" style="cursor: pointer; user-select: none;">Verdict Swing (Standard) ↕</th>
+                                    <th onclick="sortBy('verdict_sniper')" id="th-verdict_sniper" style="cursor: pointer; user-select: none;">Verdict Sniper (90 min) ↕</th>
+                                    <th onclick="sortBy('price')" id="th-price" style="cursor: pointer; user-select: none;">Cours ↕</th>
+                                    <th onclick="sortBy('drop')" id="th-drop" style="cursor: pointer; user-select: none;">Dip (%) ↕</th>
+                                    <th onclick="sortBy('avg_daily_volume')" id="th-avg_daily_volume" style="cursor: pointer; user-select: none;">Vol/j (€/$) ↕</th>
+                                    <th onclick="sortBy('rsi')" id="th-rsi" style="cursor: pointer; user-select: none;">RSI ↕</th>
                                     <th style="user-select: none;">Divergence</th>
-                                    <th onclick="sortBy('confluence_score')" style="cursor: pointer; user-select: none;">Score ↕</th>
-                                    <th onclick="sortBy('verdict_swing')" style="cursor: pointer; user-select: none;">Verdict Swing (Standard) ↕</th>
-                                    <th onclick="sortBy('verdict_sniper')" style="cursor: pointer; user-select: none;">Verdict Sniper (90 min) ↕</th>
+                                    <th onclick="sortBy('category')" id="th-category" style="cursor: pointer; user-select: none;">Catégorie & ETF ↕</th>
+                                    <th style="user-select: none; text-align: center;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                    <td colspan="13" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
                                         Aucun scan lancé. Cliquez sur <strong>"Scanner la Watchlist"</strong> ou saisissez un ticker pour lancer le protocole en 8 étapes.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Barre de Tri Rapide Tactile Mobile (Smartphone & Tablette) -->
+                    <div class="mobile-sort-bar" id="mobile-quick-sort-bar">
+                        <span class="mobile-sort-label">🔃 Trier :</span>
+                        <button class="sort-chip active" data-field="confluence_score" onclick="sortBy('confluence_score')">
+                            🏆 Score <span class="sort-arrow" id="chip-arrow-confluence_score">▼</span>
+                        </button>
+                        <button class="sort-chip" data-field="verdict_swing" onclick="sortBy('verdict_swing')">
+                            ⚖️ Swing <span class="sort-arrow" id="chip-arrow-verdict_swing">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="verdict_sniper" onclick="sortBy('verdict_sniper')">
+                            🎯 Sniper <span class="sort-arrow" id="chip-arrow-verdict_sniper">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="symbol" onclick="sortBy('symbol')">
+                            🔤 Ticker <span class="sort-arrow" id="chip-arrow-symbol">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="price" onclick="sortBy('price')">
+                            💶 Prix <span class="sort-arrow" id="chip-arrow-price">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="drop" onclick="sortBy('drop')">
+                            📉 Dip % <span class="sort-arrow" id="chip-arrow-drop">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="avg_daily_volume" onclick="sortBy('avg_daily_volume')">
+                            📊 Volume <span class="sort-arrow" id="chip-arrow-avg_daily_volume">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="rsi" onclick="sortBy('rsi')">
+                            📈 RSI <span class="sort-arrow" id="chip-arrow-rsi">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="category" onclick="sortBy('category')">
+                            🏷️ Catégorie <span class="sort-arrow" id="chip-arrow-category">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="sharia" onclick="sortBy('sharia')">
+                            🕌 Sharia <span class="sort-arrow" id="chip-arrow-sharia">↕</span>
+                        </button>
+                        <button class="sort-chip" data-field="is_pea" onclick="sortBy('is_pea')">
+                            🇫🇷 PEA/CTO <span class="sort-arrow" id="chip-arrow-is_pea">↕</span>
+                        </button>
                     </div>
 
                     <!-- Cartes Tactiles (Affichage Mobile & Smartphone) -->
@@ -1477,7 +1735,11 @@
                             <h2 class="card-title" id="detail-card-title" style="margin: 0; font-size: 1.15rem; color: #60a5fa;">📋 Rapport Protocolaire</h2>
                             <span id="detail-score-pill" class="score-pill score-high">--/10</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <button id="btn-remove-from-wl-detail" class="btn-danger-soft" onclick="requestRemoveFromWatchlist(currentDetailSymbol, this)" title="Retirer cette action de la Watchlist BDD">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                <span>Retirer de la Watchlist</span>
+                            </button>
                             <button id="btn-refresh-ticker-detail" class="btn btn-primary" onclick="refreshCurrentTickerDetail()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 2px 8px rgba(37,99,235,0.3);" title="Récupérer les derniers cours temps réel et relancer le protocole pour ce titre uniquement">
                                 <span id="refresh-ticker-icon" style="display: inline-block;">🔄</span> <span id="refresh-ticker-text">Actualiser ce titre</span>
                             </button>
@@ -2672,12 +2934,83 @@
     </div>
 
     <!-- ===================================================================== -->
-    <!-- MODAL : AJOUTER UNE ACTION AU GOOGLE SHEET -->
+    <!-- MODAL : CONFIRMATION SUPPRESSION WATCHLIST -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="confirm-delete-modal">
+        <div class="confirm-delete-box">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; color: #ef4444;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </div>
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; color: #f8fafc;">Retirer de la Watchlist ?</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.5;">
+                Voulez-vous vraiment retirer l'action <strong id="confirm-delete-symbol" style="color: #60a5fa; font-size: 1.05rem; letter-spacing: 0.5px;">--</strong> de votre Watchlist en base de données ?
+            </p>
+            <div style="display: flex; gap: 0.75rem; justify-content: center;">
+                <button class="btn btn-secondary" onclick="closeConfirmDeleteModal()" style="min-width: 110px;">Annuler</button>
+                <button id="btn-confirm-execute-delete" class="btn" onclick="executeRemoveFromWatchlist()" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; min-width: 130px; font-weight: 600;">
+                    🗑️ Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL : GESTIONNAIRE COMPLET DE LA WATCHLIST -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="manage-watchlist-modal">
+        <div class="modal-box" style="max-width: 820px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0;">📋 Gestionnaire de Watchlist</h3>
+                    <span id="manage-wl-total-badge" class="badge badge-primary">0 actions</span>
+                </div>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeManageWatchlistModal()">✕</button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1.25rem;">
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 220px; position: relative;">
+                        <input type="text" id="manage-wl-search" class="text-input" placeholder="🔍 Filtrer les actions surveillées (ex: SAN, LVMH, PEA)..." oninput="filterManageWatchlist()">
+                    </div>
+                    <button class="btn btn-success" onclick="openAddStockModal()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;">
+                        ➕ Ajouter une action
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadManageWatchlistData(true)" style="padding: 0.4rem 0.75rem;" title="Rafraîchir depuis la BDD">
+                        🔄
+                    </button>
+                </div>
+
+                <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+                    <table class="table" style="margin: 0; font-size: 0.84rem;">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Entreprise</th>
+                                <th>Compte</th>
+                                <th>Catégorie</th>
+                                <th>Sharia</th>
+                                <th style="text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manage-wl-tbody">
+                            <tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">Chargement de la Watchlist...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Stockage 100% Supabase PostgreSQL</span>
+                <button class="btn btn-secondary" onclick="closeManageWatchlistModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL : AJOUTER UNE ACTION À LA WATCHLIST -->
     <!-- ===================================================================== -->
     <div class="modal-overlay" id="add-stock-modal">
         <div class="modal-box">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">➕ Ajouter une Action au Google Sheet</h3>
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">➕ Ajouter une Action à la Watchlist</h3>
                 <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeAddStockModal()">✕</button>
             </div>
             <div class="modal-body">
@@ -3031,7 +3364,15 @@
             loadMacroBarometer();
             recalculateRMaxTool();
             runSimulation();
+            updateSortIndicators();
             
+            // Initialiser le compteur de Watchlist
+            fetch(`${API_URL}/watchlist/tickers`).then(r => r.json()).then(d => {
+                if (d && d.tickers) {
+                    updateWatchlistCounterBadge(d.tickers.length);
+                }
+            }).catch(() => {});
+
             // Preload all tabs in background for instant switching
             setTimeout(() => {
                 loadLivePortfolio(false);
@@ -4911,11 +5252,23 @@
             if (progressPct) progressPct.textContent = 'Préparation...';
 
             const tbody = document.querySelector('#scan-results-table tbody');
-            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#60a5fa; padding:2rem; font-size: 0.95rem;">
-                <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
-                <strong>Démarrage du scan progressif par lots...</strong><br>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">Les actions s'affichent en temps réel par groupes de 6 à 8 sans blocage réseau.</span>
-            </td></tr>`;
+            const mobileCardsContainer = document.getElementById('scan-mobile-cards-container');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:#60a5fa; padding:2rem; font-size: 0.95rem;">
+                    <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
+                    <strong>Démarrage du scan progressif par lots...</strong><br>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Les actions s'affichent en temps réel par groupes de 6 à 8 sans blocage réseau.</span>
+                </td></tr>`;
+            }
+            if (mobileCardsContainer) {
+                mobileCardsContainer.innerHTML = `
+                    <div style="text-align: center; color: #60a5fa; padding: 2rem; background: rgba(17, 25, 40, 0.5); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
+                        <div style="margin-bottom: 0.5rem; font-size: 1.5rem;">⏳</div>
+                        <strong>Démarrage du scan progressif...</strong><br>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Les opportunités s'affichent au fil de l'eau.</span>
+                    </div>
+                `;
+            }
 
             try {
                 // Étape 1 : Récupérer la liste des tickers instantanément
@@ -4930,6 +5283,7 @@
                 }
 
                 document.getElementById('results-table-title').textContent = `📊 Résultats du Scan Watchlist (${tickers.length} actions)`;
+                updateWatchlistCounterBadge(tickers.length);
 
                 // Découpage en lots légers de 6 à 8 tickers (réponse en 1.5s à 3s par lot)
                 const BATCH_SIZE = 7;
@@ -5001,10 +5355,20 @@
             } catch (e) {
                 if (e.name === 'AbortError') return;
                 console.error("Erreur scan watchlist:", e);
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--danger); padding:2rem;">
-                    ❌ Erreur lors du scan : ${e.message || 'Erreur réseau'}.<br>
-                    <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runWatchlistScan(true)">🔄 Réessayer le scan (Mode Forcé)</button>
-                </td></tr>`;
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:var(--danger); padding:2rem;">
+                        ❌ Erreur lors du scan : ${e.message || 'Erreur réseau'}.<br>
+                        <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runWatchlistScan(true)">🔄 Réessayer le scan (Mode Forcé)</button>
+                    </td></tr>`;
+                }
+                if (mobileCardsContainer) {
+                    mobileCardsContainer.innerHTML = `
+                        <div style="text-align: center; color: var(--danger); padding: 1.5rem; background: rgba(17, 25, 40, 0.5); border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                            ❌ Erreur lors du scan : ${e.message || 'Erreur réseau'}.<br>
+                            <button class="btn btn-outline" style="margin-top:0.75rem;" onclick="runWatchlistScan(true)">🔄 Réessayer</button>
+                        </div>
+                    `;
+                }
                 setScanStatus('Erreur', 'badge-danger');
                 if (progressBox) progressBox.style.display = 'none';
             }
@@ -5153,7 +5517,7 @@
             if (mobileCardsContainer) mobileCardsContainer.innerHTML = '';
             
             if (!results || results.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Aucun résultat correspondant aux critères de filtre.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Aucun résultat correspondant aux critères de filtre.</td></tr>`;
                 if (mobileCardsContainer) {
                     mobileCardsContainer.innerHTML = `
                         <div style="text-align: center; color: var(--text-muted); padding: 2rem; background: rgba(17, 25, 40, 0.5); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
@@ -5164,14 +5528,55 @@
                 return;
             }
 
-            // Trier les résultats
+            // Trier les résultats de façon robuste
             results.sort((a, b) => {
-                let valA = a[sortField];
-                let valB = b[sortField];
-                if (typeof valA === 'string') {
+                let valA, valB;
+
+                if (sortField === 'confluence_score' || sortField === 'score') {
+                    valA = parseFloat(a.confluence_score !== undefined ? a.confluence_score : (a.score || 0));
+                    valB = parseFloat(b.confluence_score !== undefined ? b.confluence_score : (b.score || 0));
+                    return sortAsc ? (valA - valB) : (valB - valA);
+                } else if (sortField === 'price') {
+                    valA = parseFloat(a.price || 0);
+                    valB = parseFloat(b.price || 0);
+                    return sortAsc ? (valA - valB) : (valB - valA);
+                } else if (sortField === 'drop') {
+                    valA = parseFloat(a.drop || 0);
+                    valB = parseFloat(b.drop || 0);
+                    return sortAsc ? (valA - valB) : (valB - valA);
+                } else if (sortField === 'avg_daily_volume') {
+                    valA = parseFloat(a.avg_daily_volume || 0);
+                    valB = parseFloat(b.avg_daily_volume || 0);
+                    return sortAsc ? (valA - valB) : (valB - valA);
+                } else if (sortField === 'rsi') {
+                    valA = parseFloat(a.rsi || 50);
+                    valB = parseFloat(b.rsi || 50);
+                    return sortAsc ? (valA - valB) : (valB - valA);
+                } else if (sortField === 'is_pea') {
+                    valA = a.is_pea ? 1 : 0;
+                    valB = b.is_pea ? 1 : 0;
+                    return sortAsc ? (valA - valB) : (valB - valA);
+                } else if (sortField === 'verdict_swing') {
+                    valA = String(a.verdict_swing || a.verdict || '');
+                    valB = String(b.verdict_swing || b.verdict || '');
+                    return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (sortField === 'verdict_sniper') {
+                    valA = String(a.verdict_sniper || '');
+                    valB = String(b.verdict_sniper || '');
+                    return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (sortField === 'category') {
+                    valA = String(a.category || '');
+                    valB = String(b.category || '');
+                    return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (sortField === 'sharia') {
+                    valA = String(a.sharia || '');
+                    valB = String(b.sharia || '');
+                    return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else {
+                    valA = String(a.symbol || '');
+                    valB = String(b.symbol || '');
                     return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
                 }
-                return sortAsc ? (valA - valB) : (valB - valA);
             });
 
             results.forEach(r => {
@@ -5220,23 +5625,28 @@
                 const volM = r.avg_daily_volume ? (r.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar : '-';
                 const volColor = (r.avg_daily_volume && r.avg_daily_volume < 1e6) ? 'var(--danger)' : 'var(--text-main)';
 
-                // 1. Rendu Desktop Table Row
+                // 1. Rendu Desktop Table Row (Verdicts à gauche, Catégorie en dernier à droite)
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
                 tr.onclick = () => showTickerDetail(r.symbol);
                 tr.innerHTML = `
                     <td><strong>${r.symbol}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${r.name || ''}</span></td>
                     <td>${accountBadge}</td>
-                    <td><span class="badge-cat">${catText}</span>${newsBadge ? '<br>' + newsBadge : ''}</td>
                     <td><span class="badge ${shariaBadge}">${r.sharia || 'DONNÉES INSUFFISANTES'}</span></td>
+                    <td><span class="score-pill ${scoreClass}">${score}/10</span></td>
+                    <td><span class="badge ${vSwingBadge}">${vSwingText}</span></td>
+                    <td><span class="badge ${vSniperBadge}">${vSniperText}</span></td>
                     <td><strong>${parseFloat(r.price || 0).toFixed(2)} ${symChar}</strong></td>
                     <td style="color:${parseFloat(r.drop || 0) <= -3.0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight:600;">${r.drop ? parseFloat(r.drop).toFixed(2) + '%' : '-'}</td>
                     <td style="color: ${volColor}; font-weight: 500;">${volM}</td>
                     <td>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
                     <td>${r.rsi_divergence && r.rsi_divergence.includes('HAUSSIÈRE') ? '<span class="badge badge-primary">OUI 🔥</span>' : '<span style="color:var(--text-muted);">-</span>'}</td>
-                    <td><span class="score-pill ${scoreClass}">${score}/10</span></td>
-                    <td><span class="badge ${vSwingBadge}">${vSwingText}</span></td>
-                    <td><span class="badge ${vSniperBadge}">${vSniperText}</span></td>
+                    <td><span class="badge-cat">${catText}</span>${newsBadge ? '<br>' + newsBadge : ''}</td>
+                    <td style="text-align: center;" onclick="event.stopPropagation();">
+                        <button class="btn-icon-danger" onclick="event.stopPropagation(); requestRemoveFromWatchlist('${r.symbol}', this);" title="Retirer ${r.symbol} de la Watchlist BDD">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
 
@@ -5244,6 +5654,7 @@
                 if (mobileCardsContainer) {
                     const card = document.createElement('div');
                     card.className = 'mobile-scan-card';
+                    card.id = `mobile-card-${r.symbol.replace('.', '-')}`;
                     card.onclick = () => showTickerDetail(r.symbol);
                     card.innerHTML = `
                         <div class="m-card-header">
@@ -5279,7 +5690,12 @@
 
                         <div class="m-card-footer">
                             <span class="m-category">${catText}</span>
-                            <button class="m-action-btn" onclick="event.stopPropagation(); showTickerDetail('${r.symbol}');">Détail & Plan ➔</button>
+                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                <button class="btn-icon-danger" style="padding: 0.35rem 0.5rem;" onclick="event.stopPropagation(); requestRemoveFromWatchlist('${r.symbol}', this);" title="Retirer ${r.symbol} de la Watchlist">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                                <button class="m-action-btn" onclick="event.stopPropagation(); showTickerDetail('${r.symbol}');">Détail & Plan ➔</button>
+                            </div>
                         </div>
                     `;
                     mobileCardsContainer.appendChild(card);
@@ -5287,14 +5703,100 @@
             });
         }
 
+        function onSortSelectChange(val) {
+            if (!val) return;
+            const lastUnderscore = val.lastIndexOf('_');
+            if (lastUnderscore !== -1) {
+                sortField = val.substring(0, lastUnderscore);
+                sortAsc = (val.substring(lastUnderscore + 1) === 'asc');
+            } else {
+                sortField = val;
+                sortAsc = false;
+            }
+            updateSortIndicators();
+            renderResultsTable(filteredResults);
+        }
+
         function sortBy(field) {
             if (sortField === field) {
                 sortAsc = !sortAsc;
             } else {
                 sortField = field;
-                sortAsc = false;
+                // Sens par défaut intuitif
+                if (['symbol', 'category', 'sharia', 'verdict_swing', 'verdict_sniper', 'drop', 'rsi'].includes(field)) {
+                    sortAsc = true;
+                } else {
+                    sortAsc = false;
+                }
             }
-            applyFilters();
+            updateSortIndicators();
+            renderResultsTable(filteredResults);
+        }
+
+        function updateSortIndicators() {
+            // 1. Synchroniser le sélecteur déroulant filter-sort
+            const sortSelect = document.getElementById('filter-sort');
+            if (sortSelect) {
+                const targetVal = `${sortField}_${sortAsc ? 'asc' : 'desc'}`;
+                let matched = false;
+                for (let opt of sortSelect.options) {
+                    if (opt.value === targetVal) {
+                        sortSelect.value = targetVal;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    for (let opt of sortSelect.options) {
+                        if (opt.value.startsWith(sortField)) {
+                            sortSelect.value = opt.value;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 2. Synchroniser les boutons chips tactiles mobile
+            const chips = document.querySelectorAll('.mobile-sort-bar .sort-chip');
+            chips.forEach(chip => {
+                const chipField = chip.getAttribute('data-field');
+                const arrow = chip.querySelector('.sort-arrow');
+                if (chipField === sortField || (sortField === 'confluence_score' && chipField === 'score')) {
+                    chip.classList.add('active');
+                    if (arrow) arrow.textContent = sortAsc ? '▲' : '▼';
+                } else {
+                    chip.classList.remove('active');
+                    if (arrow) arrow.textContent = '↕';
+                }
+            });
+
+            // 3. Synchroniser les entêtes de colonnes du tableau desktop
+            const headers = [
+                { id: 'th-symbol', fld: 'symbol', name: 'Ticker' },
+                { id: 'th-is_pea', fld: 'is_pea', name: 'Compte' },
+                { id: 'th-sharia', fld: 'sharia', name: 'Sharia' },
+                { id: 'th-confluence_score', fld: 'confluence_score', name: 'Score' },
+                { id: 'th-verdict_swing', fld: 'verdict_swing', name: 'Verdict Swing (Standard)' },
+                { id: 'th-verdict_sniper', fld: 'verdict_sniper', name: 'Verdict Sniper (90 min)' },
+                { id: 'th-price', fld: 'price', name: 'Cours' },
+                { id: 'th-drop', fld: 'drop', name: 'Dip (%)' },
+                { id: 'th-avg_daily_volume', fld: 'avg_daily_volume', name: 'Vol/j (€/$)' },
+                { id: 'th-rsi', fld: 'rsi', name: 'RSI' },
+                { id: 'th-category', fld: 'category', name: 'Catégorie & ETF' }
+            ];
+
+            headers.forEach(h => {
+                const el = document.getElementById(h.id);
+                if (el) {
+                    if (sortField === h.fld || (sortField === 'confluence_score' && h.fld === 'score')) {
+                        el.innerHTML = `${h.name} <span style="color:#60a5fa; font-size:0.75rem; font-weight:bold;">${sortAsc ? '▲' : '▼'}</span>`;
+                        el.style.color = '#60a5fa';
+                    } else {
+                        el.innerHTML = `${h.name} <span style="opacity:0.4; font-size:0.75rem;">↕</span>`;
+                        el.style.color = '';
+                    }
+                }
+            });
         }
 
         async function analyzeSingleTicker() {
@@ -5453,6 +5955,233 @@
             fb.style.border = `1px solid ${color}`;
             fb.style.color = color;
             fb.textContent = msg;
+        }
+
+        // ---------------------------------------------------------------------
+        // TOAST NOTIFICATIONS & WATCHLIST MANAGEMENT SYSTEM
+        // ---------------------------------------------------------------------
+        function showToast(message, type = 'success', duration = 3500) {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-item toast-${type}`;
+            const icon = type === 'success' ? '✅' : type === 'danger' ? '⚠️' : 'ℹ️';
+            toast.innerHTML = `<span>${icon}</span><span style="flex:1;">${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('toast-hiding');
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, duration);
+        }
+
+        let pendingDeleteSymbol = null;
+        let pendingDeleteRowElement = null;
+
+        function requestRemoveFromWatchlist(symbol, element = null) {
+            if (!symbol) return;
+            const s = symbol.toUpperCase().trim();
+            pendingDeleteSymbol = s;
+            pendingDeleteRowElement = element ? element.closest('tr, .mobile-scan-card') : null;
+
+            const symElem = document.getElementById('confirm-delete-symbol');
+            if (symElem) symElem.textContent = s;
+
+            const modal = document.getElementById('confirm-delete-modal');
+            if (modal) {
+                modal.classList.add('active');
+            } else {
+                // Fallback si le modal n'est pas encore rendu
+                if (confirm(`Retirer l'action ${s} de la Watchlist ?`)) {
+                    executeRemoveFromWatchlist();
+                }
+            }
+        }
+
+        function closeConfirmDeleteModal() {
+            const modal = document.getElementById('confirm-delete-modal');
+            if (modal) modal.classList.remove('active');
+            pendingDeleteSymbol = null;
+            pendingDeleteRowElement = null;
+        }
+
+        async function executeRemoveFromWatchlist() {
+            const s = pendingDeleteSymbol;
+            if (!s) return;
+
+            const btn = document.getElementById('btn-confirm-execute-delete');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "⏳ Suppression...";
+            }
+
+            // Animation visuelle immédiate de suppression sur la ligne du tableau
+            if (pendingDeleteRowElement) {
+                pendingDeleteRowElement.classList.add('row-deleting');
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/watchlist/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker: s })
+                });
+                const payload = await res.json();
+
+                if (payload.success) {
+                    // 1. Suppression du DOM après l'animation
+                    setTimeout(() => {
+                        if (pendingDeleteRowElement && pendingDeleteRowElement.parentNode) {
+                            pendingDeleteRowElement.parentNode.removeChild(pendingDeleteRowElement);
+                        }
+                    }, 350);
+
+                    // 2. Mettre à jour currentScanResults si présent
+                    if (typeof currentScanResults !== 'undefined' && Array.isArray(currentScanResults)) {
+                        currentScanResults = currentScanResults.filter(r => (r.symbol || '').toUpperCase() !== s);
+                        if (typeof applyFilters === 'function') {
+                            applyFilters();
+                        }
+                    }
+
+                    // 3. Fermer le rapport popin si ouvert sur ce titre
+                    if (typeof currentDetailSymbol !== 'undefined' && currentDetailSymbol === s) {
+                        closeDetailCard();
+                    }
+
+                    // 4. Mettre à jour le badge de compteur Watchlist
+                    const remaining = payload.remaining_count !== undefined ? payload.remaining_count : (typeof currentScanResults !== 'undefined' ? currentScanResults.length : '--');
+                    updateWatchlistCounterBadge(remaining);
+
+                    // 5. Mettre à jour la liste dans le modal de gestion si ouvert
+                    if (cachedWatchlistItems && Array.isArray(cachedWatchlistItems)) {
+                        cachedWatchlistItems = cachedWatchlistItems.filter(item => (item.symbol || '').toUpperCase() !== s);
+                        renderManageWatchlistTable(cachedWatchlistItems);
+                    }
+
+                    closeConfirmDeleteModal();
+                    showToast(`Action <strong>${s}</strong> retirée de la Watchlist BDD (${remaining} actions restantes).`, 'success');
+                } else {
+                    if (pendingDeleteRowElement) pendingDeleteRowElement.classList.remove('row-deleting');
+                    showToast(`Erreur lors du retrait de ${s} : ${payload.error || 'Erreur inconnue'}`, 'danger');
+                    closeConfirmDeleteModal();
+                }
+            } catch (err) {
+                console.error("Erreur suppression watchlist:", err);
+                if (pendingDeleteRowElement) pendingDeleteRowElement.classList.remove('row-deleting');
+                showToast(`Erreur de connexion lors de la suppression de ${s}.`, 'danger');
+                closeConfirmDeleteModal();
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "🗑️ Supprimer";
+                }
+            }
+        }
+
+        function updateWatchlistCounterBadge(count) {
+            const badge = document.getElementById('wl-count-badge');
+            if (badge) badge.textContent = count;
+            const manageBadge = document.getElementById('manage-wl-total-badge');
+            if (manageBadge) manageBadge.textContent = `${count} actions`;
+        }
+
+        // ---------------------------------------------------------------------
+        // GESTIONNAIRE COMPLET DE LA WATCHLIST MODAL
+        // ---------------------------------------------------------------------
+        let cachedWatchlistItems = [];
+
+        function openManageWatchlistModal() {
+            document.getElementById('manage-watchlist-modal').classList.add('active');
+            loadManageWatchlistData();
+        }
+
+        function closeManageWatchlistModal() {
+            document.getElementById('manage-watchlist-modal').classList.remove('active');
+        }
+
+        async function loadManageWatchlistData(force = false) {
+            const tbody = document.getElementById('manage-wl-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">⏳ Chargement de la Watchlist Supabase...</td></tr>';
+
+            try {
+                const res = await fetch(`${API_URL}/watchlist`);
+                const payload = await res.json();
+                if (payload.success && Array.isArray(payload.watchlist)) {
+                    cachedWatchlistItems = payload.watchlist;
+                    updateWatchlistCounterBadge(cachedWatchlistItems.length);
+                    renderManageWatchlistTable(cachedWatchlistItems);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--danger); padding: 1.5rem;">Erreur lors du chargement des actions.</td></tr>';
+                }
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--danger); padding: 1.5rem;">Erreur réseau BDD.</td></tr>';
+            }
+        }
+
+        function renderManageWatchlistTable(items) {
+            const tbody = document.getElementById('manage-wl-tbody');
+            if (!tbody) return;
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">Aucune action trouvée dans la Watchlist.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(item => {
+                const sym = item.symbol || '';
+                const name = item.name || sym;
+                const isPea = item.is_pea || sym.endsWith('.PA');
+                const accBadge = isPea ? '<span class="badge badge-pea">🇫🇷 PEA</span>' : '<span class="badge badge-cto">🇺🇸 CTO</span>';
+                const cat = item.category || 'Autres';
+                const icon = item.category_icon || '📦';
+                const sharia = item.sharia_status || 'À VÉRIFIER';
+                const shariaBadge = sharia === 'CONFORME' ? 'badge-success' : sharia === 'NON CONFORME' ? 'badge-danger' : 'badge-neutral';
+
+                return `
+                    <tr id="manage-row-${sym.replace('.', '-')}">
+                        <td><strong style="color: #60a5fa; font-size: 0.95rem;">${sym}</strong></td>
+                        <td>${name}</td>
+                        <td>${accBadge}</td>
+                        <td><span class="badge-cat">${icon} ${cat}</span></td>
+                        <td><span class="badge ${shariaBadge}" style="font-size: 0.72rem;">${sharia}</span></td>
+                        <td style="text-align: center;">
+                            <button class="btn-icon-danger" onclick="requestRemoveFromWatchlist('${sym}', this);" title="Retirer ${sym} de la Watchlist">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                <span>Retirer</span>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterManageWatchlist() {
+            const query = (document.getElementById('manage-wl-search').value || '').trim().toUpperCase();
+            if (!query) {
+                renderManageWatchlistTable(cachedWatchlistItems);
+                return;
+            }
+            const filtered = cachedWatchlistItems.filter(item => {
+                const sym = (item.symbol || '').toUpperCase();
+                const name = (item.name || '').toUpperCase();
+                const cat = (item.category || '').toUpperCase();
+                const acc = (item.account_type || '').toUpperCase();
+                const isPeaStr = item.is_pea ? 'PEA' : 'CTO';
+                return sym.includes(query) || name.includes(query) || cat.includes(query) || acc.includes(query) || isPeaStr.includes(query);
+            });
+            renderManageWatchlistTable(filtered);
         }
 
         // ---------------------------------------------------------------------

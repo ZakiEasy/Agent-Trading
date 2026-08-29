@@ -25,16 +25,24 @@ from src.market_data import (
 from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
 from src.institutional_engine import generate_8_step_protocol_analysis
 from src.backtest_engine import BacktestEngine, CRISIS_PERIODS, run_all_crises_stress_test
-from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets, add_ticker_to_sheets
 from src.supabase_connector import (
     get_supabase_watchlist,
+    get_watchlist_symbols,
+    get_watchlist_item,
     add_or_update_watchlist_item,
     delete_from_watchlist,
     get_supabase_positions,
     save_or_update_position,
+    batch_save_positions,
+    close_supabase_position,
+    get_supabase_trade_journal,
+    batch_save_trade_journal,
+    get_supabase_treasury_operations,
+    batch_save_treasury_operations,
     log_trading_signal,
     get_recent_signals,
-    log_macro_regime
+    log_macro_regime,
+    get_latest_macro_regime
 )
 from src.config import (
     DEFAULT_WATCHLIST,
@@ -286,22 +294,20 @@ def home():
 
 @app.route("/api/watchlist")
 def get_watchlist():
-    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
+    """
+    Retourne la liste des actions de la Watchlist depuis la base de données Supabase.
+    """
     try:
         sb_wl = get_supabase_watchlist(only_active=True)
-        if sb_wl and len(sb_wl) > 0:
-            watchlist = [item["symbol"] for item in sb_wl]
-        else:
-            watchlist = read_watchlist_from_sheets(force_refresh=force)
+        return safe_jsonify({"success": True, "watchlist": sb_wl, "count": len(sb_wl)})
     except Exception as e:
-        print(f"⚠️ Erreur get_watchlist Supabase: {e}")
-        watchlist = read_watchlist_from_sheets(force_refresh=force)
-    return safe_jsonify({"watchlist": watchlist})
+        logger.error(f"Erreur get_watchlist Supabase: {e}")
+        return safe_jsonify({"success": False, "error": str(e), "watchlist": []}, 500)
 
 @app.route("/api/watchlist/add", methods=["POST"])
 def add_watchlist_ticker():
     """
-    Endpoint pour ajouter ou mettre à jour une action dans Supabase et Google Sheets.
+    Endpoint pour ajouter ou mettre à jour une action dans Supabase.
     """
     data = request.json or {}
     symbol = data.get("ticker", "").upper().strip()
@@ -338,37 +344,22 @@ def add_watchlist_ticker():
         price = analysis["step_5_technical"].get("current_price", 0.0)
         currency = analysis.get("currency", "USD")
 
-    price_str = f"{price:.2f} €" if currency == "EUR" else f"{price:.2f} $" if price > 0 else ""
-
     # 4. Écrire dans Supabase
-    try:
-        add_or_update_watchlist_item(
-            symbol=symbol,
-            name=name,
-            category=category,
-            category_icon=fund_q.get("category_icon", "📦"),
-            is_pea=is_pea,
-            account_type="🇫🇷 PEA" if is_pea else "CTO (US)",
-            sharia_status=sharia_status,
-            currency=currency
-        )
-    except Exception as e:
-        print(f"⚠️ Erreur sync Supabase add_watchlist_ticker: {e}")
-
-    # 5. Écrire dans Google Sheets
-    success, msg = add_ticker_to_sheets(
-        ticker_symbol=symbol,
+    db_item = add_or_update_watchlist_item(
+        symbol=symbol,
         name=name,
         category=category,
+        category_icon=fund_q.get("category_icon", "📦"),
         is_pea=is_pea,
+        account_type="🇫🇷 PEA" if is_pea else "CTO (US)",
         sharia_status=sharia_status,
-        source_verif=source_verif,
-        current_price_str=price_str
+        sharia_source=source_verif,
+        currency=currency
     )
 
     return jsonify({
         "success": True,
-        "message": msg,
+        "message": f"Action {symbol} ({name}) ajoutée avec succès dans la Watchlist BDD !",
         "ticker": symbol,
         "name": name,
         "category": category,
@@ -376,6 +367,29 @@ def add_watchlist_ticker():
         "account_type": "PEA (Europe)" if is_pea else "CTO (US)",
         "sharia_status": sharia_status,
         "data": analysis
+    })
+
+@app.route("/api/watchlist/delete", methods=["POST", "DELETE"])
+@app.route("/api/watchlist/remove", methods=["POST", "DELETE"])
+def remove_watchlist_ticker():
+    """
+    Endpoint pour retirer une action de la Watchlist Supabase.
+    """
+    data = request.json or {}
+    symbol = (data.get("ticker") or data.get("symbol") or request.args.get("ticker") or request.args.get("symbol") or "").upper().strip()
+    if not symbol:
+        return safe_jsonify({"success": False, "error": "Le symbole de l'action est requis."}), 400
+
+    deleted = delete_from_watchlist(symbol)
+    if not deleted:
+        return safe_jsonify({"success": False, "error": f"Impossible de supprimer l'action {symbol} de la base de données."}), 500
+
+    current_wl = get_supabase_watchlist(only_active=True)
+    return safe_jsonify({
+        "success": True,
+        "symbol": symbol,
+        "message": f"Action {symbol} retirée avec succès de la Watchlist.",
+        "remaining_count": len(current_wl)
     })
 
 from src.portfolio_tracker import (
@@ -398,16 +412,6 @@ from src.trading212_connector import (
     get_trading212_orders_history,
     sync_trading212_history_to_journal,
     parse_trading212_csv
-)
-from src.sheets_connector import (
-    add_position_to_sheets,
-    close_position_in_sheets,
-    batch_import_journal_to_sheets,
-    read_journal_from_sheets,
-    read_positions_from_sheets,
-    batch_import_positions_to_sheets,
-    read_treasury_from_sheets,
-    batch_import_treasury_to_sheets
 )
 from src.institutional_engine import (
     get_macro_sentiment_barometer,
@@ -480,7 +484,7 @@ def configure_trading212():
 @app.route("/api/trading212/sync_history", methods=["POST", "GET"])
 def sync_trading212_history_endpoint():
     """
-    Récupère l'historique des ordres exécutés sur Trading 212 via l'API et les intègre au Journal de Trading Google Sheets.
+    Récupère l'historique des ordres exécutés sur Trading 212 via l'API et les intègre au Journal de Trading Supabase.
     """
     try:
         trades = sync_trading212_history_to_journal()
@@ -492,15 +496,12 @@ def sync_trading212_history_endpoint():
                 "total_found": 0
             })
 
-        existing_journal = read_journal_from_sheets(force_refresh=True) or []
+        existing_journal = get_supabase_trade_journal() or []
         seen_ids = {str(t.get("id")) for t in existing_journal if t.get("id")}
         new_trades = [t for t in trades if str(t.get("id")) not in seen_ids]
 
         if new_trades:
-            combined = existing_journal + new_trades
-            batch_import_journal_to_sheets(combined)
-            # Forcer le rechargement du cache
-            read_journal_from_sheets(force_refresh=True)
+            batch_save_trade_journal(new_trades)
 
         return safe_jsonify({
             "success": True,
@@ -517,11 +518,9 @@ def get_portfolio_monthly_rotation():
     """
     Retourne la décomposition complète de la rotation du mois (par actions, montant investi, et transactions achat/vente).
     """
-    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
     month_prefix = request.args.get("month", "")
-    
-    journal = read_journal_from_sheets(force_refresh=force)
-    open_pos = read_positions_from_sheets(force_refresh=force)
+    journal = get_supabase_trade_journal()
+    open_pos = get_supabase_positions(status="ACTIVE")
     
     rotation_data = calculate_monthly_rotation_by_stock(journal=journal, open_positions=open_pos, month_prefix=month_prefix)
     return safe_jsonify({
@@ -544,16 +543,15 @@ def get_anti_fifo_opportunities():
 @app.route("/api/portfolio/treasury")
 def get_portfolio_treasury():
     """
-    Retourne le détail des soldes d'espèces, dépôts, retraits, dividendes et opérations de trésorerie.
+    Retourne le détail des soldes d'espèces, dépôts, retraits, dividendes et opérations de trésorerie depuis Supabase.
     """
-    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
-    cash_ops = read_treasury_from_sheets(force_refresh=force)
+    cash_ops = get_supabase_treasury_operations()
     summary = calculate_cash_and_treasury_summary(cash_ops)
     return safe_jsonify({
         "success": True,
         "summary": summary,
         "operations_count": len(cash_ops),
-        "recent_operations": cash_ops[-50:] if cash_ops else []
+        "recent_operations": cash_ops[:50] if cash_ops else []
     })
 
 @app.route("/api/portfolio/diversification")
@@ -564,7 +562,7 @@ def get_portfolio_diversification():
     force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
     live_summary = get_live_portfolio_summary(force_refresh=force)
     live_positions = live_summary.get("positions", [])
-    cash_ops = read_treasury_from_sheets(force_refresh=force)
+    cash_ops = get_supabase_treasury_operations()
     cash_summary = calculate_cash_and_treasury_summary(cash_ops)
     
     div = calculate_portfolio_diversification(live_positions, cash_summary=cash_summary)
@@ -577,26 +575,21 @@ def get_portfolio_diversification():
 def get_journal_history():
     """
     Retourne l'historique complet des trades clôturés avec statistiques de performance (Win Rate, P&L, etc.).
-    Exécute automatiquement une synchronisation Trading 212 en tâche de fond pour toujours avoir le journal à jour.
     """
-    force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
     auto_sync = request.args.get("auto_sync", "true").lower() in ["true", "1", "yes"]
-    
     if auto_sync:
         try:
             t212_trades = sync_trading212_history_to_journal()
             if t212_trades:
-                existing = read_journal_from_sheets(force_refresh=False) or []
+                existing = get_supabase_trade_journal() or []
                 seen_ids = {str(t.get("id")) for t in existing if t.get("id")}
                 new_t = [t for t in t212_trades if str(t.get("id")) not in seen_ids]
                 if new_t:
-                    combined = existing + new_t
-                    batch_import_journal_to_sheets(combined)
-                    force = True
+                    batch_save_trade_journal(new_t)
         except Exception as err:
             logger.warning(f"Auto-sync Trading 212 skipped or failed: {err}")
 
-    trades = read_journal_from_sheets(force_refresh=force)
+    trades = get_supabase_trade_journal()
     stats = calculate_trading_performance_stats(trades)
     return safe_jsonify({
         "success": True,
@@ -608,12 +601,48 @@ def get_journal_history():
 @app.route("/api/portfolio/add", methods=["POST"])
 def add_portfolio_position():
     """
-    Ajoute manuellement une position dans Google Sheets et le suivi en direct.
+    Ajoute manuellement une position dans Supabase.
     """
     data = request.json or {}
     symbol = data.get("symbol", "").upper().strip()
     if not symbol:
         return jsonify({"success": False, "error": "Le symbole de l'action est requis."}), 400
+
+    pru = float(data.get("pru", 0))
+    qty = float(data.get("quantity", 1))
+    if pru <= 0 or qty <= 0:
+        return jsonify({"success": False, "error": "PRU et quantité doivent être supérieurs à 0."}), 400
+
+    name = data.get("name") or get_company_name(symbol)
+    is_pea = ".PA" in symbol or data.get("account") == "PEA"
+    default_acc = "PEA" if is_pea else "CTO Dollar"
+    account = data.get("account", default_acc)
+    currency = data.get("currency", "EUR" if ("PEA" in account or ".PA" in symbol) else "USD")
+
+    sl = float(data.get("stop_loss", pru * 0.97))
+    tp1 = float(data.get("tp1", pru * 1.0125))
+    tp2 = float(data.get("tp2", pru * 1.0225))
+
+    pos_data = {
+        "symbol": symbol,
+        "company_name": name,
+        "broker": data.get("broker", "XTB"),
+        "account_type": account,
+        "pru": pru,
+        "quantity": qty,
+        "invested_capital": pru * qty,
+        "stop_loss": sl,
+        "take_profit_1": tp1,
+        "take_profit_2": tp2,
+        "currency": currency,
+        "status": "ACTIVE",
+        "notes": data.get("notes", "")
+    }
+
+    saved = save_or_update_position(pos_data)
+    if saved:
+        return jsonify({"success": True, "message": f"Position {symbol} ({qty} actions à {pru} {currency}) enregistrée avec succès en BDD !"})
+    return jsonify({"success": False, "error": "Erreur lors de l'enregistrement de la position en BDD."}), 500
         
     pru = float(data.get("pru", 0))
     qty = float(data.get("quantity", 1))
@@ -681,17 +710,17 @@ def upload_portfolio_report():
     }
 
     # Charger l'existant pour déduplication
-    existing_journal = read_journal_from_sheets() or []
+    existing_journal = get_supabase_trade_journal() or []
     for t in existing_journal:
         if t.get("id"):
             seen_closed_ids.add(t["id"])
 
-    existing_open = read_positions_from_sheets() or []
+    existing_open = get_supabase_positions(status="ACTIVE") or []
     for o in existing_open:
         if o.get("id"):
             seen_open_ids.add(o["id"])
 
-    existing_cash = read_treasury_from_sheets() or []
+    existing_cash = get_supabase_treasury_operations() or []
     for c in existing_cash:
         if c.get("id"):
             seen_cash_ids.add(c["id"])
@@ -782,19 +811,17 @@ def upload_portfolio_report():
                         acc_key = pos.get("account", detected_acc or "CTO Euro")
                         if acc_key not in by_account:
                             by_account[acc_key] = {"closed": 0, "open": 0, "cash": 0}
-                        by_account[acc_key]["open"] += 1
+                            by_account[acc_key]["open"] += 1
 
     if new_closed_list:
-        combined_journal = existing_journal + new_closed_list
-        batch_import_journal_to_sheets(combined_journal)
+        batch_save_trade_journal(new_closed_list)
 
     if new_open_list:
         agg_open = aggregate_open_positions(existing_open + new_open_list)
-        batch_import_positions_to_sheets(agg_open)
+        batch_save_positions(agg_open)
 
     if new_cash_list:
-        combined_cash = existing_cash + new_cash_list
-        batch_import_treasury_to_sheets(combined_cash)
+        batch_save_treasury_operations(new_cash_list)
 
     msg = f"{files_processed} fichier(s) traité(s) avec succès : {len(new_closed_list)} nouveau(x) trade(s) dans le Journal, {len(new_open_list)} position(s) active(s), {len(new_cash_list)} opération(s) de trésorerie."
 
@@ -812,7 +839,7 @@ def upload_portfolio_report():
 def import_all_history_files():
     """
     Importe automatiquement tous les fichiers d'historique XTB (positions fermées, ouvertes et trésorerie)
-    présents dans le dossier /historique (hors sous-dossier /old).
+    présents dans le dossier /historique (hors sous-dossier /old) directement en base de données.
     """
     import os
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -820,7 +847,6 @@ def import_all_history_files():
     
     files_to_scan = []
     for root, _, files in os.walk(hist_dir):
-        # Exclure le sous-dossier old pour ne traiter que les données fraîches
         parts = [p.lower() for p in root.split(os.sep)]
         if "old" in parts:
             continue
@@ -856,14 +882,14 @@ def import_all_history_files():
                 all_cash.append(c)
 
     # 1. Enregistrer dans le Journal
-    batch_import_journal_to_sheets(all_closed)
+    batch_save_trade_journal(all_closed)
 
     # 2. Enregistrer les positions ouvertes agrégées
     agg_open = aggregate_open_positions(all_open)
-    batch_import_positions_to_sheets(agg_open)
+    batch_save_positions(agg_open)
 
     # 3. Enregistrer les opérations de trésorerie
-    batch_import_treasury_to_sheets(all_cash)
+    batch_save_treasury_operations(all_cash)
 
     stats = calculate_trading_performance_stats(all_closed)
     cash_summary = calculate_cash_and_treasury_summary(all_cash)
@@ -882,7 +908,7 @@ def import_all_history_files():
 @app.route("/api/portfolio/close", methods=["POST"])
 def close_portfolio_position():
     """
-    Clôture une position active à un cours donné et l'enregistre dans le journal de trading.
+    Clôture une position active à un cours donné et l'archive dans le journal de trading Supabase.
     """
     data = request.json or {}
     pos_id = data.get("id") or data.get("symbol")
@@ -892,36 +918,36 @@ def close_portfolio_position():
     if not pos_id or exit_price <= 0:
         return jsonify({"success": False, "error": "ID de position et prix de sortie valides requis."}), 400
         
-    success, msg = close_position_in_sheets(pos_id, exit_price, notes=notes)
+    success, msg = close_supabase_position(pos_id, exit_price, notes=notes)
     return jsonify({"success": success, "message": msg})
 
 @app.route("/api/watchlist/tickers")
 def get_watchlist_tickers():
     """
-    Retourne la liste des tickers de la Watchlist avec leurs métadonnées
+    Retourne la liste des tickers de la Watchlist avec leurs métadonnées depuis Supabase
     pour initialiser l'affichage instantanément avant le scan par lots.
     """
     try:
-        force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
-        watchlist = read_watchlist_from_sheets(force_refresh=force)
-        if not watchlist:
-            watchlist = DEFAULT_WATCHLIST
+        sb_wl = get_supabase_watchlist(only_active=True)
+        if not sb_wl:
+            sb_wl = [{"symbol": sym, "name": get_company_name(sym)} for sym in DEFAULT_WATCHLIST]
             
         tickers_data = []
-        for sym in watchlist:
-            s = str(sym).strip().upper()
+        for item in sb_wl:
+            s = str(item.get("symbol", "")).strip().upper()
             if not s:
                 continue
             cat = categorize_ticker(s)
-            is_pea = s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS") or s.endswith(".MC")
-            acc_type = "PEA (Boursorama)" if is_pea else "CTO (US)"
+            is_pea = item.get("is_pea") if item.get("is_pea") is not None else (s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS") or s.endswith(".MC"))
+            acc_type = item.get("account_type") or ("🇫🇷 PEA" if is_pea else "CTO (US)")
             tickers_data.append({
                 "symbol": s,
-                "name": get_company_name(s),
-                "category": cat.get("category", "Autres"),
-                "category_icon": cat.get("category_icon", "📦"),
-                "is_pea": cat.get("is_pea", is_pea),
-                "account_type": cat.get("account_type", acc_type)
+                "name": item.get("name") or get_company_name(s),
+                "category": item.get("category") or cat.get("category", "Autres"),
+                "category_icon": item.get("category_icon") or cat.get("category_icon", "📦"),
+                "is_pea": is_pea,
+                "account_type": acc_type,
+                "sharia": item.get("sharia_status", "DONNÉES INSUFFISANTES")
             })
             
         return safe_jsonify({"success": True, "tickers": tickers_data, "count": len(tickers_data)})
@@ -1057,16 +1083,8 @@ def scan_watchlist():
         force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
         strategy = request.args.get("strategy", "ALL").upper()
         
-        # 1. Charger la Watchlist depuis Supabase avec fallback Sheets
-        try:
-            sb_wl = get_supabase_watchlist(only_active=True)
-            if sb_wl and len(sb_wl) > 0:
-                watchlist = [item["symbol"] for item in sb_wl]
-            else:
-                watchlist = read_watchlist_from_sheets(force_refresh=force)
-        except Exception:
-            watchlist = read_watchlist_from_sheets(force_refresh=force)
-            
+        # 1. Charger la Watchlist depuis Supabase
+        watchlist = get_watchlist_symbols(only_active=True)
         if not watchlist:
             watchlist = DEFAULT_WATCHLIST
             
@@ -1546,7 +1564,20 @@ def chat():
         
     message_lower = message.lower()
     
-    # 1. Si l'utilisateur demande d'ajouter un ticker
+    # 1. Si l'utilisateur demande de retirer / supprimer un ticker
+    if any(w in message_lower for w in ["retire", "retirer", "supprime", "supprimer", "delete", "remove", "enleve", "enlever"]) and any(w in message_lower for w in ["watchlist", "feuille", "sheet", "action", "ticker", "liste"]):
+        ticker, company_name = find_ticker_in_message(message)
+        if ticker:
+            try:
+                delete_from_watchlist(ticker)
+                delete_ticker_from_sheets(ticker)
+                return jsonify({
+                    "response": f"🗑️ **{ticker}** ({company_name or ticker}) a été retiré de votre **Watchlist** (Google Sheets & Base de données) avec succès."
+                })
+            except Exception as e:
+                return jsonify({"response": f"Erreur lors de la suppression de {ticker} : {str(e)}"})
+
+    # 2. Si l'utilisateur demande d'ajouter un ticker
     if any(w in message_lower for w in ["ajoute", "ajouter", "add"]) and any(w in message_lower for w in ["watchlist", "feuille", "sheet", "action", "ticker"]):
         ticker, company_name = find_ticker_in_message(message)
         if ticker:
@@ -1554,6 +1585,15 @@ def chat():
                 t = yf.Ticker(ticker)
                 fund_q = check_fundamental_quality(t, symbol=ticker)
                 sharia_res = screen_ticker(ticker)
+                add_or_update_watchlist_item(
+                    symbol=ticker,
+                    name=company_name or ticker,
+                    category=fund_q.get("category", "Autres"),
+                    category_icon=fund_q.get("category_icon", "📦"),
+                    is_pea=fund_q.get("is_pea", False),
+                    account_type="🇫🇷 PEA" if fund_q.get("is_pea") else "CTO (US)",
+                    sharia_status=sharia_res.get("status", "")
+                )
                 success, msg = add_ticker_to_sheets(
                     ticker_symbol=ticker,
                     name=company_name or ticker,
@@ -1562,7 +1602,7 @@ def chat():
                     sharia_status=sharia_res.get("status", "")
                 )
                 return jsonify({
-                    "response": f"✅ **{ticker}** ({company_name or ticker}) a été ajouté à votre **Watchlist Google Sheet** !\n\n"
+                    "response": f"✅ **{ticker}** ({company_name or ticker}) a été ajouté à votre **Watchlist** !\n\n"
                                 f"- 🏷️ **Catégorie :** {fund_q.get('category_icon', '📦')} {fund_q.get('category')}\n"
                                 f"- 💳 **Compte :** {fund_q.get('account_type')}\n"
                                 f"- 🕌 **Conformité Sharia :** `{sharia_res.get('status')}`\n\n"
@@ -1571,7 +1611,7 @@ def chat():
             except Exception as e:
                 return jsonify({"response": f"Erreur lors de l'ajout de {ticker} : {str(e)}"})
 
-    # 2. Si la question porte sur le Baromètre Macroéconomique
+    # 3. Si la question porte sur le Baromètre Macroéconomique
     if any(w in message_lower for w in ["macro", "baromètre", "regime", "vix", "dxy", "taux", "féd", "fed", "bce", "petrole", "pétrole", "inflation"]):
         macro = get_macro_barometer()
         resp = f"### 🌍 Baromètre Macroéconomique Top-Down (v2.0)\n\n"

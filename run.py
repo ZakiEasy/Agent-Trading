@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 import sys
-from src.cli import run_analyze_ticker, run_scan_watchlist, run_scan_market, run_check_macro, run_add_ticker_to_watchlist
+from src.cli import (
+    run_analyze_ticker,
+    run_scan_watchlist,
+    run_scan_market,
+    run_check_macro,
+    run_add_ticker_to_watchlist,
+    run_remove_ticker_from_watchlist
+)
 
 def print_usage():
     print("Assistant Swing Trading v2.0 - Usage:")
@@ -8,6 +15,7 @@ def print_usage():
     print("  python run.py scan market     : Scanne le marché élargi (Large & Mid Caps)")
     print("  python run.py analyze <TICKER>: Lance le protocole en 8 étapes pour un ticker")
     print("  python run.py add <TICKER>    : Ajoute une action au Google Sheet et l'analyse")
+    print("  python run.py remove <TICKER> : Retire une action de la Watchlist (Sheets & BDD)")
     print("  python run.py check macro     : Affiche le Baromètre Macroéconomique Top-Down")
     print("\nVariantes courtes :")
     print("  python run.py scan-watchlist")
@@ -42,6 +50,8 @@ def main():
         run_analyze_ticker(args[1])
     elif cmd == "add" and len(args) > 1:
         run_add_ticker_to_watchlist(args[1])
+    elif cmd in ["remove", "delete", "rm", "del"] and len(args) > 1:
+        run_remove_ticker_from_watchlist(args[1])
     elif cmd == "scan-watchlist":
         run_scan_watchlist()
     elif cmd == "scan-market":

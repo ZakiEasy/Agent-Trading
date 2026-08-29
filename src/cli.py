@@ -24,7 +24,12 @@ from src.market_data import (
     check_fundamental_quality
 )
 from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
-from src.sheets_connector import read_watchlist_from_sheets, write_signals_to_sheets, add_ticker_to_sheets
+from src.supabase_connector import (
+    get_watchlist_symbols,
+    add_or_update_watchlist_item,
+    delete_from_watchlist,
+    log_trading_signal
+)
 
 def analyze_single_ticker_data(symbol, capital=CAPITAL_REFERENCE_DEFAULT, macro_barometer=None):
     """
@@ -214,7 +219,7 @@ def run_analyze_ticker(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT):
 
 def run_add_ticker_to_watchlist(ticker_symbol):
     """
-    Ajoute une action à la Watchlist Google Sheets et affiche sa fiche descriptive.
+    Ajoute une action à la Watchlist Supabase et affiche sa fiche descriptive.
     """
     ticker_symbol = ticker_symbol.upper().strip()
     print(f"\n➕ Ajout de l'action {ticker_symbol} à la Watchlist...")
@@ -232,27 +237,42 @@ def run_add_ticker_to_watchlist(ticker_symbol):
     sharia_res = screen_ticker(ticker_symbol)
     sharia_status = sharia_res.get("status", "À VÉRIFIER")
 
-    success, msg = add_ticker_to_sheets(
-        ticker_symbol=ticker_symbol,
+    res = add_or_update_watchlist_item(
+        symbol=ticker_symbol,
         name=name,
         category=fund_q.get("category", ""),
         is_pea=fund_q.get("is_pea", False),
         sharia_status=sharia_status
     )
     
-    if success:
-        print(f"✅ {msg}")
+    if res:
+        print(f"✅ Action {ticker_symbol} ({name}) ajoutée avec succès dans la Watchlist BDD !")
         print(f"📌 Nom : {name} | Catégorie : {fund_q.get('category')} | Compte : {fund_q.get('account_type')} | Sharia : {sharia_status}")
         run_analyze_ticker(ticker_symbol)
     else:
-        print(f"❌ {msg}")
+        print(f"❌ Erreur lors de l'ajout de {ticker_symbol} en base de données.")
+
+def run_remove_ticker_from_watchlist(ticker_symbol):
+    """
+    Retire une action de la Watchlist Supabase.
+    """
+    ticker_symbol = ticker_symbol.upper().strip()
+    print(f"\n🗑️ Retrait de l'action {ticker_symbol} de la Watchlist...")
+    
+    success = delete_from_watchlist(ticker_symbol)
+    if success:
+        print(f"✅ Action {ticker_symbol} retirée avec succès de la Watchlist BDD !")
+    else:
+        print(f"❌ Erreur lors de la suppression de {ticker_symbol} de la Watchlist.")
 
 def run_scan_watchlist():
     """
     Scanne la watchlist avec le moteur de confluence v2.0 en multi-threading et enregistre les signaux.
     """
     print("\n🚀 Démarrage du scan de la watchlist (Moteur v2.0 - Parallélisé)...")
-    watchlist = read_watchlist_from_sheets()
+    watchlist = get_watchlist_symbols(only_active=True)
+    if not watchlist:
+        watchlist = DEFAULT_WATCHLIST
     macro_barometer = get_macro_barometer()
     
     print(f"🌍 Régime Macro Global : {macro_barometer['regime']} (Sizing: {macro_barometer['sizing_multiplier']*100:.0f}%)")
@@ -298,8 +318,9 @@ def run_scan_watchlist():
     print()
     
     if signals_to_write:
-        write_signals_to_sheets(signals_to_write)
-        print(f"✅ {len(signals_to_write)} signal(aux) d'achat enregistré(s) dans Google Sheets.")
+        for s in signals_to_write:
+            log_trading_signal(s)
+        print(f"✅ {len(signals_to_write)} signal(aux) d'achat enregistré(s) dans Supabase BDD.")
     else:
         print("ℹ️ Aucun nouveau signal d'achat qualifié détecté sur la watchlist.")
 
@@ -349,8 +370,9 @@ def run_scan_market():
         print()
         
         if signals_to_write:
-            write_signals_to_sheets(signals_to_write)
-            print(f"✅ {len(signals_to_write)} signal(aux) d'achat enregistré(s) dans Google Sheets.")
+            for s in signals_to_write:
+                log_trading_signal(s)
+            print(f"✅ {len(signals_to_write)} signal(aux) d'achat enregistré(s) dans Supabase BDD.")
     else:
         print("\nℹ️ Aucune opportunité qualifiée détectée sur le marché élargi actuellement.")
 

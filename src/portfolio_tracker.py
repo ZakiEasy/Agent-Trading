@@ -6,10 +6,15 @@ from datetime import datetime
 import pandas as pd
 import yfinance as yf
 
-from src.sheets_connector import (
-    read_positions_from_sheets,
-    add_position_to_sheets,
-    close_position_in_sheets
+from src.supabase_connector import (
+    get_supabase_positions,
+    save_or_update_position,
+    close_supabase_position,
+    batch_save_positions,
+    get_supabase_trade_journal,
+    batch_save_trade_journal,
+    get_supabase_treasury_operations,
+    batch_save_treasury_operations
 )
 from src.market_data import get_usd_conversion_rate, get_usd_to_eur_rate, get_ticker_info, categorize_ticker, get_company_name
 
@@ -203,7 +208,7 @@ def get_live_portfolio_summary(force_refresh=False):
     from src.trading212_connector import get_trading212_open_positions
     from src.supabase_connector import get_supabase_positions
     
-    # Récupérer les positions depuis Supabase en priorité avec fallback Google Sheets
+    # Récupérer les positions actives directement depuis Supabase
     raw_positions = []
     try:
         sb_positions = get_supabase_positions(status="ACTIVE")
@@ -227,9 +232,6 @@ def get_live_portfolio_summary(force_refresh=False):
                 })
     except Exception as e:
         print(f"⚠️ Erreur chargement positions Supabase: {e}")
-
-    if not raw_positions:
-        raw_positions = read_positions_from_sheets(force_refresh=force_refresh) or []
     
     # Taguer et normaliser les positions XTB
     for p in raw_positions:
@@ -1292,7 +1294,7 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
     Calcule le volume total de transaction (achats + ventes) sur les comptes XTB
     pour le mois civil en cours, afin de suivre le quota des 100 000 € à 0% de commission.
     """
-    from src.sheets_connector import read_journal_from_sheets, read_positions_from_sheets, read_treasury_from_sheets
+    from src.supabase_connector import get_supabase_trade_journal, get_supabase_positions, get_supabase_treasury_operations
     from src.config import XTB_MONTHLY_ZERO_COMMISSION_LIMIT, XTB_COMMISSION_RATE_OVER_LIMIT
     
     usd_to_eur = get_usd_to_eur_rate()
@@ -1300,11 +1302,11 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
     current_month_str = now_dt.strftime("%Y-%m")
 
     if closed_trades is None:
-        closed_trades = read_journal_from_sheets() or []
+        closed_trades = get_supabase_trade_journal() or []
     if open_positions is None:
-        open_positions = read_positions_from_sheets() or []
+        open_positions = get_supabase_positions(status="ACTIVE") or []
     if cash_operations is None:
-        cash_operations = read_treasury_from_sheets() or []
+        cash_operations = get_supabase_treasury_operations() or []
 
     monthly_turnover = {}
 
@@ -1452,12 +1454,12 @@ def calculate_monthly_rotation_by_stock(journal=None, open_positions=None, month
     et nombre de transactions achats/ventes).
     """
     if journal is None:
-        from src.sheets_connector import read_journal_from_sheets
-        journal = read_journal_from_sheets() or []
+        from src.supabase_connector import get_supabase_trade_journal
+        journal = get_supabase_trade_journal() or []
         
     if open_positions is None:
-        from src.sheets_connector import read_positions_from_sheets
-        open_positions = read_positions_from_sheets() or []
+        from src.supabase_connector import get_supabase_positions
+        open_positions = get_supabase_positions(status="ACTIVE") or []
         
     if not month_prefix:
         month_prefix = datetime.now().strftime("%Y-%m")

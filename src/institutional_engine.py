@@ -1567,13 +1567,13 @@ def scan_watchlist_institutional(tickers=None, capital_total=None, max_workers=6
     Renvoie les résultats triés par Score de Confluence (/10).
     """
     import concurrent.futures
-    from src.sheets_connector import read_watchlist_from_sheets
+    from src.supabase_connector import get_watchlist_symbols
     from src.config import DEFAULT_WATCHLIST
 
     if tickers is None or not tickers:
-        sheet_tickers = read_watchlist_from_sheets()
-        if sheet_tickers:
-            tickers = [t.get("symbol") for t in sheet_tickers if t.get("symbol")]
+        db_tickers = get_watchlist_symbols(only_active=True)
+        if db_tickers:
+            tickers = db_tickers
         else:
             tickers = DEFAULT_WATCHLIST
 
