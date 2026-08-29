@@ -1121,6 +1121,93 @@ def run_all_crises_stress_test(initial_capital=5000.0, tp1_pct=1.25, tp2_pct=2.2
 
     return results_by_crisis
 
+
+def run_single_ticker_10y_backtest(symbol, strategy="v3_institutional", initial_capital=5000.0):
+    """
+    Exécute un backtest complet sur 10 ans pour une action individuelle donnée.
+    Calcule le Win Rate, le P&L, le Profit Factor, le Max Drawdown, le Buy & Hold benchmark
+    et renvoie la courbe d'equity et la liste de tous les trades.
+    """
+    from src.market_data import resolve_ticker_symbol, get_company_name, categorize_ticker
+    symbol = resolve_ticker_symbol(str(symbol or "").upper().strip())
+    
+    engine = BacktestEngine(
+        symbols=[symbol],
+        period="10y",
+        initial_capital=initial_capital,
+        strategy=strategy
+    )
+    res = engine.run_simulation()
+    if not res.get("success"):
+        return {"success": False, "error": res.get("error", "Erreur lors du backtest"), "symbol": symbol}
+        
+    m = res.get("metrics", {})
+    trades = res.get("trades", [])
+    equity_curve = res.get("equity_curve", [])
+    
+    # Calcul du Buy & Hold benchmark sur la même période 10 ans
+    buy_hold_pct = 0.0
+    try:
+        hist_df = engine.historical_data.get(symbol)
+        if hist_df is None or hist_df.empty:
+            for k, v in engine.historical_data.items():
+                if k.upper() == symbol.upper() and v is not None and not v.empty:
+                    hist_df = v
+                    break
+        if hist_df is not None and not hist_df.empty and 'Close' in hist_df.columns:
+            valid_closes = hist_df['Close'].dropna()
+            if len(valid_closes) >= 2:
+                first_close = float(valid_closes.iloc[0])
+                last_close = float(valid_closes.iloc[-1])
+                if first_close > 0:
+                    buy_hold_pct = round(((last_close - first_close) / first_close) * 100, 2)
+    except Exception:
+        buy_hold_pct = 0.0
+
+    cat_info = categorize_ticker(symbol)
+    company_name = get_company_name(symbol)
+    exit_reasons = m.get("exit_reasons", {})
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "name": company_name,
+        "category": cat_info.get("category", "Autres"),
+        "category_icon": cat_info.get("category_icon", "📦"),
+        "is_pea": cat_info.get("is_pea", False),
+        "period": "10y (10 ans)",
+        "strategy": strategy,
+        "initial_capital": float(initial_capital),
+        "final_capital": float(res.get("final_capital", initial_capital)),
+        "comparison": {
+            "strategy_return_pct": float(m.get("total_return_pct", 0.0)),
+            "buy_and_hold_return_pct": buy_hold_pct,
+            "alpha_pct": round(float(m.get("total_return_pct", 0.0)) - buy_hold_pct, 2)
+        },
+        "exit_reasons": exit_reasons,
+        "metrics": {
+            "total_trades": int(m.get("total_trades", 0)),
+            "winning_trades": int(m.get("winning_trades", 0)),
+            "losing_trades": int(m.get("losing_trades", 0)),
+            "win_rate_pct": float(m.get("win_rate_pct", 0.0)),
+            "profit_factor": float(m.get("profit_factor", 0.0)),
+            "total_net_pnl": float(m.get("total_net_pnl", 0.0)),
+            "total_return_pct": float(m.get("total_return_pct", 0.0)),
+            "buy_hold_pct": buy_hold_pct,
+            "max_drawdown_pct": float(m.get("max_drawdown_pct", 0.0)),
+            "sharpe_ratio": float(m.get("sharpe_ratio", 0.0)),
+            "avg_holding_days": float(m.get("avg_holding_days", 0.0)),
+            "avg_win_pct": float(m.get("avg_win_pct", 0.0)),
+            "avg_loss_pct": float(m.get("avg_loss_pct", 0.0)),
+            "payoff_ratio": float(m.get("payoff_ratio", 0.0)),
+            "expectancy_pct": float(m.get("expectancy_pct", 0.0)),
+            "exit_reasons": exit_reasons
+        },
+        "equity_curve": equity_curve,
+        "trades": trades
+    }
+
+
 if __name__ == "__main__":
     crisis_res = run_all_crises_stress_test()
     print("\n" + "="*80)

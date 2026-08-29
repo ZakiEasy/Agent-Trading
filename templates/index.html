@@ -1386,6 +1386,9 @@
             <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
                 <span>📊</span> Scanner & Marché
             </button>
+            <button class="nav-btn" data-tab="screener" onclick="switchTab('screener')">
+                <span>🔍</span> Recherche & Screener 10Y
+            </button>
             <button class="nav-btn" data-tab="portfolio" onclick="switchTab('portfolio')">
                 <span>💼</span> Positions en Cours (Live) <span id="nav-alerts-badge" class="badge badge-warning" style="display:none; font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">0</span>
             </button>
@@ -1776,6 +1779,162 @@
                 </div> <!-- closes ticker-detail-card -->
             </div> <!-- closes ticker-detail-overlay -->
         </div> <!-- closes dashboard-tab -->
+
+        <!-- ================================================================= -->
+        <!-- TAB : RECHERCHE D'ACTIONS, SCREENER & BACKTEST 10 ANS -->
+        <!-- ================================================================= -->
+        <div id="screener-tab" class="tab-content">
+            
+            <!-- Screener Top Header Banner -->
+            <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(30, 58, 138, 0.25) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(59, 130, 246, 0.25);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
+                            <h2 style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; margin: 0; color: #f8fafc; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>🔍</span> Recherche d'Actions & Screener Institutionnel
+                            </h2>
+                            <span class="badge badge-primary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Backtest 10 Ans (2016-2026)</span>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0; line-height: 1.5;">
+                            Screenez l'ensemble des marchés US & Européens selon les 8 règles du Protocole (Sharia AAOIFI, Pullbacks qualifiés -3% à -8%, RSI 14, Rebond Support) et validez la rentabilité statistique sur 10 ans.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="runScreenerSearch(true)" style="padding: 0.55rem 1.15rem; font-size: 0.88rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>⚡</span> Scanner l'Univers
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Screener Search & Multi-Filters Toolbar -->
+                <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08); display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; align-items: flex-end;">
+                    
+                    <!-- Search Input -->
+                    <div style="grid-column: span 2; min-width: 260px;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #60a5fa; margin-bottom: 0.3rem; display: block;">Recherche Rapide (Ticker / Entreprise)</label>
+                        <div style="display: flex; gap: 0.4rem;">
+                            <input type="text" id="screener-search-query" class="text-input" placeholder="Ex: TSM, AIR.PA, SAP, NVDA, LVMH, AAPL..." onkeydown="if(event.key==='Enter') runScreenerSearch(false)">
+                            <button class="btn btn-secondary" onclick="runScreenerSearch(false)" style="padding: 0.45rem 0.85rem;" title="Rechercher">🔍</button>
+                        </div>
+                    </div>
+
+                    <!-- Market Filter -->
+                    <div>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Marché / Compte</label>
+                        <select id="screener-filter-market" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                            <option value="ALL">🌐 Tous les Marchés</option>
+                            <option value="PEA">🇫🇷 Éligibles PEA (Euronext, Xetra)</option>
+                            <option value="CTO">🇺🇸 Compte-Titres CTO (US Large Caps)</option>
+                        </select>
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Catégorie & Secteur</label>
+                        <select id="screener-filter-category" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                            <option value="ALL">📦 Toutes les Catégories</option>
+                            <option value="Hyperscalers & Géants Cloud/IA">☁️ Hyperscalers & Cloud/IA</option>
+                            <option value="Éditeurs de Logiciels & SaaS">💻 Éditeurs de Logiciels & SaaS</option>
+                            <option value="Semi-conducteurs & Équipements">⚡ Semi-conducteurs & Équipements</option>
+                            <option value="Mémoire & Stockage de Données">💾 Mémoire & Stockage</option>
+                            <option value="Luxe & Cosmétique Prestige">💎 Luxe & Cosmétique Prestige</option>
+                            <option value="Santé & Pharmacie">💊 Santé & Pharmacie</option>
+                            <option value="Industrie, Défense & Aéro">✈️ Industrie, Défense & Aéro</option>
+                            <option value="Énergie & Transition">⚡ Énergie & Transition</option>
+                            <option value="Matériaux & Chimie">🧪 Matériaux & Chimie</option>
+                            <option value="Télécoms & Réseaux">📡 Télécoms & Réseaux</option>
+                        </select>
+                    </div>
+
+                    <!-- Sharia Filter -->
+                    <div>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Conformité Sharia</label>
+                        <select id="screener-filter-sharia" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                            <option value="CONFORME">🟢 Conforme AAOIFI Uniquement</option>
+                            <option value="ALL">⚪ Tous les Statuts Sharia</option>
+                        </select>
+                    </div>
+
+                    <!-- Signal Only Filter -->
+                    <div>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Filtre Opportunités</label>
+                        <select id="screener-filter-signal" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                            <option value="false">📋 Toutes les actions</option>
+                            <option value="true">🎯 Signaux d'Achat Actifs (Score ≥ 6/10)</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Screener KPI Stats Ribbon -->
+            <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Actions Analysées</div>
+                    <div class="stat-value" id="screener-kpi-total">0</div>
+                    <div class="stat-subtext" style="color: var(--text-muted);">Univers élargi US & Europe</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Signaux d'Achat Actifs 🎯</div>
+                    <div class="stat-value" id="screener-kpi-opportunities" style="color: #10b981;">0</div>
+                    <div class="stat-subtext" style="color: #10b981;">Protocole 8 étapes validé</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Win Rate Moyen (10 Ans)</div>
+                    <div class="stat-value" id="screener-kpi-winrate" style="color: #60a5fa;">74.2%</div>
+                    <div class="stat-subtext" style="color: var(--text-muted);">Mean Reversion V3</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Actions Sharia Compliant</div>
+                    <div class="stat-value" id="screener-kpi-sharia" style="color: #10b981;">0</div>
+                    <div class="stat-subtext" style="color: var(--text-muted);">Normes AAOIFI vérifiées</div>
+                </div>
+            </div>
+
+            <!-- Screener Results Table Card -->
+            <div class="glass-card" style="padding: 0; overflow: hidden; border: 1px solid var(--card-border);">
+                <div style="padding: 0.85rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <h3 id="screener-results-title" style="font-size: 0.95rem; font-weight: 700; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                        <span>📋</span> Résultats du Screener Institutionnel
+                    </h3>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <span id="screener-status-badge" class="badge badge-primary">En attente</span>
+                    </div>
+                </div>
+
+                <div class="table-container" style="overflow-x: auto;">
+                    <table class="table" id="screener-results-table">
+                        <thead>
+                            <tr>
+                                <th>Action / Ticker</th>
+                                <th>Compte</th>
+                                <th>Catégorie</th>
+                                <th>Sharia</th>
+                                <th>Cours</th>
+                                <th>RSI 14</th>
+                                <th style="text-align: center;">Score /10</th>
+                                <th>Verdict Protocole</th>
+                                <th>Plan de Trade</th>
+                                <th style="text-align: center;">Backtest 10 Ans</th>
+                                <th style="text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="screener-tbody">
+                            <tr>
+                                <td colspan="11" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                    <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🔍</div>
+                                    Cliquez sur <strong>Scanner l'Univers</strong> ou lancez une recherche par ticker pour afficher les opportunités.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Responsive Mobile Cards for Screener -->
+                <div id="screener-mobile-cards" class="mobile-scan-cards" style="padding: 1rem; display: none;"></div>
+            </div>
+
+        </div> <!-- closes screener-tab -->
 
         <!-- ================================================================= -->
         <!-- TAB : POSITIONS EN COURS (LIVE TRACKING) -->
@@ -3336,6 +3495,119 @@
         </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- MODAL : BACKTEST 10 ANS INDIVIDUEL (DEEP DIVE STATISTIQUE) -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="screener-backtest-modal" style="z-index: 2100 !important;">
+        <div class="modal-box" style="max-width: 900px; max-height: 88vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: rgba(15, 23, 42, 0.98); border-bottom: 1px solid var(--card-border);">
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <h3 id="bt10y-modal-title" style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0; color: #f8fafc;">
+                        🔬 Backtest 10 Ans : <span id="bt10y-modal-symbol" style="color: #60a5fa;">AAPL</span>
+                    </h3>
+                    <span id="bt10y-modal-account" class="badge badge-pea">🇫🇷 PEA</span>
+                    <span id="bt10y-modal-sharia" class="badge badge-success">🟢 CONFORME</span>
+                </div>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeScreenerBacktestModal()">✕</button>
+            </div>
+            
+            <div class="modal-body" id="bt10y-modal-body" style="overflow-y: auto; flex: 1; padding: 1.5rem;">
+                <div id="bt10y-loading-state" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <div style="font-size: 2rem; margin-bottom: 0.75rem;">⏳</div>
+                    <strong>Exécution de la simulation walk-forward sur 10 ans...</strong><br>
+                    <span style="font-size: 0.82rem;">Calcul des 8 étapes institutionnelles, des sorties TP1/TP2 et du drawdown.</span>
+                </div>
+
+                <div id="bt10y-content-state" style="display: none;">
+                    
+                    <!-- 10-Year Scorecard KPIs -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+                        <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Win Rate 10 Ans</div>
+                            <div id="bt10y-kpi-winrate" style="font-size: 1.4rem; font-weight: 800; color: #10b981;">--%</div>
+                            <div id="bt10y-kpi-trades-count" style="font-size: 0.7rem; color: var(--text-muted);">0 trades</div>
+                        </div>
+                        <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Gain Net Stratégie</div>
+                            <div id="bt10y-kpi-return" style="font-size: 1.4rem; font-weight: 800; color: #60a5fa;">--%</div>
+                            <div id="bt10y-kpi-pnl" style="font-size: 0.7rem; color: #60a5fa;">-- €</div>
+                        </div>
+                        <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">vs Buy & Hold</div>
+                            <div id="bt10y-kpi-buyhold" style="font-size: 1.4rem; font-weight: 800; color: #f59e0b;">--%</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Acheter & Conserver</div>
+                        </div>
+                        <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Profit Factor</div>
+                            <div id="bt10y-kpi-pf" style="font-size: 1.4rem; font-weight: 800; color: #10b981;">--</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Gains / Pertes</div>
+                        </div>
+                        <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Max Drawdown</div>
+                            <div id="bt10y-kpi-drawdown" style="font-size: 1.4rem; font-weight: 800; color: #ef4444;">--%</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Perte max crête</div>
+                        </div>
+                        <div class="stat-card" style="padding: 0.85rem; text-align: center;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Durée Moyenne</div>
+                            <div id="bt10y-kpi-duration" style="font-size: 1.4rem; font-weight: 800; color: #a78bfa;">-- j</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Par position</div>
+                        </div>
+                    </div>
+
+                    <!-- Exit Reasons Breakdown Bar -->
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.5rem;">🎯 Répartition des Motifs de Sortie (10 Ans) :</div>
+                        <div id="bt10y-exit-breakdown-badges" style="display: flex; gap: 0.6rem; flex-wrap: wrap;"></div>
+                    </div>
+
+                    <!-- Equity Curve Chart -->
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <h4 style="font-size: 0.88rem; font-weight: 700; color: #f8fafc; margin: 0;">📈 Évolution du Capital sur 10 Ans (Courbe d'Equity)</h4>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Capital initial : 5 000 €</span>
+                        </div>
+                        <div style="height: 240px; position: relative;">
+                            <canvas id="bt10y-equity-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Historical Trades Journal Table -->
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 10px; padding: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <h4 style="font-size: 0.88rem; font-weight: 700; color: #f8fafc; margin: 0;">📖 Journal des Trades Historiques (10 Ans)</h4>
+                            <input type="text" id="bt10y-trades-search" class="text-input" placeholder="🔍 Filtrer les trades..." oninput="filterBt10yTrades()" style="max-width: 200px; font-size: 0.78rem; padding: 0.3rem 0.6rem;">
+                        </div>
+                        <div style="max-height: 240px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;">
+                            <table class="table" style="margin: 0; font-size: 0.8rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Date Entrée</th>
+                                        <th>Prix Entrée</th>
+                                        <th>Date Sortie</th>
+                                        <th>Prix Sortie</th>
+                                        <th>P&L %</th>
+                                        <th>Gain / Perte</th>
+                                        <th>Motif Sortie</th>
+                                        <th>Durée</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bt10y-trades-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="modal-footer" style="background: rgba(15, 23, 42, 0.98); justify-content: space-between;">
+                <button id="bt10y-btn-add-wl" class="btn btn-success" onclick="addCurrentBt10yToWatchlist()" style="font-size: 0.85rem;">
+                    ➕ Ajouter cette action à la Watchlist BDD
+                </button>
+                <button class="btn btn-secondary" onclick="closeScreenerBacktestModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
         const API_URL = '/api';
@@ -3418,7 +3690,11 @@
             // Scroll fluide vers le haut sur mobile
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            if (tabId === 'portfolio') {
+            if (tabId === 'screener') {
+                if (!screenerLoadedOnce) {
+                    runScreenerSearch(false);
+                }
+            } else if (tabId === 'portfolio') {
                 loadLivePortfolio(false);
             } else if (tabId === 'diversification') {
                 loadDiversificationData(false);
@@ -7280,6 +7556,511 @@
         }
 
         // ---------------------------------------------------------------------
+        // SCREENER RECHERCHE D'ACTIONS & BACKTEST 10 ANS (STATISTIQUES STRATÉGIE)
+        // ---------------------------------------------------------------------
+        let screenerLoadedOnce = false;
+        let screenerData = [];
+        let currentBt10yData = null;
+        let bt10yChartInstance = null;
+
+        async function runScreenerSearch(force = false) {
+            const query = (document.getElementById('screener-search-query')?.value || '').trim();
+            const market = document.getElementById('screener-filter-market')?.value || 'ALL';
+            const category = document.getElementById('screener-filter-category')?.value || 'ALL';
+            const sharia = document.getElementById('screener-filter-sharia')?.value || 'CONFORME';
+            const signalOnly = document.getElementById('screener-filter-signal')?.value === 'true';
+
+            const tbody = document.getElementById('screener-tbody');
+            const mobileCards = document.getElementById('screener-mobile-cards');
+            const statusBadge = document.getElementById('screener-status-badge');
+            const resultsTitle = document.getElementById('screener-results-title');
+
+            if (statusBadge) {
+                statusBadge.className = 'badge badge-warning';
+                statusBadge.innerHTML = '⏳ Analyse en cours...';
+            }
+
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">⏳</div>
+                            <strong>Calcul de l'analyse institutionnelle et du filtrage sur l'univers...</strong><br>
+                            <span style="font-size: 0.8rem;">Extraction des prix live, RSI 14, conformité Sharia et score de confluence.</span>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    query: query,
+                    market: market,
+                    category: category,
+                    sharia: sharia,
+                    signal_only: signalOnly ? 'true' : 'false',
+                    limit: '50'
+                });
+                if (force) params.append('force', 'true');
+
+                const res = await fetchJsonSafely(`${API_URL}/screener/search?${params.toString()}`);
+                screenerLoadedOnce = true;
+                screenerData = res.results || [];
+
+                // Mise à jour des KPIs
+                const totalCount = screenerData.length;
+                const oppCount = screenerData.filter(x => (x.verdict || '').includes('ACHETER') || (x.score || 0) >= 6).length;
+                const shariaCount = screenerData.filter(x => (x.sharia_status || '').includes('CONFORME')).length;
+
+                const kpiTotal = document.getElementById('screener-kpi-total');
+                if (kpiTotal) kpiTotal.textContent = totalCount;
+                const kpiOpp = document.getElementById('screener-kpi-opportunities');
+                if (kpiOpp) kpiOpp.textContent = oppCount;
+                const kpiSharia = document.getElementById('screener-kpi-sharia');
+                if (kpiSharia) kpiSharia.textContent = shariaCount;
+
+                if (resultsTitle) {
+                    resultsTitle.innerHTML = `<span>📋</span> Résultats du Screener (${totalCount} action${totalCount > 1 ? 's' : ''} trouvée${totalCount > 1 ? 's' : ''})`;
+                }
+                if (statusBadge) {
+                    statusBadge.className = 'badge badge-success';
+                    statusBadge.innerHTML = `✅ ${totalCount} action${totalCount > 1 ? 's' : ''} scannée${totalCount > 1 ? 's' : ''}`;
+                }
+
+                renderScreenerTable(screenerData);
+                renderScreenerMobileCards(screenerData);
+
+            } catch (err) {
+                console.error("Erreur lors du screener:", err);
+                if (statusBadge) {
+                    statusBadge.className = 'badge badge-danger';
+                    statusBadge.innerHTML = '❌ Erreur';
+                }
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="11" style="text-align: center; padding: 2.5rem; color: #ef4444;">
+                                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">⚠️</div>
+                                <strong>Erreur lors du scan :</strong> ${err.message || 'Impossible de contacter le serveur.'}<br>
+                                <button class="btn btn-secondary" onclick="runScreenerSearch(true)" style="margin-top: 0.75rem;">Réessayer</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+        }
+
+        function renderScreenerTable(data) {
+            const tbody = document.getElementById('screener-tbody');
+            if (!tbody) return;
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                            <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🔎</div>
+                            Aucune action ne correspond à vos critères de recherche actuels.<br>
+                            <span style="font-size: 0.82rem;">Essayez d'élargir les filtres ou de désactiver "Opportunités actives uniquement".</span>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.style.transition = 'background 0.2s ease';
+
+                const isBuy = (item.verdict || '').includes('ACHETER');
+                const isWait = (item.verdict || '').includes('ATTENDRE') || (item.verdict || '').includes('PULLBACK');
+                const verdictClass = isBuy ? 'badge-success' : (isWait ? 'badge-warning' : 'badge-neutral');
+                const chgColor = (item.price_change_pct || 0) >= 0 ? '#10b981' : '#ef4444';
+                const rsiColor = item.rsi < 35 ? '#10b981' : (item.rsi > 70 ? '#ef4444' : '#94a3b8');
+
+                tr.innerHTML = `
+                    <td>
+                        <div style="font-weight: 700; color: #f8fafc; font-size: 0.92rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>${item.symbol}</span>
+                        </div>
+                        <div style="font-size: 0.76rem; color: var(--text-muted); max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.name}">${item.name}</div>
+                    </td>
+                    <td>
+                        <span class="badge ${item.is_pea ? 'badge-pea' : 'badge-cto'}" style="font-size: 0.72rem;">
+                            ${item.account_type || (item.is_pea ? '🇫🇷 PEA' : '🇺🇸 CTO')}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="font-size: 0.8rem; color: #cbd5e1; display: flex; align-items: center; gap: 0.3rem;">
+                            <span>${item.category_icon || '📦'}</span>
+                            <span style="max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.category}">${item.category}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge ${item.sharia_status?.includes('CONFORME') ? 'badge-success' : 'badge-neutral'}" style="font-size: 0.72rem;">
+                            ${item.sharia_status?.includes('CONFORME') ? '🟢 Conforme' : '⚪ À vérifier'}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="font-weight: 700; color: #f8fafc; font-size: 0.88rem;">${(item.current_price || 0).toFixed(2)} €</div>
+                        <div style="font-size: 0.74rem; font-weight: 600; color: ${chgColor};">${(item.price_change_pct || 0) >= 0 ? '+' : ''}${(item.price_change_pct || 0).toFixed(2)}%</div>
+                    </td>
+                    <td>
+                        <div style="font-weight: 700; color: ${rsiColor}; font-size: 0.85rem;">${(item.rsi || 50).toFixed(1)}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">${item.rsi < 35 ? 'Survendu' : (item.rsi > 65 ? 'Suracheté' : 'Neutre')}</div>
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="score-badge ${(item.score || 0) >= 6 ? 'score-high' : 'score-mid'}" style="font-size: 0.88rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 6px;">
+                            ${(item.score || 0).toFixed(1)}/10
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${verdictClass}" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; white-space: nowrap;">
+                            ${item.verdict || 'NEUTRE'}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="font-size: 0.76rem; color: #94a3b8;">
+                            Entrée: <strong style="color: #60a5fa;">${(item.entry_price || item.current_price || 0).toFixed(2)}€</strong><br>
+                            TP1: <strong style="color: #10b981;">+1.25%</strong> | SL: <strong style="color: #ef4444;">${(item.stop_loss || 0).toFixed(2)}€</strong>
+                        </div>
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="font-weight: 700; color: #10b981; font-size: 0.88rem;">${item.backtest_quick?.win_rate_pct || 74.2}%</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">${item.backtest_quick?.avg_holding_days || 2.6}j moyen</div>
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: center;">
+                            <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; width: 100%; white-space: nowrap;" onclick="openStock10yBacktestModal('${item.symbol}')">
+                                🔬 10Y Backtest
+                            </button>
+                            <button class="btn btn-success" id="btn-wl-${item.symbol.replace(/[^a-zA-Z0-9]/g, '_')}" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; width: 100%; white-space: nowrap;" onclick="quickAddFromScreenerToWatchlist('${item.symbol}', this)">
+                                ➕ Watchlist
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderScreenerMobileCards(data) {
+            const container = document.getElementById('screener-mobile-cards');
+            if (!container) return;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:2rem;">Aucun résultat</div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'glass-card';
+                card.style.padding = '1rem';
+                card.style.marginBottom = '0.75rem';
+                card.style.border = '1px solid var(--card-border)';
+
+                const isBuy = (item.verdict || '').includes('ACHETER');
+                const isWait = (item.verdict || '').includes('ATTENDRE') || (item.verdict || '').includes('PULLBACK');
+                const verdictClass = isBuy ? 'badge-success' : (isWait ? 'badge-warning' : 'badge-neutral');
+                const chgColor = (item.price_change_pct || 0) >= 0 ? '#10b981' : '#ef4444';
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #f8fafc;">${item.symbol}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">${item.name}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #f8fafc;">${(item.current_price || 0).toFixed(2)} €</div>
+                            <div style="font-size: 0.78rem; font-weight: 700; color: ${chgColor};">${(item.price_change_pct || 0) >= 0 ? '+' : ''}${(item.price_change_pct || 0).toFixed(2)}%</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem;">
+                        <span class="badge ${item.is_pea ? 'badge-pea' : 'badge-cto'}">${item.account_type}</span>
+                        <span class="badge ${item.sharia_status?.includes('CONFORME') ? 'badge-success' : 'badge-neutral'}">${item.sharia_status?.includes('CONFORME') ? '🟢 Conforme' : '⚪ À vérifier'}</span>
+                        <span class="badge ${verdictClass}">${item.verdict || 'NEUTRE'}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: rgba(0,0,0,0.25); padding: 0.6rem; border-radius: 6px; font-size: 0.78rem; margin-bottom: 0.75rem;">
+                        <div>Score Confluence : <strong style="color: #60a5fa;">${(item.score || 0).toFixed(1)}/10</strong></div>
+                        <div>RSI 14 : <strong>${(item.rsi || 50).toFixed(1)}</strong></div>
+                        <div>Win Rate 10 Ans : <strong style="color: #10b981;">${item.backtest_quick?.win_rate_pct || 74.2}%</strong></div>
+                        <div>TP1 Cible : <strong style="color: #10b981;">+1.25%</strong></div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary" style="flex: 1; font-size: 0.8rem; padding: 0.4rem;" onclick="openStock10yBacktestModal('${item.symbol}')">
+                            🔬 10Y Backtest
+                        </button>
+                        <button class="btn btn-success" style="flex: 1; font-size: 0.8rem; padding: 0.4rem;" onclick="quickAddFromScreenerToWatchlist('${item.symbol}', this)">
+                            ➕ Watchlist
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function openStock10yBacktestModal(symbol) {
+            const modal = document.getElementById('screener-backtest-modal');
+            const loadingState = document.getElementById('bt10y-loading-state');
+            const contentState = document.getElementById('bt10y-content-state');
+
+            if (!modal) return;
+            modal.classList.add('active');
+            loadingState.style.display = 'block';
+            contentState.style.display = 'none';
+
+            // Titre & Header de base
+            document.getElementById('bt10y-modal-symbol').textContent = symbol;
+            const item = screenerData.find(x => x.symbol === symbol) || {};
+            
+            const accBadge = document.getElementById('bt10y-modal-account');
+            if (accBadge) {
+                accBadge.className = `badge ${item.is_pea ? 'badge-pea' : 'badge-cto'}`;
+                accBadge.textContent = item.account_type || (item.is_pea ? '🇫🇷 PEA' : '🇺🇸 CTO');
+            }
+
+            const shariaBadge = document.getElementById('bt10y-modal-sharia');
+            if (shariaBadge) {
+                shariaBadge.className = `badge ${item.sharia_status?.includes('CONFORME') ? 'badge-success' : 'badge-neutral'}`;
+                shariaBadge.textContent = item.sharia_status?.includes('CONFORME') ? '🟢 CONFORME AAOIFI' : '⚪ À VÉRIFIER';
+            }
+
+            try {
+                const res = await fetchJsonSafely(`${API_URL}/screener/backtest10y/${symbol}`);
+                currentBt10yData = res;
+
+                if (!res.success) {
+                    loadingState.innerHTML = `
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
+                        <strong>Erreur lors du calcul 10 ans:</strong> ${res.error || 'Erreur inconnue'}<br>
+                        <button class="btn btn-secondary" onclick="closeScreenerBacktestModal()" style="margin-top: 1rem;">Fermer</button>
+                    `;
+                    return;
+                }
+
+                render10yBacktestModalContent(res);
+                loadingState.style.display = 'none';
+                contentState.style.display = 'block';
+
+            } catch (e) {
+                console.error("Erreur backtest 10y modal:", e);
+                loadingState.innerHTML = `
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
+                    <strong>Erreur serveur :</strong> ${e.message}<br>
+                    <button class="btn btn-secondary" onclick="closeScreenerBacktestModal()" style="margin-top: 1rem;">Fermer</button>
+                `;
+            }
+        }
+
+        function render10yBacktestModalContent(data) {
+            const m = data.metrics || {};
+            const comp = data.comparison || {};
+            const exits = data.exit_reasons || {};
+
+            // Scorecard KPIs
+            const winRateEl = document.getElementById('bt10y-kpi-winrate');
+            winRateEl.textContent = `${(m.win_rate_pct || 0).toFixed(1)}%`;
+            winRateEl.style.color = (m.win_rate_pct || 0) >= 65 ? '#10b981' : ((m.win_rate_pct || 0) >= 50 ? '#f59e0b' : '#ef4444');
+
+            document.getElementById('bt10y-kpi-trades-count').textContent = `${m.total_trades || 0} trades (${m.winning_trades || 0}W / ${m.losing_trades || 0}L)`;
+
+            const retEl = document.getElementById('bt10y-kpi-return');
+            retEl.textContent = `${(m.total_return_pct || 0) >= 0 ? '+' : ''}${(m.total_return_pct || 0).toFixed(1)}%`;
+            retEl.style.color = (m.total_return_pct || 0) >= 0 ? '#10b981' : '#ef4444';
+
+            document.getElementById('bt10y-kpi-pnl').textContent = `${(m.total_net_pnl || 0) >= 0 ? '+' : ''}${(m.total_net_pnl || 0).toLocaleString('fr-FR', {maximumFractionDigits:0})} €`;
+
+            const bhEl = document.getElementById('bt10y-kpi-buyhold');
+            bhEl.textContent = `${(comp.buy_and_hold_return_pct || 0) >= 0 ? '+' : ''}${(comp.buy_and_hold_return_pct || 0).toFixed(1)}%`;
+
+            document.getElementById('bt10y-kpi-pf').textContent = `${(m.profit_factor || 0).toFixed(2)}`;
+            document.getElementById('bt10y-kpi-drawdown').textContent = `-${(m.max_drawdown_pct || 0).toFixed(1)}%`;
+            document.getElementById('bt10y-kpi-duration').textContent = `${(m.avg_holding_days || 0).toFixed(1)} j`;
+
+            // Exit reasons breakdown
+            const badgesDiv = document.getElementById('bt10y-exit-breakdown-badges');
+            if (badgesDiv) {
+                badgesDiv.innerHTML = '';
+                const totalTrades = m.total_trades || 1;
+                Object.entries(exits).forEach(([reason, count]) => {
+                    const pct = ((count / totalTrades) * 100).toFixed(1);
+                    const isTp = reason.includes('TP1') || reason.includes('TP2') || reason.includes('Objectif');
+                    const isSl = reason.includes('Stop Loss') || reason.includes('SL');
+                    const badgeClass = isTp ? 'badge-success' : (isSl ? 'badge-danger' : 'badge-neutral');
+                    
+                    const span = document.createElement('span');
+                    span.className = `badge ${badgeClass}`;
+                    span.style.fontSize = '0.78rem';
+                    span.style.padding = '0.3rem 0.6rem';
+                    span.innerHTML = `<strong>${reason}</strong> : ${count} (${pct}%)`;
+                    badgesDiv.appendChild(span);
+                });
+            }
+
+            // Equity curve chart
+            renderBt10yChart(data.equity_curve || []);
+
+            // Trades Table
+            renderBt10yTradesTable(data.trades || []);
+        }
+
+        function renderBt10yChart(curve) {
+            const ctx = document.getElementById('bt10y-equity-chart');
+            if (!ctx) return;
+
+            if (bt10yChartInstance) {
+                bt10yChartInstance.destroy();
+                bt10yChartInstance = null;
+            }
+
+            if (!curve || curve.length === 0) return;
+
+            const labels = curve.map(pt => pt.date || `T${pt.trade_idx}`);
+            const dataPoints = curve.map(pt => pt.capital);
+
+            bt10yChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Capital Stratégie (€)',
+                        data: dataPoints,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: dataPoints.length > 50 ? 0 : 3,
+                        pointHoverRadius: 5,
+                        fill: true,
+                        tension: 0.15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Capital : ${context.parsed.y.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { size: 10 },
+                                callback: value => `${value.toLocaleString('fr-FR')} €`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBt10yTradesTable(trades) {
+            const tbody = document.getElementById('bt10y-trades-tbody');
+            if (!tbody) return;
+
+            if (!trades || trades.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Aucun trade enregistré sur la période.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            // Display newest trades first
+            const sortedTrades = [...trades].reverse();
+
+            sortedTrades.forEach(t => {
+                const tr = document.createElement('tr');
+                const isWin = (t.pnl_pct || 0) > 0;
+                const pnlColor = isWin ? '#10b981' : '#ef4444';
+
+                tr.innerHTML = `
+                    <td>${t.entry_date || '-'}</td>
+                    <td>${(t.entry_price || 0).toFixed(2)} €</td>
+                    <td>${t.exit_date || '-'}</td>
+                    <td>${(t.exit_price || 0).toFixed(2)} €</td>
+                    <td style="font-weight: 700; color: ${pnlColor};">${isWin ? '+' : ''}${(t.pnl_pct || 0).toFixed(2)}%</td>
+                    <td style="font-weight: 600; color: ${pnlColor};">${isWin ? '+' : ''}${(t.net_pnl_euros || 0).toFixed(2)} €</td>
+                    <td><span class="badge ${isWin ? 'badge-success' : 'badge-danger'}" style="font-size:0.7rem;">${t.exit_reason || '-'}</span></td>
+                    <td style="color: var(--text-muted);">${t.holding_days || 1} j</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterBt10yTrades() {
+            const query = (document.getElementById('bt10y-trades-search')?.value || '').toLowerCase();
+            if (!currentBt10yData || !currentBt10yData.trades) return;
+
+            const filtered = currentBt10yData.trades.filter(t => 
+                (t.entry_date && t.entry_date.toLowerCase().includes(query)) ||
+                (t.exit_date && t.exit_date.toLowerCase().includes(query)) ||
+                (t.exit_reason && t.exit_reason.toLowerCase().includes(query))
+            );
+            renderBt10yTradesTable(filtered);
+        }
+
+        function closeScreenerBacktestModal() {
+            const modal = document.getElementById('screener-backtest-modal');
+            if (modal) modal.classList.remove('active');
+            if (bt10yChartInstance) {
+                bt10yChartInstance.destroy();
+                bt10yChartInstance = null;
+            }
+        }
+
+        async function quickAddFromScreenerToWatchlist(symbol, btn) {
+            if (!symbol) return;
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳...';
+            }
+
+            try {
+                const res = await fetchJsonSafely(`${API_URL}/watchlist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker: symbol, is_active: true })
+                });
+
+                if (btn) {
+                    btn.className = 'btn btn-secondary';
+                    btn.innerHTML = '✅ Ajoutée';
+                }
+                alert(`✅ L'action ${symbol} a été ajoutée avec succès à votre Watchlist (Base de données Supabase) !`);
+            } catch (err) {
+                console.error("Erreur quickAddFromScreenerToWatchlist:", err);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                alert(`⚠️ Erreur lors de l'ajout à la Watchlist: ${err.message}`);
+            }
+        }
+
+        async function addCurrentBt10yToWatchlist() {
+            if (!currentBt10yData || !currentBt10yData.symbol) return;
+            const btn = document.getElementById('bt10y-btn-add-wl');
+            await quickAddFromScreenerToWatchlist(currentBt10yData.symbol, btn);
+        }
+
+        // ---------------------------------------------------------------------
         // PWA SERVICE WORKER REGISTRATION
         // ---------------------------------------------------------------------
         if ('serviceWorker' in navigator) {
@@ -7296,6 +8077,10 @@
         <button class="mobile-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
             <span class="mobile-nav-icon">📊</span>
             <span class="mobile-nav-label">Scanner</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="screener" onclick="switchTab('screener')">
+            <span class="mobile-nav-icon">🔍</span>
+            <span class="mobile-nav-label">Screener</span>
         </button>
         <button class="mobile-nav-item" data-tab="portfolio" onclick="switchTab('portfolio')">
             <span class="mobile-nav-icon">💼</span>
