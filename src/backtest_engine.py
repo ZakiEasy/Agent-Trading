@@ -218,9 +218,17 @@ class BacktestEngine:
                     df = pd.DataFrame()
 
             if df is not None and not df.empty:
-                # Harmoniser le fuseau horaire
-                if hasattr(df.index, 'tz') and df.index.tz is not None:
-                    df.index = df.index.tz_localize(None)
+                # Harmoniser le fuseau horaire (supprimer tout timezone pour compatibilité universelle)
+                try:
+                    idx = pd.to_datetime(df.index)
+                    if getattr(idx, 'tz', None) is not None:
+                        idx = idx.tz_convert(None)
+                    df.index = idx
+                except Exception:
+                    try:
+                        df.index = pd.to_datetime(df.index).tz_localize(None)
+                    except Exception:
+                        pass
                 # Precompute technical indicators
                 df = self._precompute_indicators(df)
                 if ticker in macro_series or ticker in ["^VIX", "SPY", "DX-Y.NYB", "CL=F", "^TNX"]:
@@ -398,7 +406,12 @@ class BacktestEngine:
         # Aligner toutes les dates communes
         all_dates = set()
         for df in self.historical_data.values():
-            all_dates.update(df.index)
+            if df is not None and not df.empty:
+                for dt in df.index:
+                    if hasattr(dt, 'tz') and dt.tz is not None:
+                        all_dates.add(dt.tz_localize(None))
+                    else:
+                        all_dates.add(pd.to_datetime(dt))
         sorted_dates = sorted(list(all_dates))
 
         # Filtrage par dates si spécifié (ex: crises 1999, 2008, 2020, 2022)
@@ -478,7 +491,8 @@ class BacktestEngine:
             sym_map = {}
             for idx, dt in enumerate(dates_list):
                 if idx < 20: continue
-                sym_map[dt] = {
+                clean_dt = dt.tz_localize(None) if hasattr(dt, 'tz') and dt.tz is not None else pd.to_datetime(dt)
+                sym_map[clean_dt] = {
                     "Close": float(c_arr[idx]),
                     "Open": float(o_arr[idx]),
                     "High": float(h_arr[idx]),
@@ -816,12 +830,13 @@ class BacktestEngine:
             last_date = simulation_dates[-1]
             for pos in active_positions:
                 sym = pos['symbol']
-                df = self.historical_data.get(sym)
-                if df is not None:
-                    sub_df = df.loc[:last_date]
-                    close = float(sub_df.iloc[-1]['Close']) if not sub_df.empty else pos['entry_price']
-                else:
-                    close = pos['entry_price']
+                close = sym_fast_data.get(sym, {}).get(last_date, {}).get('Close')
+                if close is None or close <= 0:
+                    df = self.historical_data.get(sym)
+                    if df is not None and not df.empty:
+                        close = float(df['Close'].iloc[-1])
+                    else:
+                        close = pos['entry_price']
                 pnl_amount = (close - pos['entry_price']) * pos['shares']
                 pnl_pct = ((close - pos['entry_price']) / pos['entry_price']) * 100
                 current_cash += (close * pos['shares'])

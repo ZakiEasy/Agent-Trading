@@ -138,7 +138,18 @@ TICKER_ALIASES = {
     'MERCK_KGAA': 'MRK.DE',
     'MERCK': 'MRK.DE',
     'SNDK': 'WDC',
+    'PCLN': 'BKNG',        # Priceline renommé Booking Holdings (BKNG)
+    'ASML.NL': 'ASML.AS',  # ASML Amsterdam
+    'NOKIA.FI': 'NOK',     # Nokia Helsinki -> NOK
+    'STM.PA': 'STMPA.PA',  # STMicroelectronics Euronext
+    'ML.PA': 'MICP.PA',    # Michelin Euronext
+    'TE.PA': 'TEP.PA',     # Teleperformance Euronext
     'IS3E.DE': 'IS3R.DE',  # Repli vers ETF islamique actif si IS3E n'a pas de cotation intraday
+    'HIEU.L': 'IS3R.DE',
+    'HIJP.L': 'IS3R.DE',
+    'ISDE.L': 'IS3R.DE',
+    'ISDU.L': 'IS3R.DE',
+    'ISDW.L': 'IS3R.DE',
     'LIN.PA': 'LIN.DE',
     'AIR.FR': 'AIR.PA',
     'OR.FR': 'OR.PA',

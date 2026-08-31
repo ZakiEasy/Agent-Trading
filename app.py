@@ -24,7 +24,8 @@ from src.market_data import (
     check_fundamental_quality,
     categorize_ticker,
     calculate_sector_relative_strength,
-    get_company_name
+    get_company_name,
+    resolve_ticker_symbol
 )
 from src.risk_manager import calculate_trade_sizing, calculate_confluence_score
 from src.institutional_engine import generate_8_step_protocol_analysis
@@ -1650,6 +1651,122 @@ def backtest_crises_endpoint():
     except Exception as e:
         logger.error(f"Erreur benchmark crises: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": f"Erreur serveur crises: {str(e)}"}, status_code=500)
+
+
+@app.route("/api/backtest/user_universe", methods=["GET", "POST"])
+def backtest_user_universe_endpoint():
+    """
+    Exécute le backtest institutionnel sur l'univers complet de l'utilisateur
+    (actions tradées dans le journal + portefeuille + watchlist) sur 2 ans et 10 ans,
+    et compare avec les performances réelles du journal de trading.
+    """
+    try:
+        if request.method == "POST":
+            data = request.json or {}
+        else:
+            data = request.args.to_dict()
+
+        capital = float(data.get("capital", 18183.05))
+        tp1_pct = float(data.get("tp1_pct", 1.80))
+        tp2_pct = float(data.get("tp2_pct", 2.50))
+        max_holding_days = int(data.get("max_holding_days", 10))
+        strategy = str(data.get("strategy", "v3_institutional"))
+        force = str(data.get("force", "false")).lower() in ["true", "1", "yes"]
+
+        # 1. Identifier l'univers complet de l'utilisateur
+        trades_real = get_supabase_trade_journal() or []
+        positions_real = get_supabase_positions(status="ALL") or []
+        watchlist_symbols = get_watchlist_symbols() or []
+
+        symbols_traded = [resolve_ticker_symbol(t.get("symbol")) for t in trades_real if t.get("symbol")]
+        symbols_pos = [resolve_ticker_symbol(p.get("symbol")) for p in positions_real if p.get("symbol")]
+        symbols_wl = [resolve_ticker_symbol(s) for s in watchlist_symbols if s]
+
+        user_universe = sorted(list(set(symbols_traded + symbols_pos + symbols_wl)))
+        user_universe = [s for s in user_universe if s and s != "None" and not s.endswith(".L")]
+
+        # 2. Métriques du journal réel
+        total_real_trades = len(trades_real)
+        wins_real = len([t for t in trades_real if float(t.get("pnl_amount", 0.0)) >= 0])
+        losses_real = len([t for t in trades_real if float(t.get("pnl_amount", 0.0)) < 0])
+        wr_real = round((wins_real / total_real_trades * 100), 1) if total_real_trades > 0 else 0.0
+        pnl_real = round(sum([float(t.get("pnl_amount", 0.0)) for t in trades_real]), 2)
+        gains_real = sum([float(t.get("pnl_amount", 0.0)) for t in trades_real if float(t.get("pnl_amount", 0.0)) > 0])
+        loss_abs_real = abs(sum([float(t.get("pnl_amount", 0.0)) for t in trades_real if float(t.get("pnl_amount", 0.0)) < 0]))
+        pf_real = round((gains_real / loss_abs_real), 2) if loss_abs_real > 0 else 0.0
+
+        # Durée moyenne réelle
+        from src.protocol_feedback_engine import calculate_trade_duration_days
+        durs = [calculate_trade_duration_days(t.get("entry_date"), t.get("exit_date")) for t in trades_real]
+        avg_dur_real = round(sum(durs) / len(durs), 1) if durs else 0.0
+
+        # 3. Backtest 10 Ans (télécharge 10 ans d'historique)
+        bt_10y = BacktestEngine(
+            symbols=user_universe,
+            period="10y",
+            initial_capital=capital,
+            tp1_pct=tp1_pct,
+            tp2_pct=tp2_pct,
+            max_holding_days=max_holding_days,
+            strategy=strategy
+        )
+        res_10y = bt_10y.run_simulation()
+
+        # 4. Backtest 2 Ans (réutilise les données 10 ans en restreignant sur les 2 dernières années)
+        bt_2y = BacktestEngine(
+            symbols=user_universe,
+            period="2y",
+            initial_capital=capital,
+            tp1_pct=tp1_pct,
+            tp2_pct=tp2_pct,
+            max_holding_days=max_holding_days,
+            strategy=strategy
+        )
+        bt_2y.historical_data = bt_10y.historical_data
+        bt_2y.macro_data = bt_10y.macro_data
+        bt_2y.sector_etf_data = bt_10y.sector_etf_data
+        bt_2y.macro_daily_regime = bt_10y.macro_daily_regime
+        res_2y = bt_2y.run_simulation()
+
+        return safe_jsonify({
+            "success": True,
+            "universe": {
+                "total_symbols": len(user_universe),
+                "symbols": user_universe
+            },
+            "parameters": {
+                "initial_capital": capital,
+                "tp1_pct": tp1_pct,
+                "tp2_pct": tp2_pct,
+                "max_holding_days": max_holding_days,
+                "strategy": strategy
+            },
+            "real_journal": {
+                "total_trades": total_real_trades,
+                "winning_trades": wins_real,
+                "losing_trades": losses_real,
+                "win_rate_pct": wr_real,
+                "total_net_pnl": pnl_real,
+                "profit_factor": pf_real,
+                "avg_holding_days": avg_dur_real
+            },
+            "backtest_2y": {
+                "initial_capital": capital,
+                "final_capital": res_2y.get("final_capital", capital),
+                "metrics": res_2y.get("metrics", {}),
+                "equity_curve": res_2y.get("equity_curve", [])[-30:] if res_2y.get("equity_curve") else []
+            },
+            "backtest_10y": {
+                "initial_capital": capital,
+                "final_capital": res_10y.get("final_capital", capital),
+                "metrics": res_10y.get("metrics", {}),
+                "equity_curve": res_10y.get("equity_curve", [])[-30:] if res_10y.get("equity_curve") else []
+            }
+        })
+    except Exception as e:
+        logger.error(f"Erreur backtest user universe: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}, status_code=500)
+
 
 
 # ==============================================================================
