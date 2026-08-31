@@ -1798,6 +1798,43 @@ def backtest_trade_replay_endpoint():
         return safe_jsonify({"success": False, "error": str(e)}, status_code=500)
 
 
+@app.route("/api/backtest/free_trading_simulation", methods=["GET", "POST"])
+def backtest_free_trading_simulation_endpoint():
+    """
+    Exécute la simulation en libre trading continu avec les flux exacts de trésorerie (dépôts/retraits)
+    et sélection dynamique des meilleures opportunités Mean Reversion.
+    """
+    try:
+        from src.free_trading_simulator import run_continuous_free_trading_simulation
+        if request.method == "POST":
+            data = request.json or {}
+        else:
+            data = request.args.to_dict()
+
+        tp1_pct = float(data.get("tp1_pct", 1.80))
+        tp2_pct = float(data.get("tp2_pct", 2.50))
+        stop_loss_pct = float(data.get("stop_loss_pct", -2.00))
+        max_holding_days = int(data.get("max_holding_days", 10))
+        max_risk_pct = float(data.get("max_risk_pct", 1.0))
+        max_line_pct = float(data.get("max_line_pct", 18.0))
+        min_cash_pct = float(data.get("min_cash_pct", 15.0))
+
+        res = run_continuous_free_trading_simulation(
+            tp1_pct=tp1_pct,
+            tp2_pct=tp2_pct,
+            stop_loss_pct=stop_loss_pct,
+            max_holding_days=max_holding_days,
+            max_risk_per_trade_pct=max_risk_pct,
+            max_position_weight_pct=max_line_pct,
+            min_cash_reserve_pct=min_cash_pct
+        )
+        return safe_jsonify(res)
+    except Exception as e:
+        logger.error(f"Erreur backtest free trading simulation: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}, status_code=500)
+
+
+
 
 
 # ==============================================================================
