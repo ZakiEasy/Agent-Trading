@@ -2105,6 +2105,116 @@
                         Des titres sont actuellement en moins-value sur votre courtier principal (XTB). Pour moyenner ou saisir un rebond court terme sans être bloqué par la contrainte fiscale/courtage FIFO (qui vendrait le 1er lot plus cher), <strong>achetez le 2ème lot sur Trading 212</strong> pour dénouer immédiatement au TP1 (+1.25%).
                     </p>
                     <div id="anti-fifo-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+            <!-- MODULE D'EXÉCUTION TRADING 212 & GO HUMAIN (PLIABLE) -->
+            <div class="glass-card" id="trading212-robot-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid rgba(14, 165, 233, 0.4); background: linear-gradient(180deg, rgba(14, 165, 233, 0.05) 0%, rgba(15, 23, 42, 0.6) 100%);">
+                <!-- Collapsible Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.1rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); cursor: pointer;" onclick="toggleCardCollapse('trading212-robot-card')">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <span style="font-size: 1.35rem;">🤖</span>
+                            <h2 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0;">
+                                Exécution Semi-Automatique Trading 212 & Validation "Go Humain"
+                            </h2>
+                            <span id="robot-status-badge" class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+                                🟢 OPÉRATIONNEL
+                            </span>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
+                            Garde-fous CSO, respect strict R-Max ≤ 1%, plafond de capital dédié et exécution sur confirmation explicite.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;" onclick="event.stopPropagation()">
+                        <button class="btn btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: #0284c7;" onclick="openNewProposalModal()">
+                            ➕ Proposer un Trade
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="openRobotSettingsModal()">
+                            ⚙️ Plafond & Risque
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="loadRobotStatusAndData()">
+                            🔄 Actualiser
+                        </button>
+                        <button class="btn" id="btn-kill-switch" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: #dc2626; color: #fff; font-weight: 700;" onclick="triggerKillSwitch()" title="Arrêt d'urgence : annule tous les ordres et fige le robot">
+                            🛑 KILL-SWITCH
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.7rem; font-size: 0.8rem; font-weight: 700;" onclick="toggleCardCollapse('trading212-robot-card')">
+                            <span id="trading212-robot-card-icon">▲</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Collapsible Body -->
+                <div id="trading212-robot-card-body" style="padding: 1.25rem; transition: all 0.3s ease;">
+                    <!-- Kill switch alert box (hidden by default) -->
+                    <div id="robot-kill-switch-alert" style="display: none; padding: 0.85rem 1rem; border-radius: 8px; background: rgba(220, 38, 38, 0.2); border: 1px solid #ef4444; color: #fca5a5; margin-bottom: 1.25rem; font-size: 0.85rem; align-items: center; justify-content: space-between;">
+                        <div>
+                            <strong>🛑 KILL-SWITCH ACTIF :</strong> <span id="kill-switch-reason-text">Le système est verrouillé.</span>
+                        </div>
+                        <button class="btn btn-primary" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; background: #10b981;" onclick="resetKillSwitch()">
+                            🟢 Réarmer le Robot
+                        </button>
+                    </div>
+
+                    <!-- API Permissions banner -->
+                    <div id="robot-permissions-banner" style="padding: 0.65rem 0.9rem; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); font-size: 0.8rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div id="robot-permissions-text">⏳ Vérification des droits API Trading 212...</div>
+                        <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="checkApiPermissionsLive()">
+                            🔍 Vérifier Droits
+                        </button>
+                    </div>
+
+                    <!-- 4 Metric Cards Row -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Plafond Dédié à l'Automate</span>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling">5 000,00 €</div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">Enveloppe isolée du compte</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Capital Déployé en Cours</span>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #f59e0b; font-family: 'Outfit', sans-serif;" id="stat-robot-deployed">0,00 €</div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);" id="stat-robot-deployed-pct">0.0 % du plafond</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Réserve Cash Automate</span>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #34d399; font-family: 'Outfit', sans-serif;" id="stat-robot-avail">5 000,00 €</div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">Disponible pour nouveaux trades</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Garde-Fou R-Max / Ligne</span>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #a855f7; font-family: 'Outfit', sans-serif;" id="stat-robot-rmax">1.0 % (Max 50 €)</div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">Alloc max : 20% par action</span>
+                        </div>
+                    </div>
+
+                    <!-- SIGNALS PENDING HUMAN GO SECTION -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                            <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0; color: #facc15; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>📋</span> Propositions de Trades en Attente de "GO HUMAIN" (<span id="pending-proposals-count">0</span>)
+                            </h3>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Validation obligatoire avant envoi API</span>
+                        </div>
+                        <div id="pending-proposals-list" style="display: flex; flex-direction: column; gap: 0.65rem;">
+                            <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 6px;">
+                                Aucun trade en attente de validation. Cliquez sur <strong>➕ Proposer un Trade</strong> pour soumettre un plan.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ACTIVE POSITIONS UNDER ROBOT MANAGEMENT SECTION -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                            <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>🎯</span> Lignes Automate sous Surveillance des Paliers (<span id="active-managed-count">0</span>)
+                            </h3>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Gestion séquentielle : TP1 (50%) ➔ Step Stop BE ➔ TP2 (50%) ➔ Stop Loss</span>
+                        </div>
+                        <div id="active-managed-list" style="display: flex; flex-direction: column; gap: 0.65rem;">
+                            <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 6px;">
+                                Aucune position automate active actuellement.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3525,11 +3635,87 @@
                 </button>
             </div>
         </div>
+    <!-- ===================================================================== -->
+    <!-- MODAL : RÉGLAGES DU ROBOT & GARDE-FOUS TRADING 212 -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="robot-settings-modal">
+        <div class="modal-box" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif;">⚙️ Réglages Robot & Garde-Fous de Sécurité</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeRobotSettingsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Configurez le plafond de capital alloué <strong>exclusivement au robot</strong> (isolé du solde global Trading 212) et les ratios de risque par trade.
+                </p>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Plafond Dédié à l'Automate (€) *</label>
+                    <input type="number" id="robot-ceiling-input" class="text-input" placeholder="Ex: 5000" min="100" step="100">
+                    <small style="color: var(--text-muted); font-size: 0.7rem;">Le robot n'investira jamais plus que ce montant au total.</small>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Risque Maximal R-Max par Trade (%) *</label>
+                    <input type="number" id="robot-rmax-input" class="text-input" placeholder="Ex: 1.0" min="0.1" max="2.5" step="0.1">
+                    <small style="color: var(--text-muted); font-size: 0.7rem;">Recommandé : 1.0% de l'enveloppe automate.</small>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Allocation Maximale par Ligne (%) *</label>
+                    <input type="number" id="robot-alloc-input" class="text-input" placeholder="Ex: 20.0" min="5" max="30" step="1">
+                    <small style="color: var(--text-muted); font-size: 0.7rem;">Pourcentage max de l'enveloppe sur une seule action (ex: 20% = 1 000 €).</small>
+                </div>
+                <div id="robot-settings-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRobotSettingsModal()">Annuler</button>
+                <button class="btn btn-primary" onclick="saveRobotSettings()">💾 Enregistrer les Garde-Fous</button>
+            </div>
+        </div>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- MODAL : IMPORTER RAPPORTS MULTIPLES (EXCEL .XLSX / CSV XTB & TRADING 212) -->
+    <!-- MODAL : PROPOSER UN NOUVEAU TRADE (POUR GO HUMAIN) -->
     <!-- ===================================================================== -->
+    <div class="modal-overlay" id="new-proposal-modal">
+        <div class="modal-box" style="max-width: 580px;">
+            <div class="modal-header">
+                <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">➕ Proposer un Plan de Trade (Génération Grille & Go Humain)</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeNewProposalModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+                    Saisissez l'action et le prix d'achat. Le robot calculera automatiquement les 4 paliers (SL, TP1, Step Stop BE, TP2, Time Stop) selon la technique choisie et la soumettra aux garde-fous.
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+                    <div class="form-group">
+                        <label>Symbole / Ticker *</label>
+                        <input type="text" id="prop-symbol-input" class="text-input" placeholder="Ex: AVGO, RMS.PA, AAPL..." style="text-transform: uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label>Prix d'Entrée Prévu *</label>
+                        <input type="number" id="prop-entry-input" class="text-input" placeholder="Ex: 360.00" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Technique / Stratégie Appliquée *</label>
+                    <select id="prop-strat-select" style="width: 100%; padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: #fff;">
+                        <option value="Mean Reversion">🎯 Mean Reversion Pure (SL -2%, TP1 +1.8%, BE 0%, TP2 +2.5% / MM20, Time Stop J+10)</option>
+                        <option value="Sniper">⚡ Sniper (SL -1.8%, TP1 +1.5%, BE 0%, TP2 +2.2%, Time Stop J+4)</option>
+                        <option value="Sneak">🌊 Sneak / Swing Retracement (SL -3%, TP1 +2.5%, BE 0%, TP2 +4.5%, Time Stop J+15)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label>Notes / Contexte (Optionnel)</label>
+                    <input type="text" id="prop-notes-input" class="text-input" placeholder="Ex: Rebout MM20 après repli sain...">
+                </div>
+                <div id="new-proposal-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeNewProposalModal()">Annuler</button>
+                <button class="btn btn-primary" onclick="submitNewProposal()">⚡ Calculer & Mettre en Attente</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="upload-csv-modal">
         <div class="modal-box" style="max-width: 680px;">
             <div class="modal-header">
@@ -3957,6 +4143,15 @@
                     if (titleEl) titleEl.textContent = `📊 Résultats du Scan Watchlist (${d.tickers.length} actions)`;
                 }
             }).catch(() => {});
+
+            // Initialiser le statut du Robot d'Exécution Trading 212
+            loadRobotStatusAndData();
+            checkApiPermissionsLive();
+
+            // Intervalle de rafraîchissement automatique du robot toutes les 25s
+            setInterval(() => {
+                loadRobotStatusAndData();
+            }, 25000);
 
             // Preload all tabs in background for instant switching
             setTimeout(() => {
@@ -4619,7 +4814,465 @@
             }
         }
 
-        function renderTreasuryOperations(operations) {
+        // =====================================================================
+        // ROBOT TRADING 212 & VALIDATION GO HUMAIN JAVASCRIPT LOGIC
+        // =====================================================================
+
+        async function loadRobotStatusAndData() {
+            try {
+                // 1. Statut général
+                const resStatus = await fetch(`${API_URL}/trading212/execution/status`);
+                const dataStatus = await resStatus.json();
+                
+                if (dataStatus.success) {
+                    renderRobotStatus(dataStatus);
+                }
+
+                // 2. Propositions en attente de Go Humain
+                const resPending = await fetch(`${API_URL}/trading212/execution/pending`);
+                const dataPending = await resPending.json();
+                if (dataPending.success) {
+                    renderPendingProposals(dataPending.proposals || []);
+                }
+
+                // 3. Positions actives de l'automate
+                const resActive = await fetch(`${API_URL}/trading212/execution/active_positions`);
+                const dataActive = await resActive.json();
+                if (dataActive.success) {
+                    renderActiveManagedPositions(dataActive.positions || []);
+                }
+            } catch (e) {
+                console.error("Erreur chargement robot status:", e);
+            }
+        }
+
+        function renderRobotStatus(d) {
+            const g = d.guardrails || {};
+            const isKillSwitch = g.kill_switch_active;
+
+            // Statut Badge
+            const badge = document.getElementById('robot-status-badge');
+            const alertBox = document.getElementById('robot-kill-switch-alert');
+            const reasonText = document.getElementById('kill-switch-reason-text');
+
+            if (isKillSwitch) {
+                if (badge) {
+                    badge.textContent = '🛑 KILL-SWITCH ACTIF';
+                    badge.style.background = 'rgba(239, 68, 68, 0.2)';
+                    badge.style.color = '#f87171';
+                    badge.style.borderColor = '#ef4444';
+                }
+                if (alertBox) {
+                    alertBox.style.display = 'flex';
+                    if (reasonText) reasonText.textContent = g.kill_switch_reason || 'Arrêt d\'urgence manuel.';
+                }
+            } else {
+                if (badge) {
+                    badge.textContent = '🟢 OPÉRATIONNEL';
+                    badge.style.background = 'rgba(16, 185, 129, 0.2)';
+                    badge.style.color = '#34d399';
+                    badge.style.borderColor = '#10b981';
+                }
+                if (alertBox) alertBox.style.display = 'none';
+            }
+
+            // KPIs
+            const ceiling = Number(g.allocated_automate_capital_ceiling) || 5000;
+            const deployed = Number(g.deployed_automate_capital) || 0;
+            const avail = Number(g.available_automate_capital) || ceiling;
+            const deployedPct = ceiling > 0 ? (deployed / ceiling * 100).toFixed(1) : '0.0';
+
+            const elemCeil = document.getElementById('stat-robot-ceiling');
+            if (elemCeil) elemCeil.textContent = `${ceiling.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const elemDep = document.getElementById('stat-robot-deployed');
+            if (elemDep) elemDep.textContent = `${deployed.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const elemDepPct = document.getElementById('stat-robot-deployed-pct');
+            if (elemDepPct) elemDepPct.textContent = `${deployedPct} % du plafond`;
+
+            const elemAvail = document.getElementById('stat-robot-avail');
+            if (elemAvail) elemAvail.textContent = `${avail.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+
+            const elemRmax = document.getElementById('stat-robot-rmax');
+            const rmaxPct = Number(g.max_risk_per_trade_pct) || 1.0;
+            const maxLossEur = (ceiling * (rmaxPct / 100)).toFixed(0);
+            if (elemRmax) elemRmax.textContent = `${rmaxPct.toFixed(1)} % (Max ${maxLossEur} €)`;
+
+            // Counters
+            const pendingCountElem = document.getElementById('pending-proposals-count');
+            if (pendingCountElem) pendingCountElem.textContent = d.pending_proposals_count || 0;
+
+            const activeCountElem = document.getElementById('active-managed-count');
+            if (activeCountElem) activeCountElem.textContent = d.active_positions_count || 0;
+        }
+
+        async function checkApiPermissionsLive() {
+            const txt = document.getElementById('robot-permissions-text');
+            if (txt) txt.textContent = '⏳ Diagnostic des droits de votre clé API en direct...';
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/permissions`);
+                const d = await res.json();
+                const p = d.permissions || {};
+
+                if (txt) {
+                    if (p.orders_permission) {
+                        txt.innerHTML = `<span style="color: #34d399; font-weight: 600;">${p.message}</span> (Environnement : <strong>${p.environment?.toUpperCase()}</strong>)`;
+                    } else if (p.read_permission) {
+                        txt.innerHTML = `<span style="color: #fbbf24; font-weight: 600;">${p.message}</span>`;
+                    } else {
+                        txt.innerHTML = `<span style="color: #f87171; font-weight: 600;">❌ Échec : ${p.message || 'Clé non valide'}</span>`;
+                    }
+                }
+            } catch (e) {
+                if (txt) txt.textContent = `❌ Erreur vérification droits: ${e.message}`;
+            }
+        }
+
+        function renderPendingProposals(proposals) {
+            const container = document.getElementById('pending-proposals-list');
+            if (!container) return;
+
+            if (!proposals || proposals.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 6px;">
+                        Aucun trade en attente de validation. Cliquez sur <strong>➕ Proposer un Trade</strong> pour soumettre un plan.
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            proposals.forEach(p => {
+                const plan = p.trade_plan || {};
+                const currSymbol = p.currency === 'USD' ? '$' : '€';
+                const stratBadge = p.strategy_type === 'Sniper' ? 'background: #eab308; color: #000;' : p.strategy_type === 'Sneak' ? 'background: #a855f7; color: #fff;' : 'background: #0284c7; color: #fff;';
+
+                html += `
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <strong style="font-size: 1.1rem; color: #fff; font-family: 'Outfit', sans-serif;">${p.symbol}</strong>
+                                <span class="badge" style="${stratBadge} font-size: 0.7rem; font-weight: 700;">${p.strategy_type}</span>
+                                <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.7rem;">🕋 Sharia Conforme</span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">${p.t212_ticker} (${p.currency})</span>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #cbd5e1;">
+                                Capital : <strong>${plan.nominal_invested || 0} ${currSymbol}</strong> (${plan.quantity || 0} actions)
+                            </div>
+                        </div>
+
+                        <!-- Grille des Paliers -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; background: rgba(0,0,0,0.25); padding: 0.65rem; border-radius: 6px; font-size: 0.75rem;">
+                            <div>
+                                <span style="color: var(--text-muted); display: block;">Prix Entrée</span>
+                                <strong style="color: #fff; font-size: 0.85rem;">${plan.entry_price || 0} ${currSymbol}</strong>
+                            </div>
+                            <div>
+                                <span style="color: #f87171; display: block;">🛑 Stop-Loss (${plan.stop_loss_pct || -2}%)</span>
+                                <strong style="color: #f87171; font-size: 0.85rem;">${plan.stop_loss_price || 0} ${currSymbol}</strong>
+                                <small style="display: block; color: var(--text-muted);">Max: -${plan.max_loss_monetary || 0} ${currSymbol}</small>
+                            </div>
+                            <div>
+                                <span style="color: #34d399; display: block;">🟢 TP1 (50% ligne)</span>
+                                <strong style="color: #34d399; font-size: 0.85rem;">${plan.tp1_price || 0} ${currSymbol} (+${plan.tp1_pct || 1.8}%)</strong>
+                                <small style="display: block; color: var(--text-muted);">+${plan.tp1_gain_monetary || 0} ${currSymbol}</small>
+                            </div>
+                            <div>
+                                <span style="color: #60a5fa; display: block;">🛡️ Step Stop BE</span>
+                                <strong style="color: #60a5fa; font-size: 0.85rem;">${plan.step_stop_be_price || 0} ${currSymbol} (0%)</strong>
+                                <small style="display: block; color: var(--text-muted);">Activé dès TP1</small>
+                            </div>
+                            <div>
+                                <span style="color: #f59e0b; display: block;">🎯 TP2 (50% solde)</span>
+                                <strong style="color: #f59e0b; font-size: 0.85rem;">${plan.tp2_price || 0} ${currSymbol} (+${plan.tp2_pct || 2.5}%)</strong>
+                                <small style="display: block; color: var(--text-muted);">+${plan.tp2_gain_monetary || 0} ${currSymbol}</small>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted); display: block;">⏱️ Time Stop</span>
+                                <strong style="color: #cbd5e1; font-size: 0.85rem;">J+${plan.time_stop_days || 10} séances</strong>
+                            </div>
+                        </div>
+
+                        <!-- Boutons d'Arbitrage Humain -->
+                        <div style="display: flex; justify-content: flex-end; gap: 0.6rem; align-items: center;">
+                            <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: #f87171;" onclick="rejectRobotProposal('${p.proposal_id}')">
+                                ✕ Rejeter
+                            </button>
+                            <button class="btn btn-success" style="padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 700; background: #10b981;" onclick="approveRobotProposal('${p.proposal_id}')">
+                                ⚡ GO HUMAIN (Exécuter sur Trading 212)
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function renderActiveManagedPositions(positions) {
+            const container = document.getElementById('active-managed-list');
+            if (!container) return;
+
+            if (!positions || positions.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 6px;">
+                        Aucune position automate active actuellement.
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            positions.forEach(pos => {
+                const currSymbol = pos.currency === 'USD' ? '$' : '€';
+                const statusBadge = pos.step_stop_be_active 
+                    ? '<span class="badge" style="background: rgba(96, 165, 250, 0.2); color: #60a5fa; border: 1px solid #3b82f6;">🛡️ TP1 Encaissé (Step Stop BE Actif)</span>'
+                    : '<span class="badge" style="background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308;">🎯 En attente TP1</span>';
+
+                html += `
+                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                                <strong style="font-size: 1.05rem; color: #fff;">${pos.symbol}</strong>
+                                <span class="badge" style="background: rgba(255,255,255,0.05); font-size: 0.7rem;">${pos.strategy_type}</span>
+                                ${statusBadge}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                PRU : <strong>${pos.entry_price} ${currSymbol}</strong> | Qty : <strong>${pos.quantity}</strong> | SL Actuel : <strong>${pos.stop_loss_price} ${currSymbol}</strong> | TP2 : <strong>${pos.tp2_price} ${currSymbol}</strong>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">P&L Réalisé Partiel (TP1)</div>
+                            <div style="font-size: 0.95rem; font-weight: 700; color: #34d399;">+${Number(pos.realized_pnl_tp1 || 0).toFixed(2)} ${currSymbol}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function approveRobotProposal(proposalId) {
+            if (!confirm("CONFIRMATION GO HUMAIN :\nSouhaitez-vous émettre l'ordre réel sur Trading 212 et enclencher la gestion automatique des paliers ?")) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proposal_id: proposalId })
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    alert(`✅ ${payload.message}`);
+                    loadRobotStatusAndData();
+                    loadLivePortfolio();
+                } else {
+                    alert(`❌ Échec de l'ordre : ${payload.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Erreur de communication : ${e.message}`);
+            }
+        }
+
+        async function rejectRobotProposal(proposalId) {
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proposal_id: proposalId, reason: "Rejeté manuellement" })
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    loadRobotStatusAndData();
+                }
+            } catch (e) {
+                console.error("Erreur rejet:", e);
+            }
+        }
+
+        async function triggerKillSwitch() {
+            const reason = prompt("🛑 ARRÊT D'URGENCE (KILL-SWITCH) :\nVoulez-vous annuler TOUS les ordres ouverts et figer le robot immédiatement ?\n\nPrécisez le motif (optionnel) :", "Arrêt manuel d'urgence");
+            if (reason === null) return;
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/kill_switch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason || "Arrêt manuel d'urgence" })
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    alert(`🛑 KILL-SWITCH ACTIVÉ !\n${payload.message}\nOrdres annulés : ${payload.orders_cancellation?.cancelled_count || 0}`);
+                    loadRobotStatusAndData();
+                }
+            } catch (e) {
+                alert(`❌ Erreur: ${e.message}`);
+            }
+        }
+
+        async function resetKillSwitch() {
+            if (!confirm("Souhaitez-vous réarmer le robot et réautoriser le trading ?")) return;
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/reset_kill_switch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    alert("🟢 Robot réarmé avec succès.");
+                    loadRobotStatusAndData();
+                }
+            } catch (e) {
+                alert(`❌ Erreur: ${e.message}`);
+            }
+        }
+
+        function openRobotSettingsModal() {
+            const modal = document.getElementById('robot-settings-modal');
+            if (modal) modal.classList.add('active');
+            const fb = document.getElementById('robot-settings-feedback');
+            if (fb) fb.style.display = 'none';
+
+            // Pré-remplir avec les valeurs actuelles
+            fetch(`${API_URL}/trading212/execution/status`).then(r => r.json()).then(d => {
+                if (d.success && d.guardrails) {
+                    const g = d.guardrails;
+                    if (document.getElementById('robot-ceiling-input')) document.getElementById('robot-ceiling-input').value = g.allocated_automate_capital_ceiling || 5000;
+                    if (document.getElementById('robot-rmax-input')) document.getElementById('robot-rmax-input').value = g.max_risk_per_trade_pct || 1.0;
+                    if (document.getElementById('robot-alloc-input')) document.getElementById('robot-alloc-input').value = g.max_position_allocation_pct || 20.0;
+                }
+            });
+        }
+
+        function closeRobotSettingsModal() {
+            const modal = document.getElementById('robot-settings-modal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        async function saveRobotSettings() {
+            const ceiling = parseFloat(document.getElementById('robot-ceiling-input')?.value || 5000);
+            const rmax = parseFloat(document.getElementById('robot-rmax-input')?.value || 1.0);
+            const alloc = parseFloat(document.getElementById('robot-alloc-input')?.value || 20.0);
+            const fb = document.getElementById('robot-settings-feedback');
+
+            if (isNaN(ceiling) || ceiling < 100) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = 'Veuillez renseigner un plafond valide (min 100 €).';
+                }
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        max_total_capital_ceiling: ceiling,
+                        max_risk_per_trade_pct: rmax,
+                        max_position_allocation_pct: alloc
+                    })
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    if (fb) {
+                        fb.style.display = 'block';
+                        fb.style.background = 'rgba(16, 185, 129, 0.15)';
+                        fb.style.color = '#34d399';
+                        fb.textContent = '✅ Garde-fous enregistrés avec succès.';
+                    }
+                    setTimeout(() => {
+                        closeRobotSettingsModal();
+                        loadRobotStatusAndData();
+                    }, 1000);
+                }
+            } catch (e) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = `❌ Erreur: ${e.message}`;
+                }
+            }
+        }
+
+        function openNewProposalModal() {
+            const modal = document.getElementById('new-proposal-modal');
+            if (modal) modal.classList.add('active');
+            const fb = document.getElementById('new-proposal-feedback');
+            if (fb) fb.style.display = 'none';
+        }
+
+        function closeNewProposalModal() {
+            const modal = document.getElementById('new-proposal-modal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        async function submitNewProposal() {
+            const symbol = document.getElementById('prop-symbol-input')?.value.trim().toUpperCase();
+            const entry = parseFloat(document.getElementById('prop-entry-input')?.value);
+            const strat = document.getElementById('prop-strat-select')?.value || 'Mean Reversion';
+            const notes = document.getElementById('prop-notes-input')?.value.trim();
+            const fb = document.getElementById('new-proposal-feedback');
+
+            if (!symbol || isNaN(entry) || entry <= 0) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = 'Veuillez saisir un symbole et un cours d\'entrée valide.';
+                }
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/propose`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: symbol,
+                        entry_price: entry,
+                        strategy_type: strat,
+                        notes: notes
+                    })
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    if (fb) {
+                        fb.style.display = 'block';
+                        fb.style.background = 'rgba(16, 185, 129, 0.15)';
+                        fb.style.color = '#34d399';
+                        fb.textContent = `✅ Proposition créée avec succès ! Grille ${strat} calculée.`;
+                    }
+                    setTimeout(() => {
+                        closeNewProposalModal();
+                        loadRobotStatusAndData();
+                    }, 1000);
+                } else {
+                    if (fb) {
+                        fb.style.display = 'block';
+                        fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                        fb.style.color = '#f87171';
+                        fb.textContent = `⚠️ Garde-fous : ${payload.error}`;
+                    }
+                }
+            } catch (e) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = `❌ Erreur: ${e.message}`;
+                }
+            }
+        }
+
             const tbody = document.getElementById('div-treasury-tbody');
             if (!tbody) return;
 
