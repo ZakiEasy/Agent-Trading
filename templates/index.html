@@ -1753,12 +1753,15 @@
                             <span id="detail-score-pill" class="score-pill score-high">--/10</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <button id="btn-open-new-tab-detail" class="btn btn-primary" onclick="window.open('/stock/' + encodeURIComponent(currentDetailSymbol), '_blank')" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; font-weight: 700; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 2px 8px rgba(59,130,246,0.4);" title="Ouvrir cette analyse complète dans un nouvel onglet dédié">
+                                ↗ Ouvrir dans un nouvel onglet
+                            </button>
                             <button id="btn-remove-from-wl-detail" class="btn-danger-soft" onclick="requestRemoveFromWatchlist(currentDetailSymbol, this)" title="Retirer cette action de la Watchlist BDD">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                                 <span>Retirer de la Watchlist</span>
                             </button>
                             <button id="btn-refresh-ticker-detail" class="btn btn-primary" onclick="refreshCurrentTickerDetail()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 2px 8px rgba(37,99,235,0.3);" title="Récupérer les derniers cours temps réel et relancer le protocole pour ce titre uniquement">
-                                <span id="refresh-ticker-icon" style="display: inline-block;">🔄</span> <span id="refresh-ticker-text">Actualiser ce titre</span>
+                                <span id="refresh-ticker-icon" style="display: inline-block;">🔄</span> <span id="refresh-ticker-text">Actualiser</span>
                             </button>
                             <button class="btn btn-secondary" onclick="closeDetailCard()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; font-weight: 700; border-color: rgba(255,255,255,0.25);" title="Fermer le rapport (Échap)">
                                 ✕ Fermer
@@ -7372,7 +7375,12 @@
             }
         }
 
-        async function showTickerDetail(symbol, forceRefresh = false) {
+        async function showTickerDetail(symbol, forceRefresh = false, inModal = false) {
+            // Par défaut, ouverture directe de l'analyse dans un nouvel onglet dédié
+            if (!inModal && !forceRefresh) {
+                window.open('/stock/' + encodeURIComponent(symbol), '_blank');
+                return;
+            }
             currentDetailSymbol = symbol;
             const overlay = document.getElementById('ticker-detail-overlay');
             const container = document.getElementById('ticker-detail-content');
@@ -8501,7 +8509,9 @@
                 tr.innerHTML = `
                     <td>
                         <div style="font-weight: 700; color: #f8fafc; font-size: 0.92rem; display: flex; align-items: center; gap: 0.4rem;">
-                            <span>${item.symbol}</span>
+                            <a href="/stock/${item.symbol}" target="_blank" style="color: #60a5fa; text-decoration: none; display: flex; align-items: center; gap: 0.3rem;" title="Ouvrir le rapport protocolaire dans un nouvel onglet">
+                                <strong>${item.symbol}</strong> <span style="font-size: 0.75rem;">↗</span>
+                            </a>
                         </div>
                         <div style="font-size: 0.76rem; color: var(--text-muted); max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.name}">${item.name}</div>
                     </td>
@@ -8551,6 +8561,9 @@
                     </td>
                     <td style="text-align: center;">
                         <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: center;">
+                            <a href="/stock/${item.symbol}" target="_blank" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; width: 100%; white-space: nowrap; text-align: center; text-decoration: none; justify-content: center;">
+                                📋 Détail 8 Étapes ↗
+                            </a>
                             <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; width: 100%; white-space: nowrap;" onclick="openStock10yBacktestModal('${item.symbol}')">
                                 🔬 10Y Backtest
                             </button>
@@ -8591,7 +8604,9 @@
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                         <div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: #f8fafc;">${item.symbol}</div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #f8fafc;">
+                                <a href="/stock/${item.symbol}" target="_blank" style="color: #60a5fa; text-decoration: none;">${item.symbol} ↗</a>
+                            </div>
                             <div style="font-size: 0.8rem; color: var(--text-muted);">${item.name}</div>
                         </div>
                         <div style="text-align: right;">
@@ -8610,7 +8625,10 @@
                         <div>Win Rate 10 Ans : <strong style="color: ${wrColor};">${typeof wr === 'number' && wr > 0 ? wr.toFixed(1) + '%' : '--%'}</strong> (${item.backtest_quick?.total_trades || 0} tr)</div>
                         <div>TP1 Cible : <strong style="color: #10b981;">+1.25%</strong></div>
                     </div>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <a href="/stock/${item.symbol}" target="_blank" class="btn btn-primary" style="flex: 1; font-size: 0.8rem; padding: 0.4rem; text-align: center; text-decoration: none; justify-content: center;">
+                            📋 Rapport 8 Étapes ↗
+                        </a>
                         <button class="btn btn-secondary" style="flex: 1; font-size: 0.8rem; padding: 0.4rem;" onclick="openStock10yBacktestModal('${item.symbol}')">
                             🔬 10Y Backtest
                         </button>

@@ -296,6 +296,17 @@ def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT, forc
 def home():
     return render_template("index.html")
 
+@app.route("/stock/<path:ticker>")
+@app.route("/action/<path:ticker>")
+@app.route("/detail/<path:ticker>")
+def view_stock_detail(ticker):
+    """
+    Page dédiée plein écran pour l'analyse protocolaire 8 étapes dans un nouvel onglet.
+    """
+    clean_ticker = (ticker or "").upper().strip()
+    return render_template("stock_detail.html", symbol=clean_ticker)
+
+
 @app.route("/api/watchlist")
 def get_watchlist():
     """

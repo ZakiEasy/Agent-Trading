@@ -1420,6 +1420,43 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     # 7. Dimensionnement R-Max
     sizing = compute_institutional_rmax_sizing(cap, entry_price, stop_loss, take_profit)
 
+    # Définition propre du statut et des détails de l'Option B (Plan Sniper)
+    if has_sniper_signal:
+        step6_status = f"Option A Swing (+{dist_tp_pct}%) | Option B Sniper Validé (+{sniper_data['sniper_plan']['dist_tp2_pct']}%)"
+        step6_badge = "badge-success"
+        step6_sniper_item = f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** `[SIGNAL VALIDÉ]` Entrée Sniper : {sniper_data['sniper_plan']['entry']:.2f} {sym_currency} [Créneau Idéal : `{timing['ideal_execution_time']}` | Heure Max : `{timing['max_execution_time']}`] | TP1 Sécurisation 50% ({sniper_data['sniper_plan']['tp1_target_type']}) : {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%) | TP2 Cible Finale ({sniper_data['sniper_plan']['tp2_target_type']}) : {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%) | SL ({sniper_data['sniper_plan']['sl_type']}) : {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%) | Horizon : Intraday TP1 / 1 à 3j TP2"
+        step7_rr_item = f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing) / 1:{sniper_data['sniper_plan']['rr_ratio']:.2f} (Sniper Validé)"
+    elif has_sniper_pending:
+        step6_status = f"Option A Swing (+{dist_tp_pct}%) | Option B En Attente M5"
+        step6_badge = "badge-warning"
+        step6_sniper_item = f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** `[EN ATTENTE REJET M5]` En attente de validation d'un chandelier de rejet M5 sur ~{sniper_data['sniper_plan']['entry']:.2f} {sym_currency} avant `{timing['max_execution_time']}`. Niveaux cibles théoriques : TP1 {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%), TP2 {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%), SL {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%). Ne pas acheter sans rejet M5 confirmé."
+        step7_rr_item = f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing) / 1:{sniper_data['sniper_plan']['rr_ratio']:.2f} (Sniper en attente M5)"
+    elif phase in ["PRE_MARKET", "POST_MARKET_CLOSED"]:
+        step6_status = f"Option A Swing (+{dist_tp_pct}%) | Option B Surveillance Pré-Ouverture"
+        step6_badge = "badge-primary"
+        step6_sniper_item = f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** `[SURVEILLANCE PRÉ-OUVERTURE]` Marché fermé ({timing['phase_label']}). Surveiller l'ouverture à {timing['market_open']} et la 1ère bougie M15 ({timing['m15_candle_window']}). Si amplitude ≥ 25% de l'ATR D1 ({sniper_data['atr_d1'] * 0.25:.2f} {sym_currency}), guetter un rejet M5 entre `{timing['ideal_execution_time']}`."
+        step7_rr_item = f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing Standard — Pré-Ouverture)"
+    elif phase == "M15_FORMATION":
+        step6_status = f"Option A Swing (+{dist_tp_pct}%) | Option B Formation M15"
+        step6_badge = "badge-warning"
+        step6_sniper_item = f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** `[FORMATION M15 EN COURS]` Interdiction d'entrer pendant les 15 premières minutes. Attendre la clôture à {timing['m15_candle_window'].split(' - ')[1]} pour qualifier l'amplitude de manipulation."
+        step7_rr_item = f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing Standard)"
+    elif is_upward_expansion:
+        step6_status = f"Option A Swing (+{dist_tp_pct}%) | Option B Expansion Invalide"
+        step6_badge = "badge-warning"
+        step6_sniper_item = f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** `[EXPANSION HAUSSIÈRE — DÉSACTIVÉ]` Poussée haussière sans repli préalable à l'ouverture. Ne pas acheter le sommet. Plan Sniper invalidé (risque de reflux intra-session). Basculer sur le Swing Standard H1 (Option A)."
+        step7_rr_item = f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing Standard — Seul plan actif)"
+    elif phase == "SNIPER_WINDOW":
+        step6_status = f"Option A Swing (+{dist_tp_pct}%) | Option B Non Éligible (M15 < 25% ATR)"
+        step6_badge = "badge-neutral"
+        step6_sniper_item = f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** `[NON ÉLIGIBLE — DÉSACTIVÉ]` L'amplitude de la bougie d'ouverture M15 ({sniper_data['m15_range']:.2f} {sym_currency} = {sniper_data['ratio_atr_pct']}% de l'ATR D1) est inférieure au seuil strict de 25% de l'ATR (minimum requis : {sniper_data['atr_d1'] * 0.25:.2f} {sym_currency}). Absence de manipulation de liquidité. **Le plan Sniper est désactivé.** Seul le Plan Swing Standard (Option A) est applicable."
+        step7_rr_item = f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing Standard — Seul plan actif)"
+    else:
+        step6_status = f"Option A Swing (+{dist_tp_pct}%) | Option B Fenêtre Expirée"
+        step6_badge = "badge-neutral"
+        step6_sniper_item = f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** `[FENÊTRE EXPIRÉE — DÉSACTIVÉ]` La fenêtre d'opportunité d'ouverture (< 90 min) est terminée ({timing['max_execution_time']}). Seul le Plan Swing Standard (Option A) est applicable."
+        step7_rr_item = f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing Standard — Seul plan actif)"
+
     # Construction du Protocole en 8 Étapes Conforme aux Instructions
     protocol_steps = [
         {
@@ -1476,18 +1513,18 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
                 f"**Horodatage de l'Analyse :** `{timing['analysis_time']}` ({timing['analysis_date']}) | Session de Marché : {timing['market_name']}",
                 f"**Créneaux d'Exécution Sniper (<90 min) :** Heure Idéale : `{timing['ideal_execution_time']}` | Heure Limite Max : `{timing['max_execution_time']}`",
                 f"**Analyse d'Ouverture M15 :** ATR(14) D1 : {sniper_data['atr_d1']:.2f} {sym_currency} | Bougie M15 : Amplitude {sniper_data['m15_range']:.2f} {sym_currency} ({sniper_data['ratio_atr_pct']}% de l'ATR — Seuil ≥ 25% : `[{'VALIDÉ' if sniper_data['is_eligible'] else 'NON'} ]`)",
-                f"**Détection Manipulation Institutionnelle :** `[{'OUI (Chasse aux liquidités)' if sniper_data['is_eligible'] else 'NON'}]` ({sniper_data['variant']}) — {sniper_data['reversal_candle']}",
+                f"**Détection Manipulation Institutionnelle :** `[{'OUI (Chasse aux liquidités)' if (sniper_data['is_eligible'] and not is_upward_expansion) else 'NON'}]` ({sniper_data['variant']}) — {sniper_data['reversal_candle']}",
                 f"**Structure H1/H4 (Order Flow Swing) :** `[{order_flow['status']}]` ({order_flow['description']}) | RSI(14) : {rsi_val:.1f} ({rsi_desc})"
             ]
         },
         {
             "step": 6,
             "title": "6. Plan de Trade Tactique (Options A & B)",
-            "status": f"Option A Swing (+{dist_tp_pct}%) | Option B Sniper (+{sniper_data['sniper_plan']['dist_tp2_pct']}%)",
-            "badge": "badge-primary",
+            "status": step6_status,
+            "badge": step6_badge,
             "items": [
                 f"**Option A : Plan Swing Standard (Post-Breakout H1) :** Entrée à {entry_label} | TP (+1,5% à +3,0%) : {take_profit:.2f} {sym_currency} (+{dist_tp_pct}%) | SL Invalidation : {stop_loss:.2f} {sym_currency} (-{dist_stop_pct}%) | Horizon : 1 à 10 jours",
-                f"**Option B : Plan Sniper - Manipulation d'Ouverture (< 90 min) :** Entrée Sniper : {sniper_data['sniper_plan']['entry']:.2f} {sym_currency} [Créneau Idéal : `{timing['ideal_execution_time']}` | Heure Max : `{timing['max_execution_time']}`] | TP1 Sécurisation 50% ({sniper_data['sniper_plan']['tp1_target_type']}) : {sniper_data['sniper_plan']['tp1']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp1_pct']}%) | TP2 Cible Finale ({sniper_data['sniper_plan']['tp2_target_type']}) : {sniper_data['sniper_plan']['tp2']:.2f} {sym_currency} (+{sniper_data['sniper_plan']['dist_tp2_pct']}%) | SL ({sniper_data['sniper_plan']['sl_type']}) : {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} (-{sniper_data['sniper_plan']['dist_sl_pct']}%) | Horizon : Intraday TP1 / 1 à 3j TP2"
+                step6_sniper_item
             ]
         },
         {
@@ -1499,7 +1536,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
                 f"**Capital de Référence :** {sizing['capital_total']:,.2f} € (Cash / Au comptant)",
                 f"**Allocation Suggérée :** {sizing['suggested_allocation_eur']:,.2f} € ({sizing['suggested_shares']} actions à {entry_price:.2f} {sym_currency} — {sizing['suggested_allocation_eur'] / sizing['capital_total'] * 100:.1f}% du capital, max 25%)",
                 f"**Risque Monétaire Engagé (R) :** {sizing['risk_monetary_eur']:,.2f} € ({sizing['risk_monetary_eur'] / sizing['capital_total'] * 100:.2f}% du capital — strictement ≤ 1.0% max)",
-                f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Swing) / 1:{sniper_data['sniper_plan']['rr_ratio']:.2f} (Sniper)"
+                step7_rr_item
             ]
         },
         {

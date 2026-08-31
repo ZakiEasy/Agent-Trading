@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>{{ symbol }} - Rapport Protocolaire 8 Étapes | Agent Trading Pro</title>
+    
+    <!-- PWA & Favicon -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#080b11">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #080b11;
+            --card-bg: rgba(17, 25, 40, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-primary: #3b82f6;
+            --accent-secondary: #8b5cf6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --glass-blur: blur(16px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.18) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.14) 0px, transparent 50%);
+        }
+
+        /* Header Navigation */
+        .detail-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 11, 17, 0.88);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--card-border);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+            color: #f8fafc;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+        }
+
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-tag {
+            font-size: 0.68rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            font-weight: 700;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.45rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.45);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border-color: var(--card-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+
+        .btn-success:hover {
+            background: rgba(16, 185, 129, 0.25);
+        }
+
+        /* Layout Container */
+        .main-container {
+            max-width: 1350px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .badge-pea { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+        .badge-cto { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.35); }
+        .badge-success { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-warning { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .badge-danger { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-neutral { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+        .score-pill {
+            font-weight: 800;
+            padding: 0.25rem 0.65rem;
+            border-radius: 9999px;
+            font-size: 0.88rem;
+            font-family: 'Outfit', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .score-high { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .score-med { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .score-low { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+        /* 8-Step Report Structure */
+        .report-step {
+            margin-bottom: 1.1rem;
+            padding-bottom: 0.95rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.88rem;
+            line-height: 1.55;
+        }
+
+        .report-step:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .report-step-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #60a5fa;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        /* Ratio Bars */
+        .ratio-bar-container {
+            margin: 0.5rem 0;
+            font-size: 0.8rem;
+        }
+
+        .ratio-bar-outer {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+
+        .ratio-bar-inner {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 0.85rem;
+            }
+            .detail-header {
+                padding: 0.6rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sticky Header Navigation -->
+    <header class="detail-header">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <a href="/" class="brand">
+                <div class="brand-logo">📈</div>
+                <div class="brand-title">Agent Trading <span style="color: #60a5fa;">Pro</span></div>
+                <span class="brand-tag">Protocole V3</span>
+            </a>
+            <a href="/" class="btn btn-secondary" style="font-size: 0.8rem;">
+                ⬅ Dashboard
+            </a>
+            <a href="/#screener-tab" class="btn btn-secondary" style="font-size: 0.8rem;">
+                🔍 Screener
+            </a>
+            <a href="/#journal-tab" class="btn btn-secondary" style="font-size: 0.8rem;">
+                📜 Journal & Audits
+            </a>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <button class="btn btn-secondary" onclick="copyShareUrl()" title="Copier le lien direct de cette analyse">
+                🔗 Copier le lien
+            </button>
+            <button class="btn btn-primary" id="btn-refresh-page" onclick="loadStockAnalysis(true)" title="Forcer l'actualisation des flux temps réel">
+                <span id="refresh-icon">🔄</span> <span id="refresh-text">Actualiser Temps Réel</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        
+        <!-- Top Status / Feedback Notice -->
+        <div id="status-notice" style="display: none;"></div>
+
+        <!-- Hero Ticker Card -->
+        <div class="glass-card" id="ticker-hero-card" style="padding: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.35rem;">
+                        <h1 id="hero-symbol" style="font-size: 1.8rem; font-weight: 800; font-family: 'Outfit', sans-serif; margin: 0; color: #f8fafc;">
+                            {{ symbol }}
+                        </h1>
+                        <span id="hero-account-badge" class="badge badge-pea">PEA</span>
+                        <span id="hero-category-badge" class="badge badge-neutral">📦 Catégorie</span>
+                        <span id="hero-sharia-badge" class="badge badge-success">🕌 Sharia Conforme</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: var(--text-muted);">
+                        <strong id="hero-name" style="color: #f1f5f9;">Chargement...</strong> | 
+                        Cours Actuel : <strong id="hero-price" style="color: #60a5fa; font-size: 1.05rem;">-- €</strong> | 
+                        Repli 10j : <strong id="hero-drop" style="color: #f87171;">--%</strong> | 
+                        RSI(14) : <strong id="hero-rsi" style="color: #cbd5e1;">--</strong>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Confluence Protocole</div>
+                        <span id="hero-score-pill" class="score-pill score-high">-- / 10</span>
+                    </div>
+                    <span id="hero-verdict-badge" class="badge badge-primary" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                        ANALYSE EN COURS
+                    </span>
+                </div>
+            </div>
+
+            <!-- Action Plan Banner -->
+            <div id="hero-action-banner" style="display: none; padding: 0.65rem 0.85rem; border-radius: 8px; background: rgba(0,0,0,0.3); border-left: 4px solid #3b82f6; font-size: 0.88rem; font-weight: 600; color: #f8fafc; margin-bottom: 0.75rem;">
+                🎯 Action Recommandée : <span id="hero-action-text" style="color: #60a5fa; font-weight: 700;">--</span>
+            </div>
+
+            <!-- Execution Timing Banner -->
+            <div id="hero-timing-banner" style="display: none; padding: 0.6rem 0.85rem; border-radius: 8px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); font-size: 0.82rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+                <span>🕒 <strong>Analyse :</strong> <span id="timing-analysis-time" style="color: #93c5fd; font-weight: 600;">--</span></span>
+                <span>⚡ <strong>Créneau Idéal d'Exécution :</strong> <strong id="timing-ideal-time" style="color: #34d399;">--</strong></span>
+                <span>🛑 <strong>Heure Limite Max (<90 min) :</strong> <strong id="timing-max-time" style="color: #f87171;">--</strong></span>
+                <span style="margin-left: auto; color: #94a3b8;" id="timing-market-name">📍 Euronext / Europe</span>
+            </div>
+        </div>
+
+        <!-- Interactive TradingView Chart Card -->
+        <div class="glass-card" style="padding: 0.5rem; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--card-border); margin-bottom: 0.5rem;">
+                <div style="font-size: 0.88rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 0.4rem;">
+                    <span>📊</span> Graphique Chandelier & Niveaux Clés (TradingView)
+                </div>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Intervalle Daily / M15</span>
+            </div>
+            <div id="tv-chart-box" style="height: 480px; width: 100%; border-radius: 8px; overflow: hidden; background: #0b0f19;"></div>
+        </div>
+
+        <!-- 8-Step Report Content -->
+        <div class="glass-card" id="report-content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+                <div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; color: #60a5fa; font-family: 'Outfit', sans-serif; margin: 0;">
+                        📋 Rapport d'Analyse Protocolaire en 8 Étapes
+                    </h2>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">Méthode Mean Reversion Institutionnelle & Risk Management R-Max</div>
+                </div>
+                <span class="badge badge-success" style="font-size: 0.75rem;">Normes Institutionnelles V3</span>
+            </div>
+
+            <div id="report-steps-container">
+                <div style="text-align: center; padding: 4rem 1rem;">
+                    <div class="spinner" style="margin: 0 auto 1.25rem auto;"></div>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Génération de l'Analyse Protocolaire en cours pour <strong>{{ symbol }}</strong>...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live News Feed Card -->
+        <div class="glass-card" id="news-card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+                <h3 style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+                    <span>📰</span> Flux d'Actualités Live & Analyse Event-Driven (<span id="news-count">0</span>)
+                </h3>
+                <span id="news-diagnostic-badge" class="badge badge-neutral">Diagnostic</span>
+            </div>
+            <div id="news-summary-box" style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 1rem; background: rgba(0,0,0,0.3); padding: 0.65rem 0.85rem; border-radius: 6px; border-left: 3px solid #3b82f6;"></div>
+            <div id="news-items-container" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+        </div>
+
+        <!-- 10-Year Backtest Snapshot Card -->
+        <div class="glass-card" id="backtest-card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+                <h3 style="font-size: 1rem; font-weight: 700; color: #a78bfa; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+                    <span>🔬</span> Backtest Historique 10 Ans sur {{ symbol }} (2014 - 2024)
+                </h3>
+                <span class="badge badge-primary" id="backtest-winrate-badge">Win Rate: --%</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;" id="backtest-metrics-grid"></div>
+        </div>
+
+    </main>
+
+    <!-- JS Logic -->
+    <script>
+        const SYMBOL = "{{ symbol }}";
+        const API_URL = '/api';
+
+        function copyShareUrl() {
+            navigator.clipboard.writeText(window.location.href);
+            alert("✅ Lien direct de l'analyse copié dans le presse-papier !");
+        }
+
+        function renderTradingViewChart(sym) {
+            const container = document.getElementById('tv-chart-box');
+            if (!container) return;
+            container.innerHTML = '';
+
+            let tvSymbol = sym;
+            if (sym.endsWith('.PA')) tvSymbol = 'EURONEXT:' + sym.replace('.PA', '');
+            else if (sym.endsWith('.DE')) tvSymbol = 'XETR:' + sym.replace('.DE', '');
+            else if (sym.endsWith('.AS')) tvSymbol = 'EURONEXT:' + sym.replace('.AS', '');
+            else if (sym.endsWith('.MC')) tvSymbol = 'BME:' + sym.replace('.MC', '');
+            else if (sym.endsWith('.MI')) tvSymbol = 'MIL:' + sym.replace('.MI', '');
+            else if (sym.endsWith('.L'))  tvSymbol = 'LSE:' + sym.replace('.L', '');
+            else tvSymbol = 'NASDAQ:' + sym;
+
+            new TradingView.widget({
+                "autosize": true,
+                "symbol": tvSymbol,
+                "interval": "D",
+                "timezone": "Europe/Paris",
+                "theme": "dark",
+                "style": "1",
+                "locale": "fr",
+                "toolbar_bg": "#080b11",
+                "enable_publishing": false,
+                "allow_symbol_change": true,
+                "container_id": "tv-chart-box"
+            });
+        }
+
+        async function loadStockAnalysis(forceRefresh = false) {
+            const btnRefresh = document.getElementById('btn-refresh-page');
+            const refreshIcon = document.getElementById('refresh-icon');
+            const refreshText = document.getElementById('refresh-text');
+            const statusNotice = document.getElementById('status-notice');
+
+            if (refreshIcon) refreshIcon.style.animation = 'spin 0.8s linear infinite';
+            if (refreshText) refreshText.textContent = 'Actualisation...';
+
+            try {
+                const endpoint = `${API_URL}/v3/analysis/${encodeURIComponent(SYMBOL)}/protocol8?force=${forceRefresh}`;
+                const res = await fetch(endpoint);
+                const payload = await res.json();
+
+                if (!payload || !payload.success || !payload.data) {
+                    throw new Error(payload.error || "Impossible de récupérer les données d'analyse.");
+                }
+
+                const d = payload.data;
+                renderAnalysisData(d, forceRefresh);
+
+                // Load Quick Backtest 10y in parallel
+                loadBacktest10y(SYMBOL);
+
+            } catch (err) {
+                console.error("Erreur chargement analyse:", err);
+                const container = document.getElementById('report-steps-container');
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 3rem; color: #ef4444;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
+                            <strong>Erreur d'analyse :</strong> ${err.message}<br>
+                            <button class="btn btn-secondary" onclick="loadStockAnalysis(true)" style="margin-top: 1rem;">Réessayer</button>
+                        </div>
+                    `;
+                }
+            } finally {
+                if (refreshIcon) refreshIcon.style.animation = 'none';
+                if (refreshText) refreshText.textContent = 'Actualiser Temps Réel';
+            }
+        }
+
+        function renderAnalysisData(d, forceRefresh = false) {
+            const symChar = d.currency === 'USD' ? '$' : '€';
+
+            // 1. Hero Card Updates
+            document.getElementById('hero-symbol').textContent = d.symbol;
+            document.getElementById('hero-name').textContent = d.name || d.company_name || d.symbol;
+            document.getElementById('hero-price').textContent = `${(d.current_price || 0).toFixed(2)} ${symChar}`;
+            document.getElementById('hero-drop').textContent = `${(d.pullback_pct || 0).toFixed(1)}%`;
+            document.getElementById('hero-rsi').textContent = `${(d.rsi || 50).toFixed(1)} (${d.rsi_divergence || 'Neutre'})`;
+
+            const accBadge = document.getElementById('hero-account-badge');
+            if (accBadge) {
+                accBadge.textContent = d.account_type || (d.is_pea ? 'PEA (Europe)' : 'CTO (US)');
+                accBadge.className = `badge ${d.is_pea ? 'badge-pea' : 'badge-cto'}`;
+            }
+
+            const catBadge = document.getElementById('hero-category-badge');
+            if (catBadge) {
+                catBadge.textContent = `${d.category_icon || '📦'} ${d.category || 'Actions'}`;
+            }
+
+            const shariaBadge = document.getElementById('hero-sharia-badge');
+            if (shariaBadge) {
+                const isSharia = (d.sharia || '').includes('CONFORME');
+                shariaBadge.textContent = `🕌 Sharia : ${d.sharia || 'CONFORME'}`;
+                shariaBadge.className = `badge ${isSharia ? 'badge-success' : 'badge-danger'}`;
+            }
+
+            const scorePill = document.getElementById('hero-score-pill');
+            if (scorePill) {
+                const score = d.confluence_score !== undefined ? d.confluence_score : 0;
+                scorePill.textContent = `${score} / 10`;
+                scorePill.className = `score-pill ${score >= 7 ? 'score-high' : score >= 4 ? 'score-med' : 'score-low'}`;
+            }
+
+            const verdictBadge = document.getElementById('hero-verdict-badge');
+            if (verdictBadge) {
+                verdictBadge.textContent = d.verdict || 'NEUTRE';
+                verdictBadge.className = `badge ${d.verdict_badge || 'badge-primary'}`;
+            }
+
+            // Action Plan Banner
+            const actionBanner = document.getElementById('hero-action-banner');
+            const actionText = document.getElementById('hero-action-text');
+            if (actionBanner && actionText && d.action_plan) {
+                actionText.textContent = d.action_plan;
+                actionBanner.style.display = 'block';
+            }
+
+            // Execution Timing Banner
+            const timing = d.execution_timing;
+            const timingBanner = document.getElementById('hero-timing-banner');
+            if (timingBanner && timing) {
+                document.getElementById('timing-analysis-time').textContent = timing.analysis_time || '--';
+                document.getElementById('timing-ideal-time').textContent = timing.ideal_execution_time || '--';
+                document.getElementById('timing-max-time').textContent = timing.max_execution_time || '--';
+                document.getElementById('timing-market-name').textContent = `📍 ${timing.market_name || 'Marché'}`;
+                timingBanner.style.display = 'flex';
+            }
+
+            // 2. Render 8 Steps Report
+            const stepsContainer = document.getElementById('report-steps-container');
+            if (stepsContainer && d.steps && Array.isArray(d.steps)) {
+                stepsContainer.innerHTML = d.steps.map(s => {
+                    const itemsHtml = (s.items || []).map(it => {
+                        const formatted = it.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        return `<li style="margin-bottom: 0.4rem; list-style-type: disc;">${formatted}</li>`;
+                    }).join('');
+
+                    return `
+                        <div class="report-step">
+                            <div class="report-step-title">
+                                <span>${s.title}</span>
+                                <span class="badge ${s.badge || 'badge-neutral'}">${s.status}</span>
+                            </div>
+                            <ul style="margin: 0.4rem 0 0 1.25rem; padding: 0; color: #cbd5e1; font-size: 0.88rem; line-height: 1.6;">
+                                ${itemsHtml}
+                            </ul>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // 3. News Feed
+            const newsCard = document.getElementById('news-card');
+            const na = d.news_analysis;
+            if (newsCard && na && na.items && na.items.length > 0) {
+                document.getElementById('news-count').textContent = na.count || na.items.length;
+                const diagBadge = document.getElementById('news-diagnostic-badge');
+                if (diagBadge) {
+                    diagBadge.textContent = na.diagnostic || 'Diagnostic';
+                    diagBadge.className = `badge ${na.badge || 'badge-neutral'}`;
+                }
+                document.getElementById('news-summary-box').innerHTML = `💡 <strong>Synthèse Événementielle :</strong> ${na.summary || 'Analyse des catalyseurs en direct.'}`;
+
+                const newsContainer = document.getElementById('news-items-container');
+                newsContainer.innerHTML = na.items.map(item => `
+                    <div style="padding: 0.75rem 0.9rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.35rem;">
+                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                <span class="badge" style="font-size: 0.7rem; background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4);">${item.provider}</span>
+                                <span style="font-size: 0.74rem; color: var(--text-muted);">📅 ${item.pub_date}</span>
+                            </div>
+                            <a href="${item.url}" target="_blank" rel="noopener noreferrer" style="font-size: 0.75rem; color: #60a5fa; text-decoration: none; font-weight: 600;">
+                                Source Originale ↗
+                            </a>
+                        </div>
+                        <a href="${item.url}" target="_blank" rel="noopener noreferrer" style="font-size: 0.92rem; font-weight: 700; color: #f8fafc; text-decoration: none; line-height: 1.35; display: block; margin-bottom: 0.3rem;">
+                            ${item.title}
+                        </a>
+                        ${item.summary ? `<p style="font-size: 0.8rem; color: #94a3b8; margin: 0; line-height: 1.4;">${item.summary}</p>` : ''}
+                    </div>
+                `).join('');
+
+                newsCard.style.display = 'block';
+            }
+
+            // Notification if force refresh
+            const statusNotice = document.getElementById('status-notice');
+            if (statusNotice && forceRefresh) {
+                statusNotice.style.display = 'block';
+                statusNotice.innerHTML = `
+                    <div style="margin-bottom: 1rem; padding: 0.6rem 1rem; border-radius: 8px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; font-size: 0.86rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span>✅ Données temps réel & protocole recalculés avec succès (${d.symbol})</span>
+                        <span style="font-size: 0.75rem; color: #a7f3d0; background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 4px;">🕒 ${new Date().toLocaleTimeString('fr-FR')}</span>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadBacktest10y(sym) {
+            const card = document.getElementById('backtest-card');
+            const grid = document.getElementById('backtest-metrics-grid');
+            const wrBadge = document.getElementById('backtest-winrate-badge');
+
+            try {
+                const res = await fetch(`${API_URL}/screener/backtest10y/${encodeURIComponent(sym)}`);
+                const payload = await res.json();
+                if (!payload || !payload.success || !payload.backtest) return;
+
+                const bt = payload.backtest;
+                const stats = bt.stats || {};
+                const wr = stats.win_rate_pct || 0;
+
+                if (wrBadge) {
+                    wrBadge.textContent = `Win Rate 10Y: ${wr.toFixed(1)}%`;
+                    wrBadge.className = `badge ${wr >= 65 ? 'badge-success' : wr >= 50 ? 'badge-warning' : 'badge-danger'}`;
+                }
+
+                if (grid) {
+                    grid.innerHTML = `
+                        <div class="glass-card" style="padding: 0.75rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Trades</div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #60a5fa;">${stats.total_trades || 0}</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">${stats.winning_trades || 0}W / ${stats.losing_trades || 0}L</div>
+                        </div>
+                        <div class="glass-card" style="padding: 0.75rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Gain Moyen / Trade</div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #10b981;">+${(stats.avg_trade_gain_pct || 0).toFixed(2)}%</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Mean Reversion</div>
+                        </div>
+                        <div class="glass-card" style="padding: 0.75rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Durée Moyenne</div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #a78bfa;">${(stats.avg_holding_days || 0).toFixed(1)} j</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Temps de détention</div>
+                        </div>
+                        <div class="glass-card" style="padding: 0.75rem; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Profit Factor</div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #fbbf24;">${(stats.profit_factor || 0).toFixed(2)}</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Gains / Pertes</div>
+                        </div>
+                    `;
+                }
+
+                if (card) card.style.display = 'block';
+            } catch (e) {
+                console.warn("Backtest 10y non disponible pour ce titre:", e);
+            }
+        }
+
+        // Init on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTradingViewChart(SYMBOL);
+            loadStockAnalysis(false);
+        });
+    </script>
+</body>
+</html>
