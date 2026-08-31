@@ -474,8 +474,13 @@ from src.trading212_connector import (
     set_runtime_trading212_config,
     get_trading212_orders_history,
     sync_trading212_history_to_journal,
-    parse_trading212_csv
+    parse_trading212_csv,
+    cancel_all_trading212_orders,
+    get_trading212_open_orders,
+    check_trading212_api_permissions
 )
+from src.order_guardrails import guardrails_engine, STRATEGY_GRID_PROFILES
+from src.trading212_execution_engine import execution_engine
 from src.institutional_engine import (
     get_macro_sentiment_barometer,
     generate_8_step_protocol_analysis,
@@ -2309,6 +2314,170 @@ def chat():
     return jsonify({
         "response": f"J'ai bien reçu votre message : *\"{message}\"*.\n\nPour une analyse ou un ajout, veuillez préciser le nom de l'entreprise ou son ticker boursier (ex: `SAN.PA`, `AAPL`, `MSFT`, `MC.PA`, `AIR.PA`), ou tapez *'Ajoute [TICKER] à ma watchlist'*."
     })
+
+
+# ---------------------------------------------------------------------
+# --- MODULE D'EXÉCUTION SEMI-AUTOMATIQUE TRADING 212 & GARDE-FOUS ---
+# ---------------------------------------------------------------------
+
+@app.route("/api/trading212/execution/status")
+def get_trading212_execution_status():
+    """Retourne l'état des garde-fous, kill-switch, et métriques du moteur d'exécution."""
+    guard_status = guardrails_engine.get_status()
+    pending = execution_engine.get_pending_proposals()
+    active_pos = execution_engine.get_active_positions()
+    open_orders = get_trading212_open_orders()
+    cash_data = get_trading212_cash() or {}
+    
+    return safe_jsonify({
+        "success": True,
+        "guardrails": guard_status,
+        "pending_proposals_count": len(pending),
+        "active_positions_count": len(active_pos),
+        "open_broker_orders_count": len(open_orders),
+        "broker_cash": cash_data
+    })
+
+
+@app.route("/api/trading212/execution/pending")
+def get_trading212_pending_proposals():
+    """Retourne la liste des propositions de trades en attente de Go Humain."""
+    proposals = execution_engine.get_pending_proposals()
+    return safe_jsonify({
+        "success": True,
+        "count": len(proposals),
+        "proposals": proposals
+    })
+
+
+@app.route("/api/trading212/execution/active_positions")
+def get_trading212_active_managed_positions():
+    """Retourne la liste des positions sous gestion active de paliers (TP1/BE/TP2/SL)."""
+    # Mettre à jour la surveillance
+    closed = execution_engine.update_positions_monitoring()
+    positions = execution_engine.get_active_positions()
+    return safe_jsonify({
+        "success": True,
+        "count": len(positions),
+        "positions": positions,
+        "recently_closed": closed
+    })
+
+
+@app.route("/api/trading212/execution/permissions")
+def get_trading212_api_permissions():
+    """Diagnostique les droits réels accordés à la clé API Trading 212 (Lecture vs Ordres)."""
+    diag = check_trading212_api_permissions()
+    return safe_jsonify({
+        "success": True,
+        "permissions": diag
+    })
+
+
+@app.route("/api/trading212/execution/strategies")
+def get_trading212_strategy_profiles():
+    """Retourne la liste des profils stratégiques (Mean Reversion, Sniper, Sneak) avec leurs grilles."""
+    return safe_jsonify({
+        "success": True,
+        "strategies": STRATEGY_GRID_PROFILES
+    })
+
+
+@app.route("/api/trading212/execution/propose", methods=["POST"])
+def propose_trading212_trade():
+    """Crée une proposition de trade adaptée à la stratégie et soumise aux garde-fous."""
+    data = request.get_json() or {}
+    symbol = data.get("symbol")
+    entry_price = float(data.get("entry_price", 0.0))
+    strategy_type = data.get("strategy_type", data.get("method", "Mean Reversion"))
+    custom_sl = float(data.get("stop_loss_price")) if data.get("stop_loss_price") else None
+    custom_tp1 = float(data.get("tp1_price")) if data.get("tp1_price") else None
+    custom_tp2 = float(data.get("tp2_price")) if data.get("tp2_price") else None
+    quantity = float(data.get("quantity")) if data.get("quantity") else None
+    notes = data.get("notes", "")
+
+    if not symbol or entry_price <= 0:
+        return safe_jsonify({"success": False, "error": "Paramètres symbol et entry_price obligatoires."}, status_code=400)
+
+    res = execution_engine.propose_trade(
+        symbol=symbol,
+        entry_price=entry_price,
+        strategy_type=strategy_type,
+        custom_sl_price=custom_sl,
+        custom_tp1_price=custom_tp1,
+        custom_tp2_price=custom_tp2,
+        quantity=quantity,
+        notes=notes
+    )
+    return safe_jsonify(res)
+
+
+@app.route("/api/trading212/execution/approve", methods=["POST"])
+def approve_trading212_trade():
+    """Validation 'GO HUMAIN' explicite : envoie l'ordre à Trading 212."""
+    data = request.get_json() or {}
+    proposal_id = data.get("proposal_id")
+    order_type = data.get("order_type", "LIMIT")
+    time_validity = data.get("time_validity", "DAY")
+
+    if not proposal_id:
+        return safe_jsonify({"success": False, "error": "proposal_id obligatoire."}, status_code=400)
+
+    res = execution_engine.approve_and_execute_trade(
+        proposal_id=proposal_id,
+        order_type=order_type,
+        time_validity=time_validity
+    )
+    return safe_jsonify(res)
+
+
+@app.route("/api/trading212/execution/reject", methods=["POST"])
+def reject_trading212_trade():
+    """Rejet d'une proposition par l'utilisateur."""
+    data = request.get_json() or {}
+    proposal_id = data.get("proposal_id")
+    reason = data.get("reason", "Rejeté par l'utilisateur")
+
+    if not proposal_id:
+        return safe_jsonify({"success": False, "error": "proposal_id obligatoire."}, status_code=400)
+
+    res = execution_engine.reject_trade_proposal(proposal_id=proposal_id, reason=reason)
+    return safe_jsonify(res)
+
+
+@app.route("/api/trading212/execution/kill_switch", methods=["POST"])
+def trigger_trading212_kill_switch():
+    """Bouton d'urgence : annule tous les ordres et verrouille le trading."""
+    data = request.get_json() or {}
+    reason = data.get("reason", "Déclenché manuellement via l'interface")
+    res = execution_engine.kill_all_and_freeze(reason=reason)
+    return safe_jsonify(res)
+
+
+@app.route("/api/trading212/execution/reset_kill_switch", methods=["POST"])
+def reset_trading212_kill_switch():
+    """Débloque le système après intervention humaine."""
+    res = guardrails_engine.reset_kill_switch()
+    return safe_jsonify(res)
+
+
+@app.route("/api/trading212/execution/settings", methods=["POST"])
+def update_trading212_guardrails_settings():
+    """Met à jour les paramètres de sécurité (Plafond capital, R-Max, Alloc Max)."""
+    data = request.get_json() or {}
+    max_capital = data.get("max_total_capital_ceiling")
+    max_risk_pct = data.get("max_risk_per_trade_pct")
+    max_alloc_pct = data.get("max_position_allocation_pct")
+    min_cash_pct = data.get("min_cash_reserve_pct")
+
+    res = guardrails_engine.update_settings(
+        max_capital=max_capital,
+        max_risk_pct=max_risk_pct,
+        max_alloc_pct=max_alloc_pct,
+        min_cash_pct=min_cash_pct
+    )
+    return safe_jsonify({"success": True, "settings": res})
+
 
 # ---------------------------------------------------------------------
 # GESTIONNAIRES D'ERREURS HTTP GLOBAUX (GARANTIE DE RÉPONSES JSON)

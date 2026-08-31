@@ -482,6 +482,87 @@ def run_continuous_free_trading_simulation(
     win_rate = round(len(win_trades) / total_trades_count * 100, 1) if total_trades_count > 0 else 0.0
     avg_dur = round(sum(t["duration_days"] for t in closed_trades) / total_trades_count, 1) if total_trades_count > 0 else 0.0
 
+    # Ventilation précise des gains et pertes par motif de sortie (Stop-Loss, TP2, Break-Even, etc.)
+    breakdown_by_reason = {}
+    for t in closed_trades:
+        reason = t.get("exit_reason", "AUTRE")
+        if reason not in breakdown_by_reason:
+            breakdown_by_reason[reason] = {
+                "reason": reason,
+                "trades_count": 0,
+                "total_gains_eur": 0.0,
+                "total_losses_eur": 0.0,
+                "net_pnl_eur": 0.0,
+                "win_count": 0,
+                "loss_count": 0,
+                "even_count": 0
+            }
+        b = breakdown_by_reason[reason]
+        b["trades_count"] += 1
+        pnl = t["pnl_amount"]
+        b["net_pnl_eur"] += pnl
+        if pnl > 0:
+            b["total_gains_eur"] += pnl
+            b["win_count"] += 1
+        elif pnl < 0:
+            b["total_losses_eur"] += abs(pnl)
+            b["loss_count"] += 1
+        else:
+            b["even_count"] += 1
+
+    for r, b in breakdown_by_reason.items():
+        b["total_gains_eur"] = round(b["total_gains_eur"], 2)
+        b["total_losses_eur"] = round(b["total_losses_eur"], 2)
+        b["net_pnl_eur"] = round(b["net_pnl_eur"], 2)
+
+    # Agrégation par symbole
+    by_symbol = {}
+    for t in closed_trades:
+        sym = t["symbol"]
+        if sym not in by_symbol:
+            by_symbol[sym] = {
+                "symbol": sym,
+                "trades_count": 0,
+                "winning_trades": 0,
+                "losing_trades": 0,
+                "total_pnl": 0.0,
+                "total_gains": 0.0,
+                "total_losses": 0.0,
+                "total_invested": 0.0,
+                "avg_duration": 0.0
+            }
+        bs = by_symbol[sym]
+        bs["trades_count"] += 1
+        bs["total_pnl"] += t["pnl_amount"]
+        bs["total_invested"] += t["invested"]
+        bs["avg_duration"] += t["duration_days"]
+        if t["pnl_amount"] > 0:
+            bs["winning_trades"] += 1
+            bs["total_gains"] += t["pnl_amount"]
+        elif t["pnl_amount"] < 0:
+            bs["losing_trades"] += 1
+            bs["total_losses"] += abs(t["pnl_amount"])
+
+    for s, bs in by_symbol.items():
+        cnt = bs["trades_count"]
+        bs["total_pnl"] = round(bs["total_pnl"], 2)
+        bs["total_gains"] = round(bs["total_gains"], 2)
+        bs["total_losses"] = round(bs["total_losses"], 2)
+        bs["total_invested"] = round(bs["total_invested"], 2)
+        bs["avg_duration"] = round(bs["avg_duration"] / cnt, 1) if cnt > 0 else 0.0
+        bs["win_rate_pct"] = round(bs["winning_trades"] / cnt * 100, 1) if cnt > 0 else 0.0
+
+    sorted_by_symbol = sorted(list(by_symbol.values()), key=lambda x: x["total_pnl"], reverse=True)
+
+    # Sauvegarde CSV
+    try:
+        csv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_cache", "free_trading_simulation_trades.csv")
+        df_export = pd.DataFrame(closed_trades)
+        df_export.to_csv(csv_path, index=False)
+        logger.info(f"✅ {len(closed_trades)} trades exportés dans {csv_path}")
+    except Exception as e:
+        logger.warning(f"Erreur export CSV: {e}")
+
     net_capital_injected = total_deposited - total_withdrawn
 
     # Comparaison avec les métriques réelles du compte
@@ -505,9 +586,12 @@ def run_continuous_free_trading_simulation(
             "profit_factor": profit_factor,
             "total_gains_eur": round(total_gains, 2),
             "total_losses_eur": round(total_losses, 2),
-            "avg_duration_days": avg_dur
+            "avg_duration_days": avg_dur,
+            "exit_reasons_breakdown": breakdown_by_reason
         },
         "real_account_comparison": real_metrics,
-        "trades_sample": closed_trades[:50],
+        "by_symbol": sorted_by_symbol,
+        "all_closed_trades_count": len(closed_trades),
+        "trades": closed_trades,
         "equity_curve": daily_equity_history[::3]
     }

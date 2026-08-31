@@ -42,6 +42,8 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
             "symbol": symbol,
             "entry_date": str(entry_str)[:10] if entry_str else "N/A",
             "pru": pru,
+            "quantity": qty,
+            "invested_amount": round(invested, 2),
             "real": {
                 "pnl_amount": real_pnl_amt,
                 "pnl_pct": real_pnl_pct,
@@ -89,6 +91,8 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
                 "symbol": symbol,
                 "entry_date": str(clean_entry_date)[:10],
                 "pru": pru,
+                "quantity": qty,
+                "invested_amount": round(invested, 2),
                 "real": {
                     "pnl_amount": real_pnl_amt,
                     "pnl_pct": real_pnl_pct,
@@ -222,6 +226,8 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
             "symbol": symbol,
             "entry_date": str(entry_str)[:10] if entry_str else "N/A",
             "pru": pru,
+            "quantity": qty,
+            "invested_amount": round(invested, 2),
             "real": {
                 "pnl_amount": real_pnl_amt,
                 "pnl_pct": real_pnl_pct,

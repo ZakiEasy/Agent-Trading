@@ -203,6 +203,57 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
             "environment": env
         }
 
+
+def check_trading212_api_permissions():
+    """
+    Diagnostique précisément les droits accordés à la clé API Trading 212 :
+    - Permission de LECTURE (Solde, Positions)
+    - Permission d'ORDRES (Création, Annulation de trades)
+    """
+    headers = get_trading212_headers()
+    if not headers:
+        return {
+            "valid": False,
+            "read_permission": False,
+            "orders_permission": False,
+            "message": "Clé API non configurée."
+        }
+
+    base_url = get_trading212_base_url()
+    
+    # 1. Test lecture
+    read_ok = False
+    try:
+        r_cash = requests.get(f"{base_url}/equity/account/cash", headers=headers, timeout=6)
+        read_ok = (r_cash.status_code == 200)
+    except Exception:
+        read_ok = False
+
+    # 2. Test permission ordres (via consultation du carnet d'ordres ou métadonnées)
+    orders_ok = False
+    orders_msg = ""
+    try:
+        r_ord = requests.get(f"{base_url}/equity/orders", headers=headers, timeout=6)
+        if r_ord.status_code == 200:
+            orders_ok = True
+            orders_msg = "✅ Permissions complètes : Lecture et Gestion des ordres autorisées."
+        elif r_ord.status_code in [401, 403]:
+            orders_ok = False
+            orders_msg = "⚠️ Clé API limitée à la LECTURE SEULE : Pour exécuter des ordres automatiques, générez une clé API dans les paramètres Trading 212 en cochant la permission 'Orders / Exécution d'ordres'."
+        else:
+            orders_msg = f"Statut ordres : HTTP {r_ord.status_code}"
+    except Exception as e:
+        orders_msg = f"Erreur vérification ordres : {str(e)}"
+
+    return {
+        "valid": read_ok,
+        "read_permission": read_ok,
+        "orders_permission": orders_ok,
+        "message": orders_msg,
+        "environment": _RUNTIME_CONFIG.get("environment", "live")
+    }
+
+
 def get_trading212_cash(force_refresh=False):
     """
     Récupère le solde d'espèces et de compte Trading 212 avec cache de 60s.
@@ -622,3 +673,229 @@ def parse_trading212_csv(csv_text_or_bytes):
         "open_positions": [],
         "cash_operations": cash_operations
     }
+
+
+# ==============================================================================
+# --- 6. EXÉCUTION D'ORDRES, GESTION DU CARNET & CONVERSIONS DE TICKERS ---
+# ==============================================================================
+
+def convert_yahoo_ticker_to_t212(symbol):
+    """
+    Convertit un symbole standard (ex: AVGO, MC.PA, ASML.AS) en ticker officiel Trading 212.
+    """
+    s = str(symbol or "").upper().strip()
+    if not s:
+        return ""
+    
+    MAPPINGS = {
+        "TSLA": "TSLA_US_EQ",
+        "AAPL": "AAPL_US_EQ",
+        "NVDA": "NVDA_US_EQ",
+        "META": "META_US_EQ",
+        "MSFT": "MSFT_US_EQ",
+        "AVGO": "AVGO_US_EQ",
+        "GOOGL": "GOOGL_US_EQ",
+        "AMZN": "AMZN_US_EQ",
+        "NFLX": "NFLX_US_EQ",
+        "UBER": "UBER_US_EQ",
+        "ARM": "ARM_US_EQ",
+        "BKNG": "BKNG_US_EQ",
+        "STX": "STX_US_EQ",
+        "VRT": "VRT_US_EQ",
+        "ESTC": "ESTC_US_EQ",
+        "ASAN": "ASAN_US_EQ",
+        "MC.PA": "MCp_EQ",
+        "RMS.PA": "RMSp_EQ",
+        "OR.PA": "ORp_EQ",
+        "SAN.PA": "SANp_EQ",
+        "LR.PA": "LRp_EQ",
+        "ENGI.PA": "ENGIp_EQ",
+        "TEP.PA": "TEPp_EQ",
+        "STMPA.PA": "STMpp_EQ",
+        "STM.PA": "STMpp_EQ",
+        "ASML.AS": "ASMLa_EQ",
+        "SAP.DE": "SAPd_EQ",
+        "LIN.DE": "LINd_EQ",
+        "BAYN.DE": "BAYNd_EQ",
+        "HFG.DE": "HFGd_EQ",
+        "SU.PA": "SUp_EQ",
+        "CA.PA": "CAp_EQ",
+        "BNP.PA": "BNPp_EQ",
+        "GLE.PA": "GLEp_EQ",
+        "AIR.PA": "AIRp_EQ",
+        "TTE.PA": "TTEp_EQ",
+        "IS3R.DE": "IS3Rd_EQ"
+    }
+    
+    if s in MAPPINGS:
+        return MAPPINGS[s]
+    
+    if s.endswith(".PA"):
+        base = s.replace(".PA", "")
+        return f"{base}p_EQ"
+    elif s.endswith(".DE"):
+        base = s.replace(".DE", "")
+        return f"{base}d_EQ"
+    elif s.endswith(".AS"):
+        base = s.replace(".AS", "")
+        return f"{base}a_EQ"
+    elif "." not in s:
+        return f"{s}_US_EQ"
+        
+    return s
+
+
+def place_trading212_limit_order(symbol, quantity, limit_price, time_validity="DAY"):
+    """
+    Émet un ordre Limit d'achat ou de vente sur Trading 212.
+    """
+    headers = get_trading212_headers()
+    if not headers:
+        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+    
+    t212_ticker = convert_yahoo_ticker_to_t212(symbol)
+    base_url = get_trading212_base_url()
+    url = f"{base_url}/equity/orders/limit"
+    
+    payload = {
+        "ticker": t212_ticker,
+        "quantity": float(quantity),
+        "limitPrice": float(round(limit_price, 2)),
+        "timeValidity": str(time_validity).upper()
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        if resp.status_code in [200, 201]:
+            data = resp.json()
+            return {"success": True, "order": data, "ticker": t212_ticker}
+        else:
+            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text}", "status_code": resp.status_code}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def place_trading212_market_order(symbol, quantity):
+    """
+    Émet un ordre au marché (Market Order) d'achat ou de vente sur Trading 212.
+    """
+    headers = get_trading212_headers()
+    if not headers:
+        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+    
+    t212_ticker = convert_yahoo_ticker_to_t212(symbol)
+    base_url = get_trading212_base_url()
+    url = f"{base_url}/equity/orders/market"
+    
+    payload = {
+        "ticker": t212_ticker,
+        "quantity": float(quantity)
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        if resp.status_code in [200, 201]:
+            data = resp.json()
+            return {"success": True, "order": data, "ticker": t212_ticker}
+        else:
+            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text}", "status_code": resp.status_code}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def place_trading212_stop_order(symbol, quantity, stop_price, time_validity="GTC"):
+    """
+    Émet un ordre Stop (Stop-Loss ou Stop-Achat) sur Trading 212.
+    """
+    headers = get_trading212_headers()
+    if not headers:
+        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+    
+    t212_ticker = convert_yahoo_ticker_to_t212(symbol)
+    base_url = get_trading212_base_url()
+    url = f"{base_url}/equity/orders/stop"
+    
+    payload = {
+        "ticker": t212_ticker,
+        "quantity": float(quantity),
+        "stopPrice": float(round(stop_price, 2)),
+        "timeValidity": str(time_validity).upper()
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        if resp.status_code in [200, 201]:
+            data = resp.json()
+            return {"success": True, "order": data, "ticker": t212_ticker}
+        else:
+            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text}", "status_code": resp.status_code}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def cancel_trading212_order(order_id):
+    """
+    Annule un ordre spécifique sur Trading 212 par son ID.
+    """
+    headers = get_trading212_headers()
+    if not headers:
+        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+    
+    base_url = get_trading212_base_url()
+    url = f"{base_url}/equity/orders/{order_id}"
+    
+    try:
+        resp = requests.delete(url, headers=headers, timeout=10)
+        if resp.status_code in [200, 204]:
+            return {"success": True, "message": f"Ordre {order_id} annulé avec succès."}
+        else:
+            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_trading212_open_orders():
+    """
+    Récupère tous les ordres en attente / ouverts sur le carnet Trading 212.
+    """
+    headers = get_trading212_headers()
+    if not headers:
+        return []
+    
+    base_url = get_trading212_base_url()
+    url = f"{base_url}/equity/orders"
+    
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            return resp.json() or []
+        return []
+    except Exception:
+        return []
+
+
+def cancel_all_trading212_orders():
+    """
+    Annule immédiatement TOUS les ordres ouverts (fonction d'urgence Kill-Switch).
+    """
+    open_orders = get_trading212_open_orders()
+    cancelled = []
+    errors = []
+    
+    for o in open_orders:
+        oid = o.get("id")
+        if oid:
+            res = cancel_trading212_order(oid)
+            if res.get("success"):
+                cancelled.append(oid)
+            else:
+                errors.append({"id": oid, "error": res.get("error")})
+                
+    return {
+        "success": True,
+        "total_open_orders": len(open_orders),
+        "cancelled_count": len(cancelled),
+        "cancelled_order_ids": cancelled,
+        "errors": errors
+    }
+
