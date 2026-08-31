@@ -1768,6 +1768,37 @@ def backtest_user_universe_endpoint():
         return safe_jsonify({"success": False, "error": str(e)}, status_code=500)
 
 
+@app.route("/api/backtest/trade_replay", methods=["GET", "POST"])
+def backtest_trade_replay_endpoint():
+    """
+    Exécute le rejeu exact trade-par-trade du nouveau protocole sur toutes les positions réelles
+    du journal de trading Supabase.
+    """
+    try:
+        from src.trade_replay_engine import run_trade_by_trade_replay
+        if request.method == "POST":
+            data = request.json or {}
+        else:
+            data = request.args.to_dict()
+
+        tp1_pct = float(data.get("tp1_pct", 1.80))
+        tp2_pct = float(data.get("tp2_pct", 2.50))
+        stop_loss_pct = float(data.get("stop_loss_pct", -2.00))
+        max_holding_days = int(data.get("max_holding_days", 10))
+
+        res = run_trade_by_trade_replay(
+            tp1_pct=tp1_pct,
+            tp2_pct=tp2_pct,
+            stop_loss_pct=stop_loss_pct,
+            max_holding_days=max_holding_days
+        )
+        return safe_jsonify(res)
+    except Exception as e:
+        logger.error(f"Erreur backtest trade replay: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}, status_code=500)
+
+
+
 
 # ==============================================================================
 # --- 10. RECHERCHE D'ACTIONS, SCREENER MULTI-FILTRES & BACKTEST 10 ANS ---
