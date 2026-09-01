@@ -791,9 +791,25 @@ def convert_yahoo_ticker_to_t212(symbol):
     return s
 
 
+def sanitize_t212_quantity(quantity):
+    """
+    Assure la conformité de la quantité avec les règles strictes de précision Trading 212 :
+    - Si la quantité est entière ou très proche d'un entier (ex: 6.0, -6.0) -> int (précision 0)
+    - Si la quantité est décimale -> arrondi à 2 décimales maximum (ex: 6.51 ou -6.51)
+    Évite l'erreur HTTP 400 'quantity-precision-mismatch'.
+    """
+    try:
+        val = float(quantity)
+        if abs(val - round(val)) < 1e-4:
+            return int(round(val))
+        return round(val, 2)
+    except Exception:
+        return quantity
+
+
 def place_trading212_limit_order(symbol, quantity, limit_price, time_validity="DAY"):
     """
-    Émet un ordre Limit d'achat ou de vente sur Trading 212 (Utilise la clé EXÉCUTION / ROBOT).
+    Émet un ordre à cours limité (Limit Order) d'achat sur Trading 212 (Utilise la clé EXÉCUTION / ROBOT).
     """
     headers = get_trading212_exec_headers()
     if not headers:
@@ -803,9 +819,10 @@ def place_trading212_limit_order(symbol, quantity, limit_price, time_validity="D
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/limit"
     
+    clean_qty = sanitize_t212_quantity(quantity)
     payload = {
         "ticker": t212_ticker,
-        "quantity": float(quantity),
+        "quantity": clean_qty,
         "limitPrice": float(round(limit_price, 2)),
         "timeValidity": str(time_validity).upper()
     }
@@ -833,9 +850,10 @@ def place_trading212_market_order(symbol, quantity):
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/market"
     
+    clean_qty = sanitize_t212_quantity(quantity)
     payload = {
         "ticker": t212_ticker,
-        "quantity": float(quantity)
+        "quantity": clean_qty
     }
     
     try:
@@ -861,9 +879,10 @@ def place_trading212_stop_order(symbol, quantity, stop_price, time_validity="GTC
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/stop"
     
+    clean_qty = sanitize_t212_quantity(quantity)
     payload = {
         "ticker": t212_ticker,
-        "quantity": float(quantity),
+        "quantity": clean_qty,
         "stopPrice": float(round(stop_price, 2)),
         "timeValidity": str(time_validity).upper()
     }

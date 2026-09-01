@@ -98,7 +98,11 @@ class Trading212ExecutionEngine:
         avail_automate_cap = max(0.0, automate_ceiling - deployed_cap)
 
         if (quantity is None or quantity <= 0) and nominal_capital is not None and float(nominal_capital) > 0 and entry_price > 0:
-            quantity = max(0.0001, round(float(nominal_capital) / entry_price, 4))
+            raw_qty = float(nominal_capital) / entry_price
+            if raw_qty >= 1.0:
+                quantity = float(max(1, round(raw_qty)))
+            else:
+                quantity = max(0.01, round(raw_qty, 2))
 
         if quantity is None or quantity <= 0:
             risk_target_monetary = automate_ceiling * (guardrails_engine.max_risk_per_trade_pct / 100.0)
@@ -113,7 +117,10 @@ class Trading212ExecutionEngine:
             nominal_from_avail = avail_automate_cap / entry_price
             
             final_qty = min(calc_qty, nominal_from_alloc, nominal_from_avail)
-            quantity = max(0.0001, round(final_qty, 4))
+            if final_qty >= 1.0:
+                quantity = float(max(1, round(final_qty)))
+            else:
+                quantity = max(0.01, round(final_qty, 2))
 
         # 3. Validation par les Garde-Fous Institutionnels
         is_valid, reason, trade_plan = guardrails_engine.validate_trade_plan(
@@ -151,7 +158,8 @@ class Trading212ExecutionEngine:
             "strategy_type": strategy_type,
             "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
             "trade_plan": trade_plan,
-            "notes": notes
+            "notes": notes,
+            "last_execution_error": None
         }
 
         self.pending_proposals[proposal_id] = proposal_obj
@@ -190,11 +198,19 @@ class Trading212ExecutionEngine:
         tp1_p = float(custom_tp1_price) if custom_tp1_price is not None else plan.get("tp1_price")
         tp2_p = float(custom_tp2_price) if custom_tp2_price is not None else plan.get("tp2_price")
 
-        # Calcul de la nouvelle quantité
+        # Calcul de la nouvelle quantité avec respect strict de la précision Trading 212
         if quantity is not None and float(quantity) > 0:
-            qty = round(float(quantity), 4)
+            val_q = float(quantity)
+            if abs(val_q - round(val_q)) < 1e-4:
+                qty = float(int(round(val_q)))
+            else:
+                qty = round(val_q, 2)
         elif nominal_capital is not None and float(nominal_capital) > 0 and ep > 0:
-            qty = round(float(nominal_capital) / ep, 4)
+            raw_qty = float(nominal_capital) / ep
+            if raw_qty >= 1.0:
+                qty = float(max(1, round(raw_qty)))
+            else:
+                qty = max(0.01, round(raw_qty, 2))
         else:
             qty = float(plan.get("quantity", 1.0))
 
@@ -221,6 +237,9 @@ class Trading212ExecutionEngine:
         new_plan["strategy_description"] = plan.get("strategy_description", "")
         prop["trade_plan"] = new_plan
         prop["updated_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        # Réinitialiser le message d'erreur si la proposition a été modifiée
+        prop["last_execution_error"] = None
+        prop["status"] = "PENDING_APPROVAL"
 
         logger.info(f"✏️ Proposition modifiée : {proposal_id} ({sym} - Qty: {qty} | Capital: {new_plan['nominal_invested']} {new_plan['currency_symbol']})")
         return {
@@ -233,12 +252,13 @@ class Trading212ExecutionEngine:
         """
         Validation 'GO HUMAIN' : émet l'ordre d'achat sur Trading 212
         et initialise la gestion des paliers (TP1 / Step Stop BE / TP2 / SL).
+        Si la transmission échoue, la proposition est maintenue en attente pour correction.
         """
         proposal = self.pending_proposals.get(proposal_id)
         if not proposal:
             return {"success": False, "error": f"Proposition {proposal_id} introuvable."}
 
-        if proposal["status"] != "PENDING_APPROVAL":
+        if proposal["status"] not in ["PENDING_APPROVAL", "EXECUTION_FAILED"]:
             return {"success": False, "error": f"Statut non éligible ({proposal['status']})."}
 
         plan = proposal["trade_plan"]
@@ -267,14 +287,21 @@ class Trading212ExecutionEngine:
         if not res_entry.get("success"):
             err_msg = res_entry.get("error", "Erreur d'émission Trading 212")
             guardrails_engine.register_order_error(err_msg)
-            proposal["status"] = "EXECUTION_FAILED"
+            
+            # MAINTENIR LA PROPOSITION DANS LA LISTE : NE PAS L'EFFACER !
+            proposal["status"] = "PENDING_APPROVAL"
+            proposal["last_execution_error"] = err_msg
             proposal["execution_error"] = err_msg
-            return {"success": False, "error": f"Échec transmission Trading 212 : {err_msg}"}
+            proposal["last_execution_attempt"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+            logger.warning(f"⚠️ Échec d'émission Trading 212 pour {sym} : {err_msg}. Proposition {proposal_id} maintenue.")
+            return {"success": False, "error": f"Échec transmission Trading 212 : {err_msg}", "proposal_id": proposal_id}
 
         # 2. Enregistrement dans les garde-fous
         guardrails_engine.register_entry_order_submitted(sym, entry_hash, nominal, currency=currency)
         proposal["status"] = "APPROVED_AND_SUBMITTED"
         proposal["t212_entry_order"] = res_entry.get("order")
+        proposal["last_execution_error"] = None
+        proposal["execution_error"] = None
 
         # 3. Placement initial du Stop-Loss sur Trading 212
         sl_order_res = place_trading212_stop_order(sym, -qty, sl_px, time_validity="GTC")
@@ -325,8 +352,8 @@ class Trading212ExecutionEngine:
         return {"success": True, "message": f"Proposition {proposal_id} rejetée."}
 
     def get_pending_proposals(self):
-        """Retourne les propositions en attente de Go Humain."""
-        return [p for p in self.pending_proposals.values() if p["status"] == "PENDING_APPROVAL"]
+        """Retourne les propositions en attente de Go Humain (y compris celles en échec de transmission précédente)."""
+        return [p for p in self.pending_proposals.values() if p.get("status") in ["PENDING_APPROVAL", "EXECUTION_FAILED"]]
 
     def get_active_positions(self):
         """Retourne les positions sous gestion active."""

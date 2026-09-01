@@ -5129,20 +5129,31 @@
                 const plan = p.trade_plan || {};
                 const currSymbol = p.currency === 'USD' ? '$' : '€';
                 const stratBadge = p.strategy_type === 'Sniper' ? 'background: #eab308; color: #000;' : p.strategy_type === 'Sneak' ? 'background: #a855f7; color: #fff;' : 'background: #0284c7; color: #fff;';
+                const hasError = Boolean(p.last_execution_error || p.execution_error);
 
                 html += `
-                    <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid ${hasError ? 'rgba(239, 68, 68, 0.5)' : 'rgba(250, 204, 21, 0.3)'}; border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <strong style="font-size: 1.1rem; color: #fff; font-family: 'Outfit', sans-serif;">${p.symbol}</strong>
                                 <span class="badge" style="${stratBadge} font-size: 0.7rem; font-weight: 700;">${p.strategy_type}</span>
                                 <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.7rem;">🕋 Sharia Conforme</span>
                                 <span style="font-size: 0.75rem; color: var(--text-muted);">${p.t212_ticker} (${p.currency})</span>
+                                ${hasError ? '<span class="badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; font-size: 0.7rem;">⚠️ Échec envoi</span>' : ''}
                             </div>
                             <div style="font-size: 0.85rem; color: #cbd5e1; background: rgba(255,255,255,0.04); padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">
                                 Capital : <strong style="color:#38bdf8;">${Number(plan.nominal_invested || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${currSymbol}</strong> (<strong style="color:#facc15;">${plan.quantity || 0}</strong> actions)
                             </div>
                         </div>
+
+                        ${hasError ? `
+                        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 6px; padding: 0.6rem 0.85rem; font-size: 0.78rem; color: #fca5a5;">
+                            <div>⚠️ <strong>Dernière tentative échouée :</strong> ${p.last_execution_error || p.execution_error}</div>
+                            <div style="margin-top: 0.25rem; color: #cbd5e1; font-size: 0.73rem;">
+                                💡 <em>Le plan est maintenu. Cliquez sur <strong>✏️ Ajuster Capital / Actions</strong> pour corriger la quantité (ex: nombre entier d'actions comme 6 ou 7) puis relancez le GO HUMAIN.</em>
+                            </div>
+                        </div>
+                        ` : ''}
 
                         <!-- Grille des Paliers -->
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; background: rgba(0,0,0,0.25); padding: 0.65rem; border-radius: 6px; font-size: 0.75rem;">
@@ -5185,7 +5196,7 @@
                                 ✏️ Ajuster Capital / Actions
                             </button>
                             <button class="btn btn-success" style="padding: 0.4rem 1.1rem; font-size: 0.85rem; font-weight: 700; background: #10b981;" onclick="approveRobotProposal('${p.proposal_id}')">
-                                ⚡ GO HUMAIN (Exécuter sur Trading 212)
+                                ${hasError ? '⚡ Réessayer GO HUMAIN' : '⚡ GO HUMAIN (Exécuter sur Trading 212)'}
                             </button>
                         </div>
                     </div>
@@ -5193,6 +5204,7 @@
             });
 
             container.innerHTML = html;
+        }
         }
 
         function renderActiveManagedPositions(positions) {
@@ -5437,13 +5449,22 @@
         // ---------------------------------------------------------------------
         // NOUVEAU TRADE : DIMENSIONNEMENT DYNAMIQUE (CAPITAL & ACTIONS)
         // ---------------------------------------------------------------------
+        function _calcCleanQty(cap, entry) {
+            if (!entry || entry <= 0 || !cap || cap <= 0) return 0;
+            const raw = cap / entry;
+            if (raw >= 1.0) {
+                return Math.max(1, Math.round(raw));
+            }
+            return parseFloat(raw.toFixed(2));
+        }
+
         function onPropEntryInput() {
             const entry = parseFloat(document.getElementById('prop-entry-input')?.value || 0);
             const cap = parseFloat(document.getElementById('prop-capital-input')?.value || 0);
             if (entry > 0 && cap > 0) {
-                const qty = cap / entry;
+                const qty = _calcCleanQty(cap, entry);
                 const qtyInput = document.getElementById('prop-quantity-input');
-                if (qtyInput) qtyInput.value = qty.toFixed(4);
+                if (qtyInput) qtyInput.value = qty;
             }
             updatePropSizingHelper();
         }
@@ -5452,9 +5473,9 @@
             const entry = parseFloat(document.getElementById('prop-entry-input')?.value || 0);
             const cap = parseFloat(document.getElementById('prop-capital-input')?.value || 0);
             if (entry > 0 && cap > 0) {
-                const qty = cap / entry;
+                const qty = _calcCleanQty(cap, entry);
                 const qtyInput = document.getElementById('prop-quantity-input');
-                if (qtyInput) qtyInput.value = qty.toFixed(4);
+                if (qtyInput) qtyInput.value = qty;
             }
             updatePropSizingHelper();
         }
@@ -5478,10 +5499,10 @@
 
             if (!helper) return;
             if (entry > 0 && (cap > 0 || qty > 0)) {
-                const effectiveCap = cap > 0 ? cap : (qty * entry);
-                const effectiveQty = qty > 0 ? qty : (cap / entry);
+                const effectiveQty = qty > 0 ? qty : _calcCleanQty(cap, entry);
+                const effectiveCap = effectiveQty * entry;
                 helper.style.display = 'block';
-                helper.innerHTML = `💡 Sizing : <strong>${effectiveCap.toFixed(2)}</strong> (€/$) pour <strong>${effectiveQty.toFixed(4)}</strong> actions à ${entry.toFixed(2)}`;
+                helper.innerHTML = `💡 Sizing : <strong>${effectiveQty}</strong> action${effectiveQty > 1 ? 's' : ''} (<strong>${effectiveCap.toFixed(2)}</strong> €/$) à ${entry.toFixed(2)}`;
             } else {
                 helper.style.display = 'none';
             }
@@ -5527,8 +5548,11 @@
                     strategy_type: strat,
                     notes: notes
                 };
-                if (cap > 0) payloadBody.nominal_capital = cap;
-                if (qty > 0) payloadBody.quantity = qty;
+                if (qty > 0) {
+                    payloadBody.quantity = qty;
+                } else if (cap > 0) {
+                    payloadBody.nominal_capital = cap;
+                }
 
                 const res = await fetch(`${API_URL}/trading212/execution/propose`, {
                     method: 'POST',
@@ -5581,8 +5605,8 @@
             const slPx = Number(plan.stop_loss_price) || 0;
             const tp1Px = Number(plan.tp1_price) || 0;
             const tp2Px = Number(plan.tp2_price) || 0;
-            const nominal = Number(plan.nominal_invested) || (entryPx * (Number(plan.quantity) || 1));
-            const qty = Number(plan.quantity) || (entryPx > 0 ? nominal / entryPx : 1);
+            const qty = Number(plan.quantity) || 1;
+            const nominal = Number(plan.nominal_invested) || (entryPx * qty);
 
             document.getElementById('edit-prop-id-hidden').value = proposalId;
             document.getElementById('edit-prop-symbol-title').textContent = p.symbol;
@@ -5598,7 +5622,7 @@
             document.getElementById('edit-prop-curr-symbol-hidden').value = currSymbol;
 
             document.getElementById('edit-prop-capital-input').value = nominal.toFixed(2);
-            document.getElementById('edit-prop-quantity-input').value = qty.toFixed(4);
+            document.getElementById('edit-prop-quantity-input').value = qty;
 
             updateEditPropPreview();
 
@@ -5618,9 +5642,9 @@
             const entry = parseFloat(document.getElementById('edit-prop-entry-hidden')?.value || 0);
             const cap = parseFloat(document.getElementById('edit-prop-capital-input')?.value || 0);
             if (entry > 0 && cap > 0) {
-                const qty = cap / entry;
+                const qty = _calcCleanQty(cap, entry);
                 const qtyInput = document.getElementById('edit-prop-quantity-input');
-                if (qtyInput) qtyInput.value = qty.toFixed(4);
+                if (qtyInput) qtyInput.value = qty;
             }
             updateEditPropPreview();
         }
