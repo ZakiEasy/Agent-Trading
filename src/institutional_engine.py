@@ -402,19 +402,19 @@ def compute_ticker_seasonality(df, symbol=None):
     }
 
     try:
-        # Si df n'a pas assez d'historique (< 250 jours), on télécharge l'historique 10 ans
+        # Utiliser l'historique fourni df sans re-télécharger pour garantir une vitesse maximale
         hist_df = df
-        if hist_df is None or len(hist_df) < 500:
-            if symbol:
-                hist_df = yf.Ticker(symbol).history(period="10y")
+        if hist_df is None or len(hist_df) < 50:
+            if symbol and symbol in _HIST_CACHE:
+                hist_df = _HIST_CACHE[symbol]["hist"]
 
-        if hist_df is not None and not hist_df.empty and len(hist_df) >= 100:
+        if hist_df is not None and not hist_df.empty and len(hist_df) >= 30:
             monthly_prices = hist_df["Close"].resample("ME").last()
             monthly_returns = monthly_prices.pct_change().dropna()
             same_month_returns = monthly_returns[monthly_returns.index.month == current_month] * 100
             
             sample_years = len(same_month_returns)
-            if sample_years >= 2:
+            if sample_years >= 1:
                 avg_ret = float(same_month_returns.mean())
                 win_rate = float((same_month_returns > 0).mean()) * 100
                 
@@ -445,7 +445,7 @@ def compute_ticker_seasonality(df, symbol=None):
                     _SEASONALITY_CACHE[cache_key] = {"data": result, "ts": time.time()}
                 return result
     except Exception as e:
-        print(f"⚠️ Erreur calcul saisonnalité {symbol}: {e}")
+        pass
 
     return default_res
 
@@ -1374,7 +1374,13 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     is_usd = not is_pea
     sym_currency = "€" if (is_pea or sym.endswith(".PA")) else "$"
 
-    curr_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or (df["Close"].iloc[-1] if df is not None and not df.empty else 100.0))
+    curr_price = float(
+        (df["Close"].dropna().iloc[-1] if (df is not None and not df.empty and len(df["Close"].dropna()) > 0) else None)
+        or info.get("regularMarketPrice")
+        or info.get("currentPrice")
+        or info.get("previousClose")
+        or 100.0
+    )
 
     # 2. Macro Baromètre, Saisonnalité & Sentiment Contrarien
     macro = get_macro_sentiment_barometer(force_refresh=force_refresh)

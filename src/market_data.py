@@ -478,18 +478,32 @@ def fetch_market_data(ticker_symbol, force_refresh=False):
     ticker_obj = yf.Ticker(lookup_sym)
     hist = None
     
-    # 2 essais avec backoff
+    # 1. Essai via ticker_obj.history
     for attempt in range(2):
         try:
-            hist = ticker_obj.history(period="300d")
-            if hist is not None and not hist.empty:
+            hist = ticker_obj.history(period="1y")
+            if hist is not None and not hist.empty and len(hist) > 5:
                 break
         except Exception as e:
             if attempt == 0:
-                time.sleep(0.4)
+                time.sleep(0.3)
             else:
-                print(f"Warning: fetch_market_data({symbol}) attempt {attempt+1} failed: {e}")
+                pass
                 
+    # 2. Fallback direct via yf.download si history est vide
+    if hist is None or hist.empty or len(hist) < 5:
+        try:
+            dl_df = yf.download(lookup_sym, period="1y", interval="1d", progress=False, timeout=8)
+            if dl_df is not None and not dl_df.empty and len(dl_df) > 5:
+                if isinstance(dl_df.columns, pd.MultiIndex):
+                    try:
+                        dl_df = dl_df.xs(lookup_sym, level='Ticker', axis=1)
+                    except Exception:
+                        dl_df.columns = [col[0] for col in dl_df.columns]
+                hist = dl_df
+        except Exception:
+            pass
+
     if hist is None or hist.empty:
         # Si échec mais cache disponible (même périmé), l'utiliser en secours
         if symbol in _HIST_CACHE:
@@ -509,12 +523,12 @@ def fetch_market_data(ticker_symbol, force_refresh=False):
     except:
         currency = "USD"
         
-    if currency == "EUR":
+    if currency == "EUR" or lookup_sym.endswith(".PA") or lookup_sym.endswith(".DE") or lookup_sym.endswith(".AS"):
         target_currency = "EUR"
     else:
         target_currency = "USD"
         
-    if currency != target_currency:
+    if currency != target_currency and currency != "EUR":
         rate = get_usd_conversion_rate(currency)
         if rate != 1.0:
             for col in ['Open', 'High', 'Low', 'Close']:
