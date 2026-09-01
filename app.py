@@ -2044,12 +2044,18 @@ def screener_search_endpoint():
                 logger.warning(f"Erreur process_screener_item {sym}: {e}")
                 return None
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
             future_to_sym = {executor.submit(process_screener_item, item): item[0] for item in matched_symbols}
-            for future in concurrent.futures.as_completed(future_to_sym, timeout=30):
-                res = future.result()
-                if res:
-                    results.append(res)
+            try:
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
+                    try:
+                        res = future.result()
+                        if res:
+                            results.append(res)
+                    except Exception as err:
+                        logger.warning(f"Erreur futur screener: {err}")
+            except (concurrent.futures.TimeoutError, TimeoutError):
+                logger.warning(f"⏱️ Screener search timeout atteint (25s), retour de {len(results)} résultats traités")
 
         # Trier par score décroissant puis verdict
         results.sort(key=lambda x: (x.get("score", 0.0), 1 if "ACHETER" in x.get("verdict", "") else 0), reverse=True)

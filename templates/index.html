@@ -1389,6 +1389,9 @@
             <button class="nav-btn" data-tab="screener" onclick="switchTab('screener')">
                 <span>🔍</span> Recherche & Screener 10Y
             </button>
+            <button class="nav-btn" data-tab="robot" onclick="switchTab('robot')">
+                <span>🤖</span> Robot Trading 212 <span id="nav-robot-badge" class="badge badge-success" style="font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">🟢 Prêt</span>
+            </button>
             <button class="nav-btn" data-tab="portfolio" onclick="switchTab('portfolio')">
                 <span>💼</span> Positions en Cours (Live) <span id="nav-alerts-badge" class="badge badge-warning" style="display:none; font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">0</span>
             </button>
@@ -1940,6 +1943,134 @@
         </div> <!-- closes screener-tab -->
 
         <!-- ================================================================= -->
+        <!-- TAB : ROBOT TRADING 212 (EXÉCUTION & GO HUMAIN) -->
+        <!-- ================================================================= -->
+        <div id="robot-tab" class="tab-content">
+            <!-- MODULE D'EXÉCUTION TRADING 212 & GO HUMAIN -->
+            <div class="glass-card" id="trading212-robot-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid rgba(14, 165, 233, 0.4); background: linear-gradient(180deg, rgba(14, 165, 233, 0.05) 0%, rgba(15, 23, 42, 0.6) 100%);">
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.25rem 1.5rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border);">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <span style="font-size: 1.5rem;">🤖</span>
+                            <h2 style="font-size: 1.2rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0;">
+                                Tableau de Bord Robot Trading 212 & "Go Humain"
+                            </h2>
+                            <span id="robot-status-badge" class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                                🟢 OPÉRATIONNEL
+                            </span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
+                            Exécution semi-automatique avec garde-fous stricts : R-Max ≤ 1%, double enveloppe EUR/USD et validation humaine obligatoire.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                        <button class="btn btn-primary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem; background: #0284c7;" onclick="openNewProposalModal()">
+                            ➕ Proposer un Trade
+                        </button>
+                        <button class="btn btn-secondary" id="btn-toggle-us-market" style="padding: 0.45rem 0.95rem; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(192, 132, 252, 0.4);" onclick="toggleUsMarket()" title="Activer / Désactiver les ordres sur les actions américaines">
+                            🇺🇸 Marché US : <span id="us-market-btn-text">⏸️ Inactif</span>
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;" onclick="openRobotSettingsModal()">
+                            ⚙️ Plafonds & Risque
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;" onclick="loadRobotStatusAndData()">
+                            🔄 Actualiser
+                        </button>
+                        <button class="btn" id="btn-kill-switch" style="padding: 0.45rem 0.95rem; font-size: 0.85rem; background: #dc2626; color: #fff; font-weight: 700;" onclick="triggerKillSwitch()" title="Arrêt d'urgence : annule tous les ordres et fige le robot">
+                            🛑 KILL-SWITCH
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div id="trading212-robot-card-body" style="padding: 1.5rem;">
+                    <!-- Kill switch alert box (hidden by default) -->
+                    <div id="robot-kill-switch-alert" style="display: none; padding: 0.85rem 1rem; border-radius: 8px; background: rgba(220, 38, 38, 0.2); border: 1px solid #ef4444; color: #fca5a5; margin-bottom: 1.25rem; font-size: 0.85rem; align-items: center; justify-content: space-between;">
+                        <div>
+                            <strong>🛑 KILL-SWITCH ACTIF :</strong> <span id="kill-switch-reason-text">Le système est verrouillé.</span>
+                        </div>
+                        <button class="btn btn-primary" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; background: #10b981;" onclick="resetKillSwitch()">
+                            🟢 Réarmer le Robot
+                        </button>
+                    </div>
+
+                    <!-- API Permissions banner -->
+                    <div id="robot-permissions-banner" style="padding: 0.75rem 1rem; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); font-size: 0.82rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div id="robot-permissions-text">⏳ Vérification des droits API Trading 212...</div>
+                        <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="checkApiPermissionsLive()">
+                            🔍 Vérifier Droits
+                        </button>
+                    </div>
+
+                    <!-- 4 Metric Cards Row (Dual EUR & USD Envelopes) -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700;">💶 ENVELOPPE EURO (PEA / UE)</span>
+                                <span class="badge" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #34d399;">🟢 Actif</span>
+                            </div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-eur">3 000,00 €</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-eur">0,00 €</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-eur">3 000,00 €</strong>
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.75rem; color: #c084fc; font-weight: 700;">💵 ENVELOPPE US DOLLAR (US)</span>
+                                <span class="badge" id="badge-us-market-status" style="font-size: 0.65rem; background: rgba(255,255,255,0.08); color: #cbd5e1;">⏸️ En Pause</span>
+                            </div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-usd">3 000,00 $</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-usd">0,00 $</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-usd">3 000,00 $</strong>
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Garde-Fou R-Max / Trade</span>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #34d399; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-rmax">1.0 % (Max 30 €/$)</div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Risque max perte tolérée</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Allocation Max par Ligne</span>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #f59e0b; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-alloc">20.0 % (Max 600 €/$)</div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Fractions d'actions autorisées</span>
+                        </div>
+                    </div>
+
+                    <!-- SIGNALS PENDING HUMAN GO SECTION -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #facc15; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>📋</span> Propositions de Trades en Attente de "GO HUMAIN" (<span id="pending-proposals-count">0</span>)
+                            </h3>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Validation humaine requise avant émission des ordres</span>
+                        </div>
+                        <div id="pending-proposals-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div style="padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 8px;">
+                                Aucun trade en attente de validation. Cliquez sur <strong>➕ Proposer un Trade</strong> pour soumettre un plan.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ACTIVE POSITIONS UNDER ROBOT MANAGEMENT SECTION -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>🎯</span> Lignes Automate sous Surveillance des Paliers (<span id="active-managed-count">0</span>)
+                            </h3>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Gestion séquentielle : TP1 (50%) ➔ Step Stop BE ➔ TP2 (50%) ➔ Stop Loss</span>
+                        </div>
+                        <div id="active-managed-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div style="padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 8px;">
+                                Aucune position automate active actuellement.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================= -->
         <!-- TAB : POSITIONS EN COURS (LIVE TRACKING) -->
         <!-- ================================================================= -->
         <div id="portfolio-tab" class="tab-content">
@@ -2105,129 +2236,6 @@
                         Des titres sont actuellement en moins-value sur votre courtier principal (XTB). Pour moyenner ou saisir un rebond court terme sans être bloqué par la contrainte fiscale/courtage FIFO (qui vendrait le 1er lot plus cher), <strong>achetez le 2ème lot sur Trading 212</strong> pour dénouer immédiatement au TP1 (+1.25%).
                     </p>
                     <div id="anti-fifo-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
-            <!-- MODULE D'EXÉCUTION TRADING 212 & GO HUMAIN (PLIABLE) -->
-            <div class="glass-card" id="trading212-robot-card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden; border: 1px solid rgba(14, 165, 233, 0.4); background: linear-gradient(180deg, rgba(14, 165, 233, 0.05) 0%, rgba(15, 23, 42, 0.6) 100%);">
-                <!-- Collapsible Header -->
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.1rem 1.25rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border); cursor: pointer;" onclick="toggleCardCollapse('trading212-robot-card')">
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 0.6rem;">
-                            <span style="font-size: 1.35rem;">🤖</span>
-                            <h2 style="font-size: 1.1rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0;">
-                                Exécution Semi-Automatique Trading 212 & Validation "Go Humain"
-                            </h2>
-                            <span id="robot-status-badge" class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; font-size: 0.75rem; padding: 0.2rem 0.55rem;">
-                                🟢 OPÉRATIONNEL
-                            </span>
-                        </div>
-                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
-                            Garde-fous CSO, respect strict R-Max ≤ 1%, double enveloppe EUR/USD et exécution sur confirmation explicite.
-                        </p>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;" onclick="event.stopPropagation()">
-                        <button class="btn btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: #0284c7;" onclick="openNewProposalModal()">
-                            ➕ Proposer un Trade
-                        </button>
-                        <button class="btn btn-secondary" id="btn-toggle-us-market" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(192, 132, 252, 0.4);" onclick="toggleUsMarket()" title="Activer / Désactiver les ordres sur les actions américaines">
-                            🇺🇸 Marché US : <span id="us-market-btn-text">⏸️ Inactif</span>
-                        </button>
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="openRobotSettingsModal()">
-                            ⚙️ Plafonds & Risque
-                        </button>
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="loadRobotStatusAndData()">
-                            🔄 Actualiser
-                        </button>
-                        <button class="btn" id="btn-kill-switch" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: #dc2626; color: #fff; font-weight: 700;" onclick="triggerKillSwitch()" title="Arrêt d'urgence : annule tous les ordres et fige le robot">
-                            🛑 KILL-SWITCH
-                        </button>
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.7rem; font-size: 0.8rem; font-weight: 700;" onclick="toggleCardCollapse('trading212-robot-card')">
-                            <span id="trading212-robot-card-icon">▲</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Collapsible Body -->
-                <div id="trading212-robot-card-body" style="padding: 1.25rem; transition: all 0.3s ease;">
-                    <!-- Kill switch alert box (hidden by default) -->
-                    <div id="robot-kill-switch-alert" style="display: none; padding: 0.85rem 1rem; border-radius: 8px; background: rgba(220, 38, 38, 0.2); border: 1px solid #ef4444; color: #fca5a5; margin-bottom: 1.25rem; font-size: 0.85rem; align-items: center; justify-content: space-between;">
-                        <div>
-                            <strong>🛑 KILL-SWITCH ACTIF :</strong> <span id="kill-switch-reason-text">Le système est verrouillé.</span>
-                        </div>
-                        <button class="btn btn-primary" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; background: #10b981;" onclick="resetKillSwitch()">
-                            🟢 Réarmer le Robot
-                        </button>
-                    </div>
-
-                    <!-- API Permissions banner -->
-                    <div id="robot-permissions-banner" style="padding: 0.65rem 0.9rem; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); font-size: 0.8rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
-                        <div id="robot-permissions-text">⏳ Vérification des droits API Trading 212...</div>
-                        <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="checkApiPermissionsLive()">
-                            🔍 Vérifier Droits
-                        </button>
-                    </div>
-
-                    <!-- 4 Metric Cards Row (Dual EUR & USD Envelopes) -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 0.85rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700;">💶 ENVELOPPE EURO (PEA / UE)</span>
-                                <span class="badge" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #34d399;">🟢 Actif</span>
-                            </div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling-eur">3 000,00 €</div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
-                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-eur">0,00 €</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-eur">3 000,00 €</strong>
-                            </div>
-                        </div>
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 0.85rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 0.75rem; color: #c084fc; font-weight: 700;">💵 ENVELOPPE US DOLLAR (US)</span>
-                                <span class="badge" id="badge-us-market-status" style="font-size: 0.65rem; background: rgba(255,255,255,0.08); color: #cbd5e1;">⏸️ En Pause</span>
-                            </div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling-usd">3 000,00 $</div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
-                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-usd">0,00 $</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-usd">3 000,00 $</strong>
-                            </div>
-                        </div>
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Garde-Fou R-Max / Trade</span>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #34d399; font-family: 'Outfit', sans-serif;" id="stat-robot-rmax">1.0 % (Max 30 €/$)</div>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">Risque max par position</span>
-                        </div>
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Allocation Max par Ligne</span>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #f59e0b; font-family: 'Outfit', sans-serif;" id="stat-robot-alloc">20.0 % (Max 600 €/$)</div>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">Fractions d'actions autorisées</span>
-                        </div>
-                    </div>
-
-                    <!-- SIGNALS PENDING HUMAN GO SECTION -->
-                    <div style="margin-bottom: 1.5rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-                            <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0; color: #facc15; display: flex; align-items: center; gap: 0.4rem;">
-                                <span>📋</span> Propositions de Trades en Attente de "GO HUMAIN" (<span id="pending-proposals-count">0</span>)
-                            </h3>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Validation obligatoire avant envoi API</span>
-                        </div>
-                        <div id="pending-proposals-list" style="display: flex; flex-direction: column; gap: 0.65rem;">
-                            <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 6px;">
-                                Aucun trade en attente de validation. Cliquez sur <strong>➕ Proposer un Trade</strong> pour soumettre un plan.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ACTIVE POSITIONS UNDER ROBOT MANAGEMENT SECTION -->
-                    <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-                            <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
-                                <span>🎯</span> Lignes Automate sous Surveillance des Paliers (<span id="active-managed-count">0</span>)
-                            </h3>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Gestion séquentielle : TP1 (50%) ➔ Step Stop BE ➔ TP2 (50%) ➔ Stop Loss</span>
-                        </div>
-                        <div id="active-managed-list" style="display: flex; flex-direction: column; gap: 0.65rem;">
-                            <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 6px;">
-                                Aucune position automate active actuellement.
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -3648,6 +3656,8 @@
                 </button>
             </div>
         </div>
+    </div>
+
     <!-- ===================================================================== -->
     <!-- MODAL : RÉGLAGES DU ROBOT & GARDE-FOUS TRADING 212 -->
     <!-- ===================================================================== -->
@@ -4197,34 +4207,45 @@
         // TAB SWITCHING (INSTANT DISPLAY FROM CACHE & MOBILE BOTTOM NAV SYNC)
         // ---------------------------------------------------------------------
         function switchTab(tabId) {
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.mobile-nav-item').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
-            if (btn) btn.classList.add('active');
+            try {
+                document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.mobile-nav-item').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+                if (btn) btn.classList.add('active');
 
-            const mBtn = document.querySelector(`.mobile-nav-item[data-tab="${tabId}"]`);
-            if (mBtn) mBtn.classList.add('active');
-            
-            const targetTab = document.getElementById(`${tabId}-tab`);
-            if (targetTab) targetTab.classList.add('active');
-
-            // Scroll fluide vers le haut sur mobile
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-
-            if (tabId === 'screener') {
-                if (!screenerLoadedOnce) {
-                    runScreenerSearch(false);
+                const mBtn = document.querySelector(`.mobile-nav-item[data-tab="${tabId}"]`);
+                if (mBtn) mBtn.classList.add('active');
+                
+                const targetTab = document.getElementById(`${tabId}-tab`);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                } else {
+                    console.warn(`Tab ${tabId}-tab not found`);
                 }
-            } else if (tabId === 'portfolio') {
-                loadLivePortfolio(false);
-            } else if (tabId === 'diversification') {
-                loadDiversificationData(false);
-            } else if (tabId === 'journal') {
-                loadJournalHistory(false);
-            } else if (tabId === 'simulation') {
-                runSimulation();
+
+                // Scroll fluide vers le haut
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                if (tabId === 'robot') {
+                    loadRobotStatusAndData();
+                    checkApiPermissionsLive();
+                } else if (tabId === 'screener') {
+                    if (!screenerLoadedOnce) {
+                        runScreenerSearch(false);
+                    }
+                } else if (tabId === 'portfolio') {
+                    loadLivePortfolio(false);
+                } else if (tabId === 'diversification') {
+                    loadDiversificationData(false);
+                } else if (tabId === 'journal') {
+                    loadJournalHistory(false);
+                } else if (tabId === 'simulation') {
+                    runSimulation();
+                }
+            } catch (err) {
+                console.error(`Error switching to tab ${tabId}:`, err);
             }
         }
 
@@ -9669,6 +9690,10 @@
         <button class="mobile-nav-item" data-tab="screener" onclick="switchTab('screener')">
             <span class="mobile-nav-icon">🔍</span>
             <span class="mobile-nav-label">Screener</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="robot" onclick="switchTab('robot')">
+            <span class="mobile-nav-icon">🤖</span>
+            <span class="mobile-nav-label">Robot</span>
         </button>
         <button class="mobile-nav-item" data-tab="portfolio" onclick="switchTab('portfolio')">
             <span class="mobile-nav-icon">💼</span>
