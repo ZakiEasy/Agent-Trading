@@ -3740,17 +3740,17 @@
                 <!-- Section Personnalisation Capital & Nombre d'actions -->
                 <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.85rem; margin-bottom: 0.85rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
-                        <span style="font-size: 0.8rem; font-weight: 700; color: #38bdf8;">💰 Dimensionnement Personnalisé (Optionnel)</span>
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #38bdf8;">💰 Dimensionnement par Valeur ou Actions (Optionnel)</span>
                         <span style="font-size: 0.72rem; color: var(--text-muted);">Calibré par les garde-fous si vide</span>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
                         <div class="form-group" style="margin: 0;">
                             <label style="font-size: 0.75rem; color: #cbd5e1;">Capital à Investir (€ / $)</label>
-                            <input type="number" id="prop-capital-input" class="text-input" placeholder="Ex: 500" step="10" oninput="onPropCapitalInput()">
+                            <input type="number" id="prop-capital-input" class="text-input" placeholder="Ex: 250 ou 500" step="1" min="1" oninput="onPropCapitalInput()">
                         </div>
                         <div class="form-group" style="margin: 0;">
-                            <label style="font-size: 0.75rem; color: #cbd5e1;">Nombre d'Actions (Quantité)</label>
-                            <input type="number" id="prop-quantity-input" class="text-input" placeholder="Ex: 6.51" step="0.0001" oninput="onPropQuantityInput()">
+                            <label style="font-size: 0.75rem; color: #cbd5e1;">Actions / Fractions (0,XX ou entières)</label>
+                            <input type="number" id="prop-quantity-input" class="text-input" placeholder="Ex: 0.25 ou 5" step="0.01" min="0.01" oninput="onPropQuantityInput()">
                         </div>
                     </div>
                     <div id="prop-sizing-helper" style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.4rem; display: none;"></div>
@@ -3805,11 +3805,11 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1rem;">
                     <div class="form-group">
                         <label style="font-size: 0.8rem; font-weight: 600; color: #38bdf8;">Capital à Investir (<span id="edit-prop-currency-label">€</span>)</label>
-                        <input type="number" id="edit-prop-capital-input" class="text-input" placeholder="Ex: 600" step="10" oninput="onEditPropCapitalInput()">
+                        <input type="number" id="edit-prop-capital-input" class="text-input" placeholder="Ex: 250 ou 500" step="1" min="1" oninput="onEditPropCapitalInput()">
                     </div>
                     <div class="form-group">
-                        <label style="font-size: 0.8rem; font-weight: 600; color: #facc15;">Nombre d'Actions (Quantité)</label>
-                        <input type="number" id="edit-prop-quantity-input" class="text-input" placeholder="Ex: 7.81" step="0.0001" oninput="onEditPropQuantityInput()">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: #facc15;">Actions / Fractions (0,XX ou entières)</label>
+                        <input type="number" id="edit-prop-quantity-input" class="text-input" placeholder="Ex: 0.25 ou 5" step="0.01" min="0.01" oninput="onEditPropQuantityInput()">
                     </div>
                 </div>
 

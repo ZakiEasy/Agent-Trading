@@ -99,10 +99,8 @@ class Trading212ExecutionEngine:
 
         if (quantity is None or quantity <= 0) and nominal_capital is not None and float(nominal_capital) > 0 and entry_price > 0:
             raw_qty = float(nominal_capital) / entry_price
-            if raw_qty >= 1.0:
-                quantity = float(max(1, round(raw_qty)))
-            else:
-                quantity = max(0.01, round(raw_qty, 2))
+            # Dimensionnement par Valeur / Montant : supporte les fractions d'actions (0.XX) à 2 décimales
+            quantity = max(0.01, round(raw_qty, 2))
 
         if quantity is None or quantity <= 0:
             risk_target_monetary = automate_ceiling * (guardrails_engine.max_risk_per_trade_pct / 100.0)
@@ -117,10 +115,7 @@ class Trading212ExecutionEngine:
             nominal_from_avail = avail_automate_cap / entry_price
             
             final_qty = min(calc_qty, nominal_from_alloc, nominal_from_avail)
-            if final_qty >= 1.0:
-                quantity = float(max(1, round(final_qty)))
-            else:
-                quantity = max(0.01, round(final_qty, 2))
+            quantity = max(0.01, round(final_qty, 2))
 
         # 3. Validation par les Garde-Fous Institutionnels
         is_valid, reason, trade_plan = guardrails_engine.validate_trade_plan(
@@ -183,7 +178,7 @@ class Trading212ExecutionEngine:
     ):
         """
         Met à jour une proposition de trade en attente (capital, nombre d'actions ou cours)
-        avec re-validation instantanée des garde-fous.
+        avec re-validation instantanée des garde-fous et support des fractions d'actions (0.XX).
         """
         if proposal_id not in self.pending_proposals:
             return {"success": False, "error": f"Proposition {proposal_id} introuvable ou déjà traitée."}
@@ -198,7 +193,7 @@ class Trading212ExecutionEngine:
         tp1_p = float(custom_tp1_price) if custom_tp1_price is not None else plan.get("tp1_price")
         tp2_p = float(custom_tp2_price) if custom_tp2_price is not None else plan.get("tp2_price")
 
-        # Calcul de la nouvelle quantité avec respect strict de la précision Trading 212
+        # Calcul de la nouvelle quantité avec support des fractions (0.XX) et respect strict de la précision Trading 212
         if quantity is not None and float(quantity) > 0:
             val_q = float(quantity)
             if abs(val_q - round(val_q)) < 1e-4:
@@ -207,10 +202,7 @@ class Trading212ExecutionEngine:
                 qty = round(val_q, 2)
         elif nominal_capital is not None and float(nominal_capital) > 0 and ep > 0:
             raw_qty = float(nominal_capital) / ep
-            if raw_qty >= 1.0:
-                qty = float(max(1, round(raw_qty)))
-            else:
-                qty = max(0.01, round(raw_qty, 2))
+            qty = max(0.01, round(raw_qty, 2))
         else:
             qty = float(plan.get("quantity", 1.0))
 
