@@ -67,13 +67,17 @@ class OrderGuardrailsEngine:
         self.allocated_automate_capital_ceiling_eur = float(os.getenv("AUTOMATE_CAPITAL_CEILING_EUR", 3000.0))
         self.allocated_automate_capital_ceiling_usd = float(os.getenv("AUTOMATE_CAPITAL_CEILING_USD", 3000.0))
         
-        # 2. Risque monétaire par trade R-Max (<= 1.0% de l'enveloppe respective)
+        # 2. Toggle Activation Marché US (Désactivé par défaut : Zone Euro uniquement)
+        self.us_trading_enabled = os.getenv("AUTOMATE_US_TRADING_ENABLED", "false").lower() in ["true", "1", "yes"]
+        self.europe_trading_enabled = True
+
+        # 3. Risque monétaire par trade R-Max (<= 1.0% de l'enveloppe respective)
         self.max_risk_per_trade_pct = 1.0
         
-        # 3. Allocation max par ligne (% de l'enveloppe respective)
+        # 4. Allocation max par ligne (% de l'enveloppe respective)
         self.max_position_allocation_pct = 20.0
         
-        # 4. Limites de gestion
+        # 5. Limites de gestion
         self.max_open_positions = 8
         self.max_consecutive_errors = 3
         
@@ -95,9 +99,10 @@ class OrderGuardrailsEngine:
         automate_ceiling_usd=None,
         max_total_capital_ceiling=None,
         max_risk_pct=None,
-        max_alloc_pct=None
+        max_alloc_pct=None,
+        us_trading_enabled=None
     ):
-        """Met à jour les plafonds de capital EUR/USD et les paramètres de risque."""
+        """Met à jour les plafonds de capital EUR/USD, le toggle Marché US et les paramètres de risque."""
         if automate_ceiling_eur is not None and float(automate_ceiling_eur) > 0:
             self.allocated_automate_capital_ceiling_eur = float(automate_ceiling_eur)
         elif max_total_capital_ceiling is not None and float(max_total_capital_ceiling) > 0 and automate_ceiling_eur is None:
@@ -111,10 +116,13 @@ class OrderGuardrailsEngine:
         if max_alloc_pct is not None and 5.0 <= float(max_alloc_pct) <= 30.0:
             self.max_position_allocation_pct = float(max_alloc_pct)
 
+        if us_trading_enabled is not None:
+            self.us_trading_enabled = bool(us_trading_enabled)
+
         logger.info(
             f"🛡️ Garde-fous mis à jour : Enveloppe EUR {self.allocated_automate_capital_ceiling_eur}€ | "
-            f"Enveloppe USD {self.allocated_automate_capital_ceiling_usd}$ | R-Max {self.max_risk_per_trade_pct}% | "
-            f"Alloc {self.max_position_allocation_pct}%"
+            f"Enveloppe USD {self.allocated_automate_capital_ceiling_usd}$ | Marché US {'ACTIF' if self.us_trading_enabled else 'DÉSACTIVÉ'} | "
+            f"R-Max {self.max_risk_per_trade_pct}% | Alloc {self.max_position_allocation_pct}%"
         )
         return self.get_status()
 
@@ -138,6 +146,9 @@ class OrderGuardrailsEngine:
         return {
             "kill_switch_active": self.is_kill_switch_active,
             "kill_switch_reason": self.kill_switch_reason,
+            # Toggles d'activation des marchés
+            "europe_trading_enabled": self.europe_trading_enabled,
+            "us_trading_enabled": self.us_trading_enabled,
             # Enveloppe EUR
             "allocated_automate_capital_ceiling_eur": round(self.allocated_automate_capital_ceiling_eur, 2),
             "deployed_automate_capital_eur": round(deployed_eur, 2),
@@ -265,6 +276,10 @@ class OrderGuardrailsEngine:
                 "action_type": action_type,
                 "currency": currency
             }
+
+        # 3.1. Blocage Marché US si le toggle est désactivé
+        if currency == "USD" and not self.us_trading_enabled:
+            return False, "⏸️ Marché US désactivé : Le robot est actuellement configuré pour trader uniquement sur la Zone Euro (PEA/EUR). Activez le toggle 'Marché US ($)' dans les paramètres pour autoriser les actions américaines.", None
 
         # 4. Anti-Doublon d'Entrée : 1 seule position active par symbole
         if symbol.upper() in self.active_automate_positions:

@@ -2463,20 +2463,44 @@ def reset_trading212_kill_switch():
 
 @app.route("/api/trading212/execution/settings", methods=["POST"])
 def update_trading212_guardrails_settings():
-    """Met à jour les paramètres de sécurité (Plafond EUR, Plafond USD, R-Max, Alloc Max)."""
+    """Met à jour les paramètres de sécurité (Plafond EUR, Plafond USD, Toggle Marché US, R-Max, Alloc Max)."""
     data = request.get_json() or {}
     max_capital_eur = data.get("automate_ceiling_eur") or data.get("max_capital_eur") or data.get("max_total_capital_ceiling")
     max_capital_usd = data.get("automate_ceiling_usd") or data.get("max_capital_usd")
     max_risk_pct = data.get("max_risk_per_trade_pct")
     max_alloc_pct = data.get("max_position_allocation_pct")
+    us_trading_enabled = data.get("us_trading_enabled")
 
     res = guardrails_engine.update_settings(
         automate_ceiling_eur=max_capital_eur,
         automate_ceiling_usd=max_capital_usd,
         max_risk_pct=max_risk_pct,
-        max_alloc_pct=max_alloc_pct
+        max_alloc_pct=max_alloc_pct,
+        us_trading_enabled=us_trading_enabled
     )
     return safe_jsonify({"success": True, "settings": res})
+
+
+@app.route("/api/trading212/execution/toggle_us_trading", methods=["POST"])
+def toggle_trading212_us_trading():
+    """Bascule l'activation/désactivation du trading sur le marché américain (USD)."""
+    data = request.get_json() or {}
+    enable = data.get("enable")
+    if enable is None:
+        # Inverse l'état actuel si non spécifié
+        enable = not guardrails_engine.us_trading_enabled
+    else:
+        enable = bool(enable)
+
+    res = guardrails_engine.update_settings(us_trading_enabled=enable)
+    state_str = "activé 🟢" if enable else "désactivé ⏸️ (Zone Euro active)"
+    return safe_jsonify({
+        "success": True,
+        "us_trading_enabled": enable,
+        "message": f"Marché US {state_str}",
+        "settings": res
+    })
+
 
 
 # ---------------------------------------------------------------------

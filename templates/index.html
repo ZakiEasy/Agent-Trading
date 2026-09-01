@@ -2120,15 +2120,18 @@
                             </span>
                         </div>
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
-                            Garde-fous CSO, respect strict R-Max ≤ 1%, plafond de capital dédié et exécution sur confirmation explicite.
+                            Garde-fous CSO, respect strict R-Max ≤ 1%, double enveloppe EUR/USD et exécution sur confirmation explicite.
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;" onclick="event.stopPropagation()">
                         <button class="btn btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: #0284c7;" onclick="openNewProposalModal()">
                             ➕ Proposer un Trade
                         </button>
+                        <button class="btn btn-secondary" id="btn-toggle-us-market" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(192, 132, 252, 0.4);" onclick="toggleUsMarket()" title="Activer / Désactiver les ordres sur les actions américaines">
+                            🇺🇸 Marché US : <span id="us-market-btn-text">⏸️ Inactif</span>
+                        </button>
                         <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="openRobotSettingsModal()">
-                            ⚙️ Plafond & Risque
+                            ⚙️ Plafonds & Risque
                         </button>
                         <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="loadRobotStatusAndData()">
                             🔄 Actualiser
@@ -2167,7 +2170,7 @@
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 0.85rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700;">💶 ENVELOPPE EURO (PEA / UE)</span>
-                                <span style="font-size: 0.68rem; color: var(--text-muted);" id="stat-robot-deployed-pct-eur">0.0%</span>
+                                <span class="badge" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #34d399;">🟢 Actif</span>
                             </div>
                             <div style="font-size: 1.25rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling-eur">3 000,00 €</div>
                             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
@@ -2177,7 +2180,7 @@
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 0.85rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 0.75rem; color: #c084fc; font-weight: 700;">💵 ENVELOPPE US DOLLAR (US)</span>
-                                <span style="font-size: 0.68rem; color: var(--text-muted);" id="stat-robot-deployed-pct-usd">0.0%</span>
+                                <span class="badge" id="badge-us-market-status" style="font-size: 0.65rem; background: rgba(255,255,255,0.08); color: #cbd5e1;">⏸️ En Pause</span>
                             </div>
                             <div style="font-size: 1.25rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling-usd">3 000,00 $</div>
                             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
@@ -3682,6 +3685,15 @@
                         <small style="color: var(--text-muted); font-size: 0.7rem;">Max 20% par position.</small>
                     </div>
                 </div>
+                <div class="form-group" style="margin-bottom: 0.85rem; background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--card-border);">
+                    <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; font-size: 0.85rem;">
+                        <input type="checkbox" id="robot-us-enabled-checkbox" style="width: 1.15rem; height: 1.15rem; accent-color: #a855f7;">
+                        <span>🇺🇸 Autoriser les ordres sur le Marché Américain (US Dollars)</span>
+                    </label>
+                    <small style="color: var(--text-muted); font-size: 0.72rem; display: block; margin-top: 0.35rem; line-height: 1.35;">
+                        Actuellement désactivé par défaut. Le robot refuse tout ordre en USD et exécute exclusivement les actions Zone Euro (PEA/EUR).
+                    </small>
+                </div>
                 <div id="robot-settings-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
             </div>
             <div class="modal-footer">
@@ -4905,6 +4917,25 @@
             const depUsd = Number(g.deployed_automate_capital_usd) || 0;
             const availUsd = Number(g.available_automate_capital_usd) || ceilUsd;
             const depPctUsd = ceilUsd > 0 ? (depUsd / ceilUsd * 100).toFixed(1) : '0.0';
+            const usEnabled = Boolean(g.us_trading_enabled);
+
+            // Toggle US Market UI state
+            const btnUsTxt = document.getElementById('us-market-btn-text');
+            if (btnUsTxt) {
+                btnUsTxt.innerHTML = usEnabled ? '<span style="color:#34d399; font-weight:700;">🟢 Actif</span>' : '<span style="color:#f87171; font-weight:600;">⏸️ Inactif</span>';
+            }
+            const badgeUs = document.getElementById('badge-us-market-status');
+            if (badgeUs) {
+                if (usEnabled) {
+                    badgeUs.textContent = '🟢 Actif';
+                    badgeUs.style.background = 'rgba(16, 185, 129, 0.2)';
+                    badgeUs.style.color = '#34d399';
+                } else {
+                    badgeUs.textContent = '⏸️ En Pause';
+                    badgeUs.style.background = 'rgba(255, 255, 255, 0.08)';
+                    badgeUs.style.color = '#cbd5e1';
+                }
+            }
 
             // Affichage Enveloppe EUR
             const elemCeilEur = document.getElementById('stat-robot-ceiling-eur');
@@ -5172,13 +5203,30 @@
             }
         }
 
+        async function toggleUsMarket() {
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/toggle_us_trading`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    loadRobotStatusAndData();
+                } else {
+                    alert(`❌ Échec bascule Marché US: ${payload.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Erreur: ${e.message}`);
+            }
+        }
+
         function openRobotSettingsModal() {
             const modal = document.getElementById('robot-settings-modal');
             if (modal) modal.classList.add('active');
             const fb = document.getElementById('robot-settings-feedback');
             if (fb) fb.style.display = 'none';
 
-            // Pré-remplir avec les valeurs actuelles EUR et USD
+            // Pré-remplir avec les valeurs actuelles EUR, USD et Toggle US
             fetch(`${API_URL}/trading212/execution/status`).then(r => r.json()).then(d => {
                 if (d.success && d.guardrails) {
                     const g = d.guardrails;
@@ -5186,6 +5234,7 @@
                     if (document.getElementById('robot-ceiling-usd-input')) document.getElementById('robot-ceiling-usd-input').value = g.allocated_automate_capital_ceiling_usd || 3000;
                     if (document.getElementById('robot-rmax-input')) document.getElementById('robot-rmax-input').value = g.max_risk_per_trade_pct || 1.0;
                     if (document.getElementById('robot-alloc-input')) document.getElementById('robot-alloc-input').value = g.max_position_allocation_pct || 20.0;
+                    if (document.getElementById('robot-us-enabled-checkbox')) document.getElementById('robot-us-enabled-checkbox').checked = Boolean(g.us_trading_enabled);
                 }
             });
         }
@@ -5200,6 +5249,7 @@
             const ceilUsd = parseFloat(document.getElementById('robot-ceiling-usd-input')?.value || 3000);
             const rmax = parseFloat(document.getElementById('robot-rmax-input')?.value || 1.0);
             const alloc = parseFloat(document.getElementById('robot-alloc-input')?.value || 20.0);
+            const usEnabled = Boolean(document.getElementById('robot-us-enabled-checkbox')?.checked);
             const fb = document.getElementById('robot-settings-feedback');
 
             if (isNaN(ceilEur) || ceilEur < 100 || isNaN(ceilUsd) || ceilUsd < 100) {
@@ -5220,7 +5270,8 @@
                         automate_ceiling_eur: ceilEur,
                         automate_ceiling_usd: ceilUsd,
                         max_risk_per_trade_pct: rmax,
-                        max_position_allocation_pct: alloc
+                        max_position_allocation_pct: alloc,
+                        us_trading_enabled: usEnabled
                     })
                 });
                 const payload = await res.json();
@@ -5229,7 +5280,7 @@
                         fb.style.display = 'block';
                         fb.style.background = 'rgba(16, 185, 129, 0.15)';
                         fb.style.color = '#34d399';
-                        fb.textContent = '✅ Enveloppes EUR/USD et garde-fous enregistrés avec succès.';
+                        fb.textContent = '✅ Enveloppes EUR/USD, options de marché et garde-fous enregistrés avec succès.';
                     }
                     setTimeout(() => {
                         closeRobotSettingsModal();
