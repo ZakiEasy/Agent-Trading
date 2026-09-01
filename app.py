@@ -2463,18 +2463,18 @@ def reset_trading212_kill_switch():
 
 @app.route("/api/trading212/execution/settings", methods=["POST"])
 def update_trading212_guardrails_settings():
-    """Met à jour les paramètres de sécurité (Plafond capital, R-Max, Alloc Max)."""
+    """Met à jour les paramètres de sécurité (Plafond EUR, Plafond USD, R-Max, Alloc Max)."""
     data = request.get_json() or {}
-    max_capital = data.get("max_total_capital_ceiling")
+    max_capital_eur = data.get("automate_ceiling_eur") or data.get("max_capital_eur") or data.get("max_total_capital_ceiling")
+    max_capital_usd = data.get("automate_ceiling_usd") or data.get("max_capital_usd")
     max_risk_pct = data.get("max_risk_per_trade_pct")
     max_alloc_pct = data.get("max_position_allocation_pct")
-    min_cash_pct = data.get("min_cash_reserve_pct")
 
     res = guardrails_engine.update_settings(
-        max_capital=max_capital,
+        automate_ceiling_eur=max_capital_eur,
+        automate_ceiling_usd=max_capital_usd,
         max_risk_pct=max_risk_pct,
-        max_alloc_pct=max_alloc_pct,
-        min_cash_pct=min_cash_pct
+        max_alloc_pct=max_alloc_pct
     )
     return safe_jsonify({"success": True, "settings": res})
 

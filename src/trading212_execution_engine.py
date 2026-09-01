@@ -86,9 +86,14 @@ class Trading212ExecutionEngine:
         step_stop_be = grid["step_stop_be_price"]
         time_stop_days = grid["time_stop_days"]
 
-        # 2. Calcul dynamique de la quantité (basé sur le Plafond Dédié à l'Automate et R-Max 1%)
-        automate_ceiling = guardrails_engine.allocated_automate_capital_ceiling
-        deployed_cap = sum(p.get("nominal_invested", 0.0) for p in guardrails_engine.active_automate_positions.values())
+        # 2. Calcul dynamique de la quantité (basé sur l'enveloppe respective EUR ou USD et R-Max 1%)
+        if currency == "USD":
+            automate_ceiling = guardrails_engine.allocated_automate_capital_ceiling_usd
+            deployed_cap = sum(p.get("nominal_invested", 0.0) for p in guardrails_engine.active_automate_positions.values() if p.get("currency") == "USD")
+        else:
+            automate_ceiling = guardrails_engine.allocated_automate_capital_ceiling_eur
+            deployed_cap = sum(p.get("nominal_invested", 0.0) for p in guardrails_engine.active_automate_positions.values() if p.get("currency") == "EUR")
+
         avail_automate_cap = max(0.0, automate_ceiling - deployed_cap)
 
         if quantity is None or quantity <= 0:
@@ -96,11 +101,11 @@ class Trading212ExecutionEngine:
             stop_dist = max(0.01, entry_price - sl_price)
             calc_qty = risk_target_monetary / stop_dist
             
-            # Plafond de ligne max (ex: 20% du plafond automate)
+            # Plafond de ligne max (ex: 20% de l'enveloppe respective)
             max_alloc_monetary = automate_ceiling * (guardrails_engine.max_position_allocation_pct / 100.0)
             nominal_from_alloc = max_alloc_monetary / entry_price
             
-            # Limiter au cash disponible sur l'enveloppe automate
+            # Limiter au cash disponible sur l'enveloppe respective
             nominal_from_avail = avail_automate_cap / entry_price
             
             final_qty = min(calc_qty, nominal_from_alloc, nominal_from_avail)

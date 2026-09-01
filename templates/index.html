@@ -2162,27 +2162,37 @@
                         </button>
                     </div>
 
-                    <!-- 4 Metric Cards Row -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Plafond Dédié à l'Automate</span>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling">5 000,00 €</div>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">Enveloppe isolée du compte</span>
+                    <!-- 4 Metric Cards Row (Dual EUR & USD Envelopes) -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 0.85rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700;">💶 ENVELOPPE EURO (PEA / UE)</span>
+                                <span style="font-size: 0.68rem; color: var(--text-muted);" id="stat-robot-deployed-pct-eur">0.0%</span>
+                            </div>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling-eur">3 000,00 €</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-eur">0,00 €</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-eur">3 000,00 €</strong>
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 0.85rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.75rem; color: #c084fc; font-weight: 700;">💵 ENVELOPPE US DOLLAR (US)</span>
+                                <span style="font-size: 0.68rem; color: var(--text-muted);" id="stat-robot-deployed-pct-usd">0.0%</span>
+                            </div>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif;" id="stat-robot-ceiling-usd">3 000,00 $</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-usd">0,00 $</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-usd">3 000,00 $</strong>
+                            </div>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Capital Déployé en Cours</span>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #f59e0b; font-family: 'Outfit', sans-serif;" id="stat-robot-deployed">0,00 €</div>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);" id="stat-robot-deployed-pct">0.0 % du plafond</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Garde-Fou R-Max / Trade</span>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #34d399; font-family: 'Outfit', sans-serif;" id="stat-robot-rmax">1.0 % (Max 30 €/$)</div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">Risque max par position</span>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Réserve Cash Automate</span>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #34d399; font-family: 'Outfit', sans-serif;" id="stat-robot-avail">5 000,00 €</div>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">Disponible pour nouveaux trades</span>
-                        </div>
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem;">
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Garde-Fou R-Max / Ligne</span>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #a855f7; font-family: 'Outfit', sans-serif;" id="stat-robot-rmax">1.0 % (Max 50 €)</div>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">Alloc max : 20% par action</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Allocation Max par Ligne</span>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: #f59e0b; font-family: 'Outfit', sans-serif;" id="stat-robot-alloc">20.0 % (Max 600 €/$)</div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">Fractions d'actions autorisées</span>
                         </div>
                     </div>
 
@@ -3646,22 +3656,31 @@
             </div>
             <div class="modal-body">
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    Configurez le plafond de capital alloué <strong>exclusivement au robot</strong> (isolé du solde global Trading 212) et les ratios de risque par trade.
+                    Configurez les enveloppes de capital allouées <strong>exclusivement au robot</strong> (isolées du solde global Trading 212) et les ratios de risque par trade.
                 </p>
-                <div class="form-group" style="margin-bottom: 0.85rem;">
-                    <label>Plafond Dédié à l'Automate (€) *</label>
-                    <input type="number" id="robot-ceiling-input" class="text-input" placeholder="Ex: 5000" min="100" step="100">
-                    <small style="color: var(--text-muted); font-size: 0.7rem;">Le robot n'investira jamais plus que ce montant au total.</small>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+                    <div class="form-group">
+                        <label>💶 Enveloppe Euro (€) *</label>
+                        <input type="number" id="robot-ceiling-eur-input" class="text-input" placeholder="Ex: 3000" min="100" step="100">
+                        <small style="color: var(--text-muted); font-size: 0.7rem;">Actions PEA / Europe.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>💵 Enveloppe Dollar ($) *</label>
+                        <input type="number" id="robot-ceiling-usd-input" class="text-input" placeholder="Ex: 3000" min="100" step="100">
+                        <small style="color: var(--text-muted); font-size: 0.7rem;">Actions US (Nasdaq / NYSE).</small>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-bottom: 0.85rem;">
-                    <label>Risque Maximal R-Max par Trade (%) *</label>
-                    <input type="number" id="robot-rmax-input" class="text-input" placeholder="Ex: 1.0" min="0.1" max="2.5" step="0.1">
-                    <small style="color: var(--text-muted); font-size: 0.7rem;">Recommandé : 1.0% de l'enveloppe automate.</small>
-                </div>
-                <div class="form-group" style="margin-bottom: 0.85rem;">
-                    <label>Allocation Maximale par Ligne (%) *</label>
-                    <input type="number" id="robot-alloc-input" class="text-input" placeholder="Ex: 20.0" min="5" max="30" step="1">
-                    <small style="color: var(--text-muted); font-size: 0.7rem;">Pourcentage max de l'enveloppe sur une seule action (ex: 20% = 1 000 €).</small>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+                    <div class="form-group">
+                        <label>Risque R-Max / Trade (%) *</label>
+                        <input type="number" id="robot-rmax-input" class="text-input" placeholder="Ex: 1.0" min="0.1" max="2.5" step="0.1">
+                        <small style="color: var(--text-muted); font-size: 0.7rem;">Max 1.0% de l'enveloppe.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Allocation Max / Ligne (%) *</label>
+                        <input type="number" id="robot-alloc-input" class="text-input" placeholder="Ex: 20.0" min="5" max="30" step="1">
+                        <small style="color: var(--text-muted); font-size: 0.7rem;">Max 20% par position.</small>
+                    </div>
                 </div>
                 <div id="robot-settings-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;"></div>
             </div>
@@ -4876,28 +4895,49 @@
                 if (alertBox) alertBox.style.display = 'none';
             }
 
-            // KPIs
-            const ceiling = Number(g.allocated_automate_capital_ceiling) || 5000;
-            const deployed = Number(g.deployed_automate_capital) || 0;
-            const avail = Number(g.available_automate_capital) || ceiling;
-            const deployedPct = ceiling > 0 ? (deployed / ceiling * 100).toFixed(1) : '0.0';
+            // Dual Envelopes KPIs (EUR & USD)
+            const ceilEur = Number(g.allocated_automate_capital_ceiling_eur) || 3000;
+            const depEur = Number(g.deployed_automate_capital_eur) || 0;
+            const availEur = Number(g.available_automate_capital_eur) || ceilEur;
+            const depPctEur = ceilEur > 0 ? (depEur / ceilEur * 100).toFixed(1) : '0.0';
 
-            const elemCeil = document.getElementById('stat-robot-ceiling');
-            if (elemCeil) elemCeil.textContent = `${ceiling.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            const ceilUsd = Number(g.allocated_automate_capital_ceiling_usd) || 3000;
+            const depUsd = Number(g.deployed_automate_capital_usd) || 0;
+            const availUsd = Number(g.available_automate_capital_usd) || ceilUsd;
+            const depPctUsd = ceilUsd > 0 ? (depUsd / ceilUsd * 100).toFixed(1) : '0.0';
 
-            const elemDep = document.getElementById('stat-robot-deployed');
-            if (elemDep) elemDep.textContent = `${deployed.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            // Affichage Enveloppe EUR
+            const elemCeilEur = document.getElementById('stat-robot-ceiling-eur');
+            if (elemCeilEur) elemCeilEur.textContent = `${ceilEur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            const elemDepEur = document.getElementById('stat-robot-deployed-eur');
+            if (elemDepEur) elemDepEur.textContent = `${depEur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            const elemAvailEur = document.getElementById('stat-robot-avail-eur');
+            if (elemAvailEur) elemAvailEur.textContent = `${availEur.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            const elemDepPctEur = document.getElementById('stat-robot-deployed-pct-eur');
+            if (elemDepPctEur) elemDepPctEur.textContent = `${depPctEur}%`;
 
-            const elemDepPct = document.getElementById('stat-robot-deployed-pct');
-            if (elemDepPct) elemDepPct.textContent = `${deployedPct} % du plafond`;
+            // Affichage Enveloppe USD
+            const elemCeilUsd = document.getElementById('stat-robot-ceiling-usd');
+            if (elemCeilUsd) elemCeilUsd.textContent = `${ceilUsd.toLocaleString('en-US', {minimumFractionDigits: 2})} $`;
+            const elemDepUsd = document.getElementById('stat-robot-deployed-usd');
+            if (elemDepUsd) elemDepUsd.textContent = `${depUsd.toLocaleString('en-US', {minimumFractionDigits: 2})} $`;
+            const elemAvailUsd = document.getElementById('stat-robot-avail-usd');
+            if (elemAvailUsd) elemAvailUsd.textContent = `${availUsd.toLocaleString('en-US', {minimumFractionDigits: 2})} $`;
+            const elemDepPctUsd = document.getElementById('stat-robot-deployed-pct-usd');
+            if (elemDepPctUsd) elemDepPctUsd.textContent = `${depPctUsd}%`;
 
-            const elemAvail = document.getElementById('stat-robot-avail');
-            if (elemAvail) elemAvail.textContent = `${avail.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
-
+            // R-Max & Allocation
             const elemRmax = document.getElementById('stat-robot-rmax');
             const rmaxPct = Number(g.max_risk_per_trade_pct) || 1.0;
-            const maxLossEur = (ceiling * (rmaxPct / 100)).toFixed(0);
-            if (elemRmax) elemRmax.textContent = `${rmaxPct.toFixed(1)} % (Max ${maxLossEur} €)`;
+            const maxLossEur = (ceilEur * (rmaxPct / 100)).toFixed(0);
+            const maxLossUsd = (ceilUsd * (rmaxPct / 100)).toFixed(0);
+            if (elemRmax) elemRmax.textContent = `${rmaxPct.toFixed(1)} % (Max ${maxLossEur}€ / ${maxLossUsd}$)`;
+
+            const elemAlloc = document.getElementById('stat-robot-alloc');
+            const allocPct = Number(g.max_position_allocation_pct) || 20.0;
+            const maxLineEur = (ceilEur * (allocPct / 100)).toFixed(0);
+            const maxLineUsd = (ceilUsd * (allocPct / 100)).toFixed(0);
+            if (elemAlloc) elemAlloc.textContent = `${allocPct.toFixed(1)} % (Max ${maxLineEur}€ / ${maxLineUsd}$)`;
 
             // Counters
             const pendingCountElem = document.getElementById('pending-proposals-count');
@@ -5138,11 +5178,12 @@
             const fb = document.getElementById('robot-settings-feedback');
             if (fb) fb.style.display = 'none';
 
-            // Pré-remplir avec les valeurs actuelles
+            // Pré-remplir avec les valeurs actuelles EUR et USD
             fetch(`${API_URL}/trading212/execution/status`).then(r => r.json()).then(d => {
                 if (d.success && d.guardrails) {
                     const g = d.guardrails;
-                    if (document.getElementById('robot-ceiling-input')) document.getElementById('robot-ceiling-input').value = g.allocated_automate_capital_ceiling || 5000;
+                    if (document.getElementById('robot-ceiling-eur-input')) document.getElementById('robot-ceiling-eur-input').value = g.allocated_automate_capital_ceiling_eur || 3000;
+                    if (document.getElementById('robot-ceiling-usd-input')) document.getElementById('robot-ceiling-usd-input').value = g.allocated_automate_capital_ceiling_usd || 3000;
                     if (document.getElementById('robot-rmax-input')) document.getElementById('robot-rmax-input').value = g.max_risk_per_trade_pct || 1.0;
                     if (document.getElementById('robot-alloc-input')) document.getElementById('robot-alloc-input').value = g.max_position_allocation_pct || 20.0;
                 }
@@ -5155,17 +5196,18 @@
         }
 
         async function saveRobotSettings() {
-            const ceiling = parseFloat(document.getElementById('robot-ceiling-input')?.value || 5000);
+            const ceilEur = parseFloat(document.getElementById('robot-ceiling-eur-input')?.value || 3000);
+            const ceilUsd = parseFloat(document.getElementById('robot-ceiling-usd-input')?.value || 3000);
             const rmax = parseFloat(document.getElementById('robot-rmax-input')?.value || 1.0);
             const alloc = parseFloat(document.getElementById('robot-alloc-input')?.value || 20.0);
             const fb = document.getElementById('robot-settings-feedback');
 
-            if (isNaN(ceiling) || ceiling < 100) {
+            if (isNaN(ceilEur) || ceilEur < 100 || isNaN(ceilUsd) || ceilUsd < 100) {
                 if (fb) {
                     fb.style.display = 'block';
                     fb.style.background = 'rgba(239, 68, 68, 0.15)';
                     fb.style.color = '#f87171';
-                    fb.textContent = 'Veuillez renseigner un plafond valide (min 100 €).';
+                    fb.textContent = 'Veuillez renseigner des plafonds valides pour EUR et USD (min 100).';
                 }
                 return;
             }
@@ -5175,7 +5217,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        max_total_capital_ceiling: ceiling,
+                        automate_ceiling_eur: ceilEur,
+                        automate_ceiling_usd: ceilUsd,
                         max_risk_per_trade_pct: rmax,
                         max_position_allocation_pct: alloc
                     })
@@ -5186,7 +5229,7 @@
                         fb.style.display = 'block';
                         fb.style.background = 'rgba(16, 185, 129, 0.15)';
                         fb.style.color = '#34d399';
-                        fb.textContent = '✅ Garde-fous enregistrés avec succès.';
+                        fb.textContent = '✅ Enveloppes EUR/USD et garde-fous enregistrés avec succès.';
                     }
                     setTimeout(() => {
                         closeRobotSettingsModal();

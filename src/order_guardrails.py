@@ -1,11 +1,12 @@
 """
 Module de Garde-Fous Institutionnels & Sécurité (CSO - Chief Security Officer)
 Applique des règles strictes et non contournables avant toute transmission d'ordre sur Trading 212 :
-1. Plafond Dédié à l'Automate (Indépendant du capital total disponible sur le compte broker)
-2. Respect du Risque R-Max (<= 1.0% de l'equity globale par position)
-3. Limite d'allocation par ligne (max 15-20%) et Réserve Cash
+1. Double Enveloppe de Capital Dédiée : Une Enveloppe EUR (€) et une Enveloppe USD ($)
+   (Isolées l'une de l'autre et totalement indépendantes du capital total disponible sur le broker)
+2. Respect du Risque R-Max (<= 1.0% de l'enveloppe respective par position)
+3. Limite d'allocation par ligne (max 15-20% de l'enveloppe respective)
 4. Grilles Stratégiques Spécifiques (Mean Reversion, Sniper, Sneak) avec Time Stop dédié
-5. Gestion Multi-Devises (EUR vs USD) et protection contre les frais de change
+5. Neutralisation des frais de change (Actions US en USD, Actions Européennes en EUR)
 6. Filtrage Sharia AAOIFI obligatoire
 7. Anti-doublon d'entrée & Idempotence stricte (avec autorisation des ordres de sortie TP1/BE/TP2/SL)
 8. Rate Limiting (max 1 ordre / 3s, max 10 ordres / heure)
@@ -62,17 +63,18 @@ STRATEGY_GRID_PROFILES = {
 
 class OrderGuardrailsEngine:
     def __init__(self):
-        # 1. Plafond dédié EXCLUSIVEMENT à l'automate (Indépendant du compte total Trading 212)
-        self.allocated_automate_capital_ceiling = float(os.getenv("AUTOMATE_CAPITAL_CEILING", 5000.0))
+        # 1. Double Enveloppe de Capital Dédiée EXCLUSIVEMENT à l'automate
+        self.allocated_automate_capital_ceiling_eur = float(os.getenv("AUTOMATE_CAPITAL_CEILING_EUR", 3000.0))
+        self.allocated_automate_capital_ceiling_usd = float(os.getenv("AUTOMATE_CAPITAL_CEILING_USD", 3000.0))
         
-        # 2. Risque monétaire par trade R-Max (<= 1.0%)
+        # 2. Risque monétaire par trade R-Max (<= 1.0% de l'enveloppe respective)
         self.max_risk_per_trade_pct = 1.0
         
-        # 3. Allocation max par ligne (% de l'enveloppe automate)
+        # 3. Allocation max par ligne (% de l'enveloppe respective)
         self.max_position_allocation_pct = 20.0
         
         # 4. Limites de gestion
-        self.max_open_positions = 6
+        self.max_open_positions = 8
         self.max_consecutive_errors = 3
         
         # État en mémoire
@@ -84,32 +86,67 @@ class OrderGuardrailsEngine:
         self.submitted_entry_hashes = set()
         self.recent_order_timestamps = []
         
-        # Positions actives sous gestion de l'automate (avec capital déployé)
+        # Positions actives sous gestion de l'automate (ventilées par devise)
         self.active_automate_positions = {}  # { symbol: { nominal_invested, currency, ... } }
 
-    def update_settings(self, automate_ceiling=None, max_risk_pct=None, max_alloc_pct=None):
-        """Met à jour les paramètres de sécurité à l'exécution."""
-        if automate_ceiling is not None and float(automate_ceiling) > 0:
-            self.allocated_automate_capital_ceiling = float(automate_ceiling)
+    def update_settings(
+        self,
+        automate_ceiling_eur=None,
+        automate_ceiling_usd=None,
+        max_total_capital_ceiling=None,
+        max_risk_pct=None,
+        max_alloc_pct=None
+    ):
+        """Met à jour les plafonds de capital EUR/USD et les paramètres de risque."""
+        if automate_ceiling_eur is not None and float(automate_ceiling_eur) > 0:
+            self.allocated_automate_capital_ceiling_eur = float(automate_ceiling_eur)
+        elif max_total_capital_ceiling is not None and float(max_total_capital_ceiling) > 0 and automate_ceiling_eur is None:
+            self.allocated_automate_capital_ceiling_eur = float(max_total_capital_ceiling)
+
+        if automate_ceiling_usd is not None and float(automate_ceiling_usd) > 0:
+            self.allocated_automate_capital_ceiling_usd = float(automate_ceiling_usd)
+
         if max_risk_pct is not None and 0.1 <= float(max_risk_pct) <= 2.5:
             self.max_risk_per_trade_pct = float(max_risk_pct)
         if max_alloc_pct is not None and 5.0 <= float(max_alloc_pct) <= 30.0:
             self.max_position_allocation_pct = float(max_alloc_pct)
 
-        logger.info(f"🛡️ Garde-fous mis à jour : Plafond Automate {self.allocated_automate_capital_ceiling}€ | R-Max {self.max_risk_per_trade_pct}% | Alloc {self.max_position_allocation_pct}%")
+        logger.info(
+            f"🛡️ Garde-fous mis à jour : Enveloppe EUR {self.allocated_automate_capital_ceiling_eur}€ | "
+            f"Enveloppe USD {self.allocated_automate_capital_ceiling_usd}$ | R-Max {self.max_risk_per_trade_pct}% | "
+            f"Alloc {self.max_position_allocation_pct}%"
+        )
         return self.get_status()
 
     def get_status(self):
-        """Retourne l'état actuel des garde-fous et de la sécurité."""
-        deployed_capital = sum(p.get("nominal_invested", 0.0) for p in self.active_automate_positions.values())
-        available_automate_capital = max(0.0, self.allocated_automate_capital_ceiling - deployed_capital)
-        
+        """Retourne l'état actuel des garde-fous, ventilé par enveloppe EUR et USD."""
+        # Calcul du capital déployé par devise
+        deployed_eur = sum(
+            p.get("nominal_invested", 0.0) 
+            for p in self.active_automate_positions.values() 
+            if p.get("currency") == "EUR"
+        )
+        deployed_usd = sum(
+            p.get("nominal_invested", 0.0) 
+            for p in self.active_automate_positions.values() 
+            if p.get("currency") == "USD"
+        )
+
+        avail_eur = max(0.0, self.allocated_automate_capital_ceiling_eur - deployed_eur)
+        avail_usd = max(0.0, self.allocated_automate_capital_ceiling_usd - deployed_usd)
+
         return {
             "kill_switch_active": self.is_kill_switch_active,
             "kill_switch_reason": self.kill_switch_reason,
-            "allocated_automate_capital_ceiling": round(self.allocated_automate_capital_ceiling, 2),
-            "deployed_automate_capital": round(deployed_capital, 2),
-            "available_automate_capital": round(available_automate_capital, 2),
+            # Enveloppe EUR
+            "allocated_automate_capital_ceiling_eur": round(self.allocated_automate_capital_ceiling_eur, 2),
+            "deployed_automate_capital_eur": round(deployed_eur, 2),
+            "available_automate_capital_eur": round(avail_eur, 2),
+            # Enveloppe USD
+            "allocated_automate_capital_ceiling_usd": round(self.allocated_automate_capital_ceiling_usd, 2),
+            "deployed_automate_capital_usd": round(deployed_usd, 2),
+            "available_automate_capital_usd": round(avail_usd, 2),
+            # Paramètres de risque
             "max_risk_per_trade_pct": round(self.max_risk_per_trade_pct, 2),
             "max_position_allocation_pct": round(self.max_position_allocation_pct, 2),
             "consecutive_errors_count": self.consecutive_errors_count,
@@ -153,6 +190,10 @@ class OrderGuardrailsEngine:
         if sym.endswith(".PA") or sym.endswith(".DE") or sym.endswith(".AS") or sym.endswith(".MC"):
             return "EUR"
         return "USD"
+
+    def get_currency_symbol(self, currency):
+        """Retourne le symbole monétaire (€ ou $)."""
+        return "$" if str(currency).upper() == "USD" else "€"
 
     def calculate_strategy_grid(self, symbol, entry_price, strategy_type="Mean Reversion", custom_sl_pct=None):
         """
@@ -202,7 +243,7 @@ class OrderGuardrailsEngine:
     ):
         """
         Validation exhaustive des garde-fous pour l'automate.
-        Garantit que l'automate ne dépasse JAMAIS son plafond dédié indépendant.
+        Garantit le strict respect de l'enveloppe respective (EUR ou USD).
         """
         # 1. Vérification Kill-Switch
         if self.is_kill_switch_active:
@@ -212,11 +253,12 @@ class OrderGuardrailsEngine:
         if self.consecutive_errors_count >= self.max_consecutive_errors:
             return False, f"⚠️ Circuit Breaker : {self.consecutive_errors_count} erreurs API consécutives", None
 
-        # 3. Devise de l'instrument
+        # 3. Devise de l'instrument & Sélection de l'enveloppe dédiée
         currency = self.get_instrument_currency(symbol)
+        curr_sign = self.get_currency_symbol(currency)
         nominal_trade = entry_price * quantity
 
-        # Si l'action est une sortie (TP1, Step Stop, TP2, Stop Loss), on autorise sans bloquer sur l'idempotence d'entrée
+        # Si l'action est une sortie (TP1, Step Stop, TP2, Stop Loss), on autorise immédiatement
         if action_type in ["TP1_SELL", "STEP_STOP_BE_REPLACE", "TP2_SELL", "STOP_LOSS_CLOSE", "TIME_STOP_CLOSE"]:
             return True, "Action de gestion de position autorisée", {
                 "symbol": symbol.upper(),
@@ -224,7 +266,7 @@ class OrderGuardrailsEngine:
                 "currency": currency
             }
 
-        # 4. Anti-Doublon d'Entrée : 1 seule position active sur ce symbole dans l'automate
+        # 4. Anti-Doublon d'Entrée : 1 seule position active par symbole
         if symbol.upper() in self.active_automate_positions:
             return False, f"🚫 Doublon bloqué : Une ligne automate est déjà active sur {symbol}", None
 
@@ -249,23 +291,36 @@ class OrderGuardrailsEngine:
             reason = sharia_res.get("reason", "Non conforme AAOIFI")
             return False, f"🕋 Rejet Sharia : {symbol} n'est pas éligible ({reason})", None
 
-        # 8. Respect du Plafond Dédié à l'Automate (Indépendant du reste du compte)
-        deployed_cap = sum(p.get("nominal_invested", 0.0) for p in self.active_automate_positions.values())
-        if (deployed_cap + nominal_trade) > self.allocated_automate_capital_ceiling * 1.02: # Tolérance 2% arrondis
-            avail_automate = max(0.0, self.allocated_automate_capital_ceiling - deployed_cap)
-            return False, f"💰 Plafond Automate dépassé : {nominal_trade:.2f}{currency} requis vs {avail_automate:.2f}{currency} restant sur le plafond dédié ({self.allocated_automate_capital_ceiling:.2f}{currency})", None
+        # 8. Respect de l'Enveloppe Dédiée Spécifique (EUR vs USD)
+        if currency == "USD":
+            ceiling = self.allocated_automate_capital_ceiling_usd
+            deployed_cap = sum(
+                p.get("nominal_invested", 0.0) 
+                for p in self.active_automate_positions.values() 
+                if p.get("currency") == "USD"
+            )
+        else:
+            ceiling = self.allocated_automate_capital_ceiling_eur
+            deployed_cap = sum(
+                p.get("nominal_invested", 0.0) 
+                for p in self.active_automate_positions.values() 
+                if p.get("currency") == "EUR"
+            )
 
-        # 9. Limite d'allocation par ligne (Max 20% du plafond automate)
-        max_line_alloc = self.allocated_automate_capital_ceiling * (self.max_position_allocation_pct / 100.0)
+        if (deployed_cap + nominal_trade) > ceiling * 1.02:  # Tolérance 2% arrondis
+            avail = max(0.0, ceiling - deployed_cap)
+            return False, f"💰 Plafond Enveloppe {currency} dépassé : {nominal_trade:.2f}{curr_sign} requis vs {avail:.2f}{curr_sign} restant sur le plafond dédié ({ceiling:.2f}{curr_sign})", None
+
+        # 9. Limite d'allocation par ligne (Max 20% de l'enveloppe respective)
+        max_line_alloc = ceiling * (self.max_position_allocation_pct / 100.0)
         if nominal_trade > max_line_alloc * 1.05:
-            return False, f"⚠️ Ligne excessive : {nominal_trade:.2f}{currency} dépasse l'allocation maximale par ligne ({max_line_alloc:.2f}{currency} = {self.max_position_allocation_pct}% du plafond)", None
+            return False, f"⚠️ Ligne excessive : {nominal_trade:.2f}{curr_sign} dépasse l'allocation maximale autorisée par ligne ({max_line_alloc:.2f}{curr_sign} = {self.max_position_allocation_pct}% de l'enveloppe {currency})", None
 
-        # 10. Risque R-Max (<= 1.0% du capital total ou plafond)
+        # 10. Risque R-Max (<= 1.0% de l'enveloppe respective)
         risk_monetary = (entry_price - stop_loss_price) * quantity
-        base_capital_ref = self.allocated_automate_capital_ceiling
-        risk_pct = (risk_monetary / base_capital_ref * 100.0)
+        risk_pct = (risk_monetary / ceiling * 100.0)
         if risk_pct > self.max_risk_per_trade_pct * 1.05:
-            return False, f"⚠️ R-Max dépassé : Perte potentielle de {risk_monetary:.2f}{currency} ({risk_pct:.2f}% du plafond max autorisant {self.max_risk_per_trade_pct}%)", None
+            return False, f"⚠️ R-Max dépassé : Perte potentielle de {risk_monetary:.2f}{curr_sign} ({risk_pct:.2f}% de l'enveloppe {currency} max autorisant {self.max_risk_per_trade_pct}%)", None
 
         # Construction du plan détaillé
         pnl_tp1 = (tp1_price - entry_price) * (quantity * 0.5)
@@ -277,6 +332,7 @@ class OrderGuardrailsEngine:
             "symbol": symbol.upper(),
             "strategy_type": strategy_type,
             "currency": currency,
+            "currency_symbol": curr_sign,
             "entry_price": round(entry_price, 2),
             "stop_loss_price": round(stop_loss_price, 2),
             "stop_loss_pct": round((stop_loss_price - entry_price) / entry_price * 100.0, 2),
@@ -299,7 +355,7 @@ class OrderGuardrailsEngine:
         return True, "Validation garde-fous réussie", trade_plan
 
     def register_entry_order_submitted(self, symbol, idempotency_hash, nominal_invested, currency="EUR"):
-        """Enregistre une nouvelle ligne ouverte dans l'enveloppe de l'automate."""
+        """Enregistre une nouvelle ligne ouverte dans l'enveloppe respective (EUR ou USD)."""
         self.submitted_entry_hashes.add(idempotency_hash)
         self.recent_order_timestamps.append(time.time())
         self.active_automate_positions[symbol.upper()] = {
@@ -317,7 +373,7 @@ class OrderGuardrailsEngine:
             self.trigger_kill_switch(f"Circuit Breaker déclenché après {self.consecutive_errors_count} erreurs API consécutives")
 
     def register_position_closed(self, symbol):
-        """Libère le capital dans l'enveloppe de l'automate lors de la clôture définitive."""
+        """Libère le capital dans l'enveloppe respective lors de la clôture définitive."""
         self.active_automate_positions.pop(symbol.upper(), None)
 
 
