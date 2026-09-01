@@ -673,3 +673,47 @@ def get_latest_macro_regime():
     except Exception as e:
         print(f"⚠️ Erreur get_latest_macro_regime: {e}")
         return None
+
+
+def get_app_setting(key, default=None):
+    """Récupère un paramètre de configuration depuis Supabase (table public.app_settings)."""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT value FROM public.app_settings WHERE key = %s LIMIT 1;", (key,))
+                row = cur.fetchone()
+                if row and row.get("value") is not None:
+                    val = row["value"]
+                    if isinstance(val, str):
+                        try:
+                            return json.loads(val)
+                        except Exception:
+                            return val
+                    return val
+                return default
+    except Exception as e:
+        print(f"⚠️ Erreur get_app_setting ({key}): {e}")
+        return default
+
+
+def save_app_setting(key, value, description=None):
+    """Enregistre ou met à jour un paramètre JSON dans Supabase (table public.app_settings)."""
+    try:
+        val_json = json.dumps(value) if not isinstance(value, str) else value
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO public.app_settings (key, value, description, updated_at)
+                    VALUES (%s, %s::jsonb, %s, NOW())
+                    ON CONFLICT (key) DO UPDATE 
+                    SET value = EXCLUDED.value,
+                        description = COALESCE(EXCLUDED.description, public.app_settings.description),
+                        updated_at = NOW()
+                    RETURNING key;
+                """, (key, val_json, description))
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"⚠️ Erreur save_app_setting ({key}): {e}")
+        return False
+

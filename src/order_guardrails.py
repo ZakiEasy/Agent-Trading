@@ -16,6 +16,7 @@ Applique des règles strictes et non contournables avant toute transmission d'or
 
 import os
 import time
+import json
 import hashlib
 import logging
 from datetime import datetime, timedelta
@@ -62,8 +63,10 @@ STRATEGY_GRID_PROFILES = {
 
 
 class OrderGuardrailsEngine:
+    SETTINGS_KEY = "trading212_robot_settings"
+
     def __init__(self):
-        # 1. Double Enveloppe de Capital Dédiée EXCLUSIVEMENT à l'automate
+        # 1. Double Enveloppe de Capital Dédiée EXCLUSIVEMENT à l'automate (Valeurs par défaut)
         self.allocated_automate_capital_ceiling_eur = float(os.getenv("AUTOMATE_CAPITAL_CEILING_EUR", 3000.0))
         self.allocated_automate_capital_ceiling_usd = float(os.getenv("AUTOMATE_CAPITAL_CEILING_USD", 3000.0))
         
@@ -93,6 +96,96 @@ class OrderGuardrailsEngine:
         # Positions actives sous gestion de l'automate (ventilées par devise)
         self.active_automate_positions = {}  # { symbol: { nominal_invested, currency, ... } }
 
+        # 6. Chargement automatique des paramètres persistés (Supabase PostgreSQL / JSON Local)
+        self.load_persisted_settings()
+
+    def _get_local_settings_path(self):
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        os.makedirs(data_dir, exist_ok=True)
+        return os.path.join(data_dir, "robot_settings.json")
+
+    def _apply_settings_dict(self, data):
+        """Applique un dictionnaire de configuration aux attributs de l'instance."""
+        if not data or not isinstance(data, dict):
+            return
+        if "allocated_automate_capital_ceiling_eur" in data:
+            self.allocated_automate_capital_ceiling_eur = float(data["allocated_automate_capital_ceiling_eur"])
+        elif "max_total_capital_ceiling" in data:
+            self.allocated_automate_capital_ceiling_eur = float(data["max_total_capital_ceiling"])
+            
+        if "allocated_automate_capital_ceiling_usd" in data:
+            self.allocated_automate_capital_ceiling_usd = float(data["allocated_automate_capital_ceiling_usd"])
+            
+        if "us_trading_enabled" in data:
+            self.us_trading_enabled = bool(data["us_trading_enabled"])
+            
+        if "max_risk_per_trade_pct" in data:
+            self.max_risk_per_trade_pct = float(data["max_risk_per_trade_pct"])
+            
+        if "max_position_allocation_pct" in data:
+            self.max_position_allocation_pct = float(data["max_position_allocation_pct"])
+
+    def load_persisted_settings(self):
+        """Charge les paramètres persistants depuis Supabase (table app_settings) avec fallback local JSON."""
+        loaded = False
+        try:
+            from src.supabase_connector import get_app_setting
+            data = get_app_setting(self.SETTINGS_KEY)
+            if data and isinstance(data, dict):
+                self._apply_settings_dict(data)
+                logger.info(
+                    f"💾 Paramètres robot restaurés depuis Supabase : EUR {self.allocated_automate_capital_ceiling_eur}€ | "
+                    f"USD {self.allocated_automate_capital_ceiling_usd}$ | Marché US {'ACTIF' if self.us_trading_enabled else 'DÉSACTIVÉ'}"
+                )
+                loaded = True
+        except Exception as e:
+            logger.warning(f"Impossible de charger les réglages robot depuis Supabase : {e}")
+
+        if not loaded:
+            # Fallback fichier local
+            try:
+                local_path = self._get_local_settings_path()
+                if os.path.exists(local_path):
+                    with open(local_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if data and isinstance(data, dict):
+                            self._apply_settings_dict(data)
+                            logger.info(
+                                f"💾 Paramètres robot restaurés depuis data/robot_settings.json : EUR {self.allocated_automate_capital_ceiling_eur}€ | "
+                                f"USD {self.allocated_automate_capital_ceiling_usd}$"
+                            )
+            except Exception as e:
+                logger.warning(f"Impossible de lire data/robot_settings.json : {e}")
+
+    def save_persisted_settings(self):
+        """Persiste immédiatement les paramètres dans Supabase (table app_settings) et dans data/robot_settings.json."""
+        payload = {
+            "allocated_automate_capital_ceiling_eur": self.allocated_automate_capital_ceiling_eur,
+            "allocated_automate_capital_ceiling_usd": self.allocated_automate_capital_ceiling_usd,
+            "us_trading_enabled": self.us_trading_enabled,
+            "max_risk_per_trade_pct": self.max_risk_per_trade_pct,
+            "max_position_allocation_pct": self.max_position_allocation_pct,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        # 1. Supabase (Centralisé cloud multi-sessions et multi-déploiements)
+        try:
+            from src.supabase_connector import save_app_setting
+            save_app_setting(
+                self.SETTINGS_KEY,
+                payload,
+                "Paramètres d'enveloppes et garde-fous du robot Trading 212"
+            )
+        except Exception as e:
+            logger.warning(f"Erreur sauvegarde réglages robot sur Supabase : {e}")
+
+        # 2. Local fallback JSON
+        try:
+            local_path = self._get_local_settings_path()
+            with open(local_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"Erreur écriture data/robot_settings.json : {e}")
+
     def update_settings(
         self,
         automate_ceiling_eur=None,
@@ -102,7 +195,7 @@ class OrderGuardrailsEngine:
         max_alloc_pct=None,
         us_trading_enabled=None
     ):
-        """Met à jour les plafonds de capital EUR/USD, le toggle Marché US et les paramètres de risque."""
+        """Met à jour les plafonds de capital EUR/USD, le toggle Marché US et les paramètres de risque avec persistance automatique."""
         if automate_ceiling_eur is not None and float(automate_ceiling_eur) > 0:
             self.allocated_automate_capital_ceiling_eur = float(automate_ceiling_eur)
         elif max_total_capital_ceiling is not None and float(max_total_capital_ceiling) > 0 and automate_ceiling_eur is None:
@@ -119,8 +212,11 @@ class OrderGuardrailsEngine:
         if us_trading_enabled is not None:
             self.us_trading_enabled = bool(us_trading_enabled)
 
+        # Persistance immédiate
+        self.save_persisted_settings()
+
         logger.info(
-            f"🛡️ Garde-fous mis à jour : Enveloppe EUR {self.allocated_automate_capital_ceiling_eur}€ | "
+            f"🛡️ Garde-fous mis à jour & sauvegardés : Enveloppe EUR {self.allocated_automate_capital_ceiling_eur}€ | "
             f"Enveloppe USD {self.allocated_automate_capital_ceiling_usd}$ | Marché US {'ACTIF' if self.us_trading_enabled else 'DÉSACTIVÉ'} | "
             f"R-Max {self.max_risk_per_trade_pct}% | Alloc {self.max_position_allocation_pct}%"
         )
