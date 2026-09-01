@@ -198,11 +198,20 @@ XTB_COMMISSION_RATE_OVER_LIMIT = 0.002
 XTB_MIN_COMMISSION_OVER_LIMIT_EUR = 10.0
 
 # ==============================================================================
-# --- 7. Intégration API Trading 212 (Multi-Broker & Anti-FIFO) ---
+# --- 7. Intégration API Trading 212 (Séparation Clé Lecture & Clé Exécution) ---
 # ==============================================================================
 
-TRADING212_API_KEY = os.getenv("TRADING212_API_KEY", "")
-TRADING212_API_SECRET = os.getenv("TRADING212_API_SECRET", "")
+# Clé API LECTURE SEULE (Portefeuille en direct, Cash, Dividendes, Historique)
+TRADING212_READ_API_KEY = os.getenv("TRADING212_READ_API_KEY", os.getenv("TRADING212_API_KEY", "50449602ZuRbeYXanAFQpMLXmykBjHTHUdwca"))
+TRADING212_READ_API_SECRET = os.getenv("TRADING212_READ_API_SECRET", os.getenv("TRADING212_API_SECRET", "JLLpB3OPODPJs26XbtBVvKKKIjX_AeavMVVLJ_zXuUA"))
+
+# Clé API EXÉCUTION / ROBOT (Permissions d'ordres : Passation, Modification, Annulation)
+TRADING212_EXEC_API_KEY = os.getenv("TRADING212_EXEC_API_KEY", "50449602ZwbaMTvzYOlnitShNPOCVmjQfyMdE")
+TRADING212_EXEC_API_SECRET = os.getenv("TRADING212_EXEC_API_SECRET", "v_4r-L2KNEONX2P9vo5D3nhh0khJNBYryvsaKw_ne6A")
+
+# Rétro-compatibilité
+TRADING212_API_KEY = TRADING212_READ_API_KEY
+TRADING212_API_SECRET = TRADING212_READ_API_SECRET
 TRADING212_ENVIRONMENT = os.getenv("TRADING212_ENVIRONMENT", "live").lower().strip()  # "live" ou "demo"
 
 if TRADING212_ENVIRONMENT == "demo":

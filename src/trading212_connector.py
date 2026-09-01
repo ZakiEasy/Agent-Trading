@@ -3,6 +3,10 @@ import time
 import base64
 import requests
 from src.config import (
+    TRADING212_READ_API_KEY,
+    TRADING212_READ_API_SECRET,
+    TRADING212_EXEC_API_KEY,
+    TRADING212_EXEC_API_SECRET,
     TRADING212_API_KEY,
     TRADING212_API_SECRET,
     TRADING212_ENVIRONMENT,
@@ -17,22 +21,46 @@ _T212_CACHE = {
 }
 T212_CACHE_TTL = 60  # secondes
 
-# Clé API dynamique configurable en session
+# Clés API dynamiques séparées : LECTURE SEULE vs EXÉCUTION / ROBOT
 _RUNTIME_CONFIG = {
-    "api_key": TRADING212_API_KEY,
-    "api_secret": TRADING212_API_SECRET,
+    "read_api_key": TRADING212_READ_API_KEY,
+    "read_api_secret": TRADING212_READ_API_SECRET,
+    "exec_api_key": TRADING212_EXEC_API_KEY,
+    "exec_api_secret": TRADING212_EXEC_API_SECRET,
+    "api_key": TRADING212_READ_API_KEY,
+    "api_secret": TRADING212_READ_API_SECRET,
     "environment": TRADING212_ENVIRONMENT
 }
 
-def set_runtime_trading212_config(api_key=None, api_secret=None, environment=None):
+def set_runtime_trading212_config(
+    read_api_key=None,
+    read_api_secret=None,
+    exec_api_key=None,
+    exec_api_secret=None,
+    api_key=None,
+    api_secret=None,
+    environment=None
+):
     """
-    Met à jour la configuration Trading 212 à l'exécution.
+    Met à jour la configuration Trading 212 à l'exécution avec clés séparées.
     """
     global _RUNTIME_CONFIG, _T212_CACHE
+    if read_api_key is not None:
+        _RUNTIME_CONFIG["read_api_key"] = read_api_key.strip()
+    if read_api_secret is not None:
+        _RUNTIME_CONFIG["read_api_secret"] = read_api_secret.strip()
+    if exec_api_key is not None:
+        _RUNTIME_CONFIG["exec_api_key"] = exec_api_key.strip()
+    if exec_api_secret is not None:
+        _RUNTIME_CONFIG["exec_api_secret"] = exec_api_secret.strip()
     if api_key is not None:
         _RUNTIME_CONFIG["api_key"] = api_key.strip()
+        if read_api_key is None:
+            _RUNTIME_CONFIG["read_api_key"] = api_key.strip()
     if api_secret is not None:
         _RUNTIME_CONFIG["api_secret"] = api_secret.strip()
+        if read_api_secret is None:
+            _RUNTIME_CONFIG["read_api_secret"] = api_secret.strip()
     if environment is not None:
         _RUNTIME_CONFIG["environment"] = environment.lower().strip()
     
@@ -49,32 +77,40 @@ def get_trading212_base_url():
         return "https://demo.trading212.com/api/v0"
     return "https://live.trading212.com/api/v0"
 
-def get_trading212_headers(api_key=None, api_secret=None):
-    """
-    Construit les headers d'authentification pour l'API Trading 212.
-    Supporte les formats Token direct et Basic Auth (Key:Secret).
-    """
-    key = api_key if api_key is not None else _RUNTIME_CONFIG.get("api_key")
-    secret = api_secret if api_secret is not None else _RUNTIME_CONFIG.get("api_secret")
-
+def _build_auth_headers(key, secret=None):
+    """Construit les headers d'authentification Bearer ou Basic Auth."""
     if not key:
         return None
-
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
-
     if secret:
-        # Basic Auth: base64(key:secret)
         raw_creds = f"{key}:{secret}"
         encoded = base64.b64encode(raw_creds.encode("utf-8")).decode("utf-8")
         headers["Authorization"] = f"Basic {encoded}"
     else:
-        # Direct API Key header
         headers["Authorization"] = key
-
     return headers
+
+def get_trading212_read_headers(api_key=None, api_secret=None):
+    """Headers pour les opérations de LECTURE SEULE (Portefeuille, Cash, Dividendes)."""
+    key = api_key or _RUNTIME_CONFIG.get("read_api_key") or _RUNTIME_CONFIG.get("api_key")
+    secret = api_secret or _RUNTIME_CONFIG.get("read_api_secret") or _RUNTIME_CONFIG.get("api_secret")
+    return _build_auth_headers(key, secret)
+
+def get_trading212_exec_headers(api_key=None, api_secret=None):
+    """Headers pour les opérations d'EXÉCUTION / ROBOT (Passation et annulation d'ordres)."""
+    key = api_key or _RUNTIME_CONFIG.get("exec_api_key") or _RUNTIME_CONFIG.get("api_key")
+    secret = api_secret or _RUNTIME_CONFIG.get("exec_api_secret") or _RUNTIME_CONFIG.get("api_secret")
+    return _build_auth_headers(key, secret)
+
+def get_trading212_headers(api_key=None, api_secret=None, purpose="read"):
+    """Fonction générique construisant les headers selon la finalité (read ou exec)."""
+    if purpose == "exec":
+        return get_trading212_exec_headers(api_key, api_secret)
+    return get_trading212_read_headers(api_key, api_secret)
+
 
 def normalize_t212_ticker(t212_ticker):
     """
@@ -206,52 +242,62 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
 
 def check_trading212_api_permissions():
     """
-    Diagnostique précisément les droits accordés à la clé API Trading 212 :
-    - Permission de LECTURE (Solde, Positions)
-    - Permission d'ORDRES (Création, Annulation de trades)
+    Diagnostique précisément les droits accordés aux 2 clés API Trading 212 :
+    1. Clé de LECTURE SEULE (Solde, Portefeuille, Cash, Dividendes)
+    2. Clé d'EXÉCUTION / ROBOT (Passation, Modification, Annulation d'ordres)
     """
-    headers = get_trading212_headers()
-    if not headers:
-        return {
-            "valid": False,
-            "read_permission": False,
-            "orders_permission": False,
-            "message": "Clé API non configurée."
-        }
-
+    read_headers = get_trading212_read_headers()
+    exec_headers = get_trading212_exec_headers()
     base_url = get_trading212_base_url()
-    
-    # 1. Test lecture
-    read_ok = False
-    try:
-        r_cash = requests.get(f"{base_url}/equity/account/cash", headers=headers, timeout=6)
-        read_ok = (r_cash.status_code == 200)
-    except Exception:
-        read_ok = False
+    env = _RUNTIME_CONFIG.get("environment", "live")
 
-    # 2. Test permission ordres (via consultation du carnet d'ordres ou métadonnées)
+    # 1. Test Clé Lecture Seule
+    read_ok = False
+    read_msg = ""
+    if not read_headers:
+        read_msg = "Clé LECTURE non configurée."
+    else:
+        try:
+            r_cash = requests.get(f"{base_url}/equity/account/cash", headers=read_headers, timeout=6)
+            read_ok = (r_cash.status_code == 200)
+            if read_ok:
+                read_msg = "✅ Clé LECTURE valide et connectée."
+            else:
+                read_msg = f"❌ Clé LECTURE rejetée (HTTP {r_cash.status_code})"
+        except Exception as e:
+            read_msg = f"Erreur réseau lecture : {str(e)}"
+
+    # 2. Test Clé Exécution Ordres (Robot)
     orders_ok = False
     orders_msg = ""
-    try:
-        r_ord = requests.get(f"{base_url}/equity/orders", headers=headers, timeout=6)
-        if r_ord.status_code == 200:
-            orders_ok = True
-            orders_msg = "✅ Permissions complètes : Lecture et Gestion des ordres autorisées."
-        elif r_ord.status_code in [401, 403]:
-            orders_ok = False
-            orders_msg = "⚠️ Clé API limitée à la LECTURE SEULE : Pour exécuter des ordres automatiques, générez une clé API dans les paramètres Trading 212 en cochant la permission 'Orders / Exécution d'ordres'."
-        else:
-            orders_msg = f"Statut ordres : HTTP {r_ord.status_code}"
-    except Exception as e:
-        orders_msg = f"Erreur vérification ordres : {str(e)}"
+    if not exec_headers:
+        orders_msg = "Clé EXÉCUTION non configurée."
+    else:
+        try:
+            r_ord = requests.get(f"{base_url}/equity/orders", headers=exec_headers, timeout=6)
+            if r_ord.status_code == 200:
+                orders_ok = True
+                orders_msg = "✅ Clé EXÉCUTION active : Permissions d'ordres et gestion des paliers validées."
+            elif r_ord.status_code in [401, 403]:
+                orders_ok = False
+                orders_msg = "⚠️ Clé EXÉCUTION rejetée ou sans permission d'ordres."
+            else:
+                orders_msg = f"Statut ordres : HTTP {r_ord.status_code}"
+        except Exception as e:
+            orders_msg = f"Erreur réseau exécution : {str(e)}"
+
+    overall_valid = read_ok and orders_ok
 
     return {
-        "valid": read_ok,
+        "valid": overall_valid,
         "read_permission": read_ok,
         "orders_permission": orders_ok,
-        "message": orders_msg,
-        "environment": _RUNTIME_CONFIG.get("environment", "live")
+        "read_message": read_msg,
+        "orders_message": orders_msg,
+        "message": orders_msg if orders_ok else (read_msg if read_ok else "Clés API non configurées"),
+        "environment": env
     }
+
 
 
 def get_trading212_cash(force_refresh=False):
@@ -747,11 +793,11 @@ def convert_yahoo_ticker_to_t212(symbol):
 
 def place_trading212_limit_order(symbol, quantity, limit_price, time_validity="DAY"):
     """
-    Émet un ordre Limit d'achat ou de vente sur Trading 212.
+    Émet un ordre Limit d'achat ou de vente sur Trading 212 (Utilise la clé EXÉCUTION / ROBOT).
     """
-    headers = get_trading212_headers()
+    headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
     
     t212_ticker = convert_yahoo_ticker_to_t212(symbol)
     base_url = get_trading212_base_url()
@@ -777,11 +823,11 @@ def place_trading212_limit_order(symbol, quantity, limit_price, time_validity="D
 
 def place_trading212_market_order(symbol, quantity):
     """
-    Émet un ordre au marché (Market Order) d'achat ou de vente sur Trading 212.
+    Émet un ordre au marché (Market Order) d'achat ou de vente sur Trading 212 (Utilise la clé EXÉCUTION / ROBOT).
     """
-    headers = get_trading212_headers()
+    headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
     
     t212_ticker = convert_yahoo_ticker_to_t212(symbol)
     base_url = get_trading212_base_url()
@@ -805,11 +851,11 @@ def place_trading212_market_order(symbol, quantity):
 
 def place_trading212_stop_order(symbol, quantity, stop_price, time_validity="GTC"):
     """
-    Émet un ordre Stop (Stop-Loss ou Stop-Achat) sur Trading 212.
+    Émet un ordre Stop (Stop-Loss ou Stop-Achat) sur Trading 212 (Utilise la clé EXÉCUTION / ROBOT).
     """
-    headers = get_trading212_headers()
+    headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
     
     t212_ticker = convert_yahoo_ticker_to_t212(symbol)
     base_url = get_trading212_base_url()
@@ -835,11 +881,11 @@ def place_trading212_stop_order(symbol, quantity, stop_price, time_validity="GTC
 
 def cancel_trading212_order(order_id):
     """
-    Annule un ordre spécifique sur Trading 212 par son ID.
+    Annule un ordre spécifique sur Trading 212 par son ID (Utilise la clé EXÉCUTION / ROBOT).
     """
-    headers = get_trading212_headers()
+    headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API Trading 212 manquante ou non configurée."}
+        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
     
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/{order_id}"
@@ -856,9 +902,9 @@ def cancel_trading212_order(order_id):
 
 def get_trading212_open_orders():
     """
-    Récupère tous les ordres en attente / ouverts sur le carnet Trading 212.
+    Récupère tous les ordres en attente / ouverts sur le carnet Trading 212 (Utilise la clé EXÉCUTION / ROBOT).
     """
-    headers = get_trading212_headers()
+    headers = get_trading212_exec_headers()
     if not headers:
         return []
     
