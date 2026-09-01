@@ -3724,18 +3724,38 @@
             </div>
             <div class="modal-body">
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">
-                    Saisissez l'action et le prix d'achat. Le robot calculera automatiquement les 4 paliers (SL, TP1, Step Stop BE, TP2, Time Stop) selon la technique choisie et la soumettra aux garde-fous.
+                    Saisissez l'action et le prix d'achat. Vous pouvez définir librement le <strong>capital à investir</strong> ou le <strong>nombre d'actions</strong> (calcul automatique si laissé vide).
                 </p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
                     <div class="form-group">
                         <label>Symbole / Ticker *</label>
-                        <input type="text" id="prop-symbol-input" class="text-input" placeholder="Ex: AVGO, RMS.PA, AAPL..." style="text-transform: uppercase;">
+                        <input type="text" id="prop-symbol-input" class="text-input" placeholder="Ex: SAN.PA, RMS.PA, AAPL..." style="text-transform: uppercase;">
                     </div>
                     <div class="form-group">
                         <label>Prix d'Entrée Prévu *</label>
-                        <input type="number" id="prop-entry-input" class="text-input" placeholder="Ex: 360.00" step="0.01">
+                        <input type="number" id="prop-entry-input" class="text-input" placeholder="Ex: 76.80" step="0.01" oninput="onPropEntryInput()">
                     </div>
                 </div>
+
+                <!-- Section Personnalisation Capital & Nombre d'actions -->
+                <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.85rem; margin-bottom: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #38bdf8;">💰 Dimensionnement Personnalisé (Optionnel)</span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted);">Calibré par les garde-fous si vide</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.75rem; color: #cbd5e1;">Capital à Investir (€ / $)</label>
+                            <input type="number" id="prop-capital-input" class="text-input" placeholder="Ex: 500" step="10" oninput="onPropCapitalInput()">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.75rem; color: #cbd5e1;">Nombre d'Actions (Quantité)</label>
+                            <input type="number" id="prop-quantity-input" class="text-input" placeholder="Ex: 6.51" step="0.0001" oninput="onPropQuantityInput()">
+                        </div>
+                    </div>
+                    <div id="prop-sizing-helper" style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.4rem; display: none;"></div>
+                </div>
+
                 <div class="form-group" style="margin-bottom: 0.85rem;">
                     <label>Technique / Stratégie Appliquée *</label>
                     <select id="prop-strat-select" style="width: 100%; padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: #fff;">
@@ -3753,6 +3773,67 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeNewProposalModal()">Annuler</button>
                 <button class="btn btn-primary" onclick="submitNewProposal()">⚡ Calculer & Mettre en Attente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL D'AJUSTEMENT DU CAPITAL / ACTIONS POUR PROPOSITION EXISTANTE -->
+    <div class="modal-overlay" id="edit-proposal-modal">
+        <div class="modal-box" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif;">✏️ Ajuster Capital / Quantité d'un Trade</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="closeEditProposalModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong id="edit-prop-symbol-title" style="font-size: 1.15rem; color: #fff;">SAN.PA</strong>
+                        <span class="badge" id="edit-prop-strat-badge" style="background:#0284c7; color:#fff; font-size:0.72rem; font-weight:700;">Mean Reversion</span>
+                    </div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">
+                        Cours d'entrée : <strong id="edit-prop-entry-display" style="color:#fff;">76.80 €</strong> | Stop-Loss : <strong id="edit-prop-sl-display" style="color:#f87171;">75.26 €</strong>
+                    </div>
+                </div>
+
+                <input type="hidden" id="edit-prop-id-hidden">
+                <input type="hidden" id="edit-prop-entry-hidden">
+                <input type="hidden" id="edit-prop-sl-hidden">
+                <input type="hidden" id="edit-prop-tp1-hidden">
+                <input type="hidden" id="edit-prop-tp2-hidden">
+                <input type="hidden" id="edit-prop-curr-symbol-hidden">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1rem;">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: #38bdf8;">Capital à Investir (<span id="edit-prop-currency-label">€</span>)</label>
+                        <input type="number" id="edit-prop-capital-input" class="text-input" placeholder="Ex: 600" step="10" oninput="onEditPropCapitalInput()">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: #facc15;">Nombre d'Actions (Quantité)</label>
+                        <input type="number" id="edit-prop-quantity-input" class="text-input" placeholder="Ex: 7.81" step="0.0001" oninput="onEditPropQuantityInput()">
+                    </div>
+                </div>
+
+                <!-- Aperçu dynamique recalculé en direct -->
+                <div id="edit-prop-preview-box" style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 6px; padding: 0.75rem 0.85rem; font-size: 0.78rem; color: #cbd5e1; margin-bottom: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span>💰 Capital investi :</span>
+                        <strong id="edit-prop-capital-preview" style="color:#fff;">0.00 €</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span>🛑 Risque engagé (1R Stop-Loss) :</span>
+                        <strong id="edit-prop-risk-preview" style="color:#f87171;">0.00 €</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>🎯 Gain potentiel cumulé (TP1 + TP2) :</span>
+                        <strong id="edit-prop-gain-preview" style="color:#34d399;">0.00 €</strong>
+                    </div>
+                </div>
+
+                <div id="edit-proposal-feedback" style="display: none; padding: 0.65rem; border-radius: 6px; font-size: 0.8rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditProposalModal()">Annuler</button>
+                <button class="btn btn-primary" onclick="submitEditProposal()">💾 Enregistrer l'Ajustement</button>
             </div>
         </div>
     </div>
@@ -4927,8 +5008,13 @@
                 }
                 if (alertBox) alertBox.style.display = 'none';
             }
+            
+             // Cache local immédiat pour éliminer tout clignotement ou remise à zéro visuelle
+            try {
+                localStorage.setItem('t212_robot_guardrails', JSON.stringify(g));
+            } catch(e){}
 
-            // Dual Envelopes KPIs (EUR & USD)
+            // Affichage Enveloppe EUR
             const ceilEur = Number(g.allocated_automate_capital_ceiling_eur) || 3000;
             const depEur = Number(g.deployed_automate_capital_eur) || 0;
             const availEur = Number(g.available_automate_capital_eur) || ceilEur;
@@ -5022,7 +5108,10 @@
             }
         }
 
+        let _cachedPendingProposals = [];
+
         function renderPendingProposals(proposals) {
+            _cachedPendingProposals = proposals || [];
             const container = document.getElementById('pending-proposals-list');
             if (!container) return;
 
@@ -5050,8 +5139,8 @@
                                 <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.7rem;">🕋 Sharia Conforme</span>
                                 <span style="font-size: 0.75rem; color: var(--text-muted);">${p.t212_ticker} (${p.currency})</span>
                             </div>
-                            <div style="font-size: 0.8rem; color: #cbd5e1;">
-                                Capital : <strong>${plan.nominal_invested || 0} ${currSymbol}</strong> (${plan.quantity || 0} actions)
+                            <div style="font-size: 0.85rem; color: #cbd5e1; background: rgba(255,255,255,0.04); padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">
+                                Capital : <strong style="color:#38bdf8;">${Number(plan.nominal_invested || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${currSymbol}</strong> (<strong style="color:#facc15;">${plan.quantity || 0}</strong> actions)
                             </div>
                         </div>
 
@@ -5087,12 +5176,15 @@
                             </div>
                         </div>
 
-                        <!-- Boutons d'Arbitrage Humain -->
-                        <div style="display: flex; justify-content: flex-end; gap: 0.6rem; align-items: center;">
+                        <!-- Boutons d'Arbitrage Humain & Ajustement -->
+                        <div style="display: flex; justify-content: flex-end; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
                             <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: #f87171;" onclick="rejectRobotProposal('${p.proposal_id}')">
                                 ✕ Rejeter
                             </button>
-                            <button class="btn btn-success" style="padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 700; background: #10b981;" onclick="approveRobotProposal('${p.proposal_id}')">
+                            <button class="btn btn-secondary" style="padding: 0.35rem 0.85rem; font-size: 0.8rem; color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4);" onclick="openEditProposalModal('${p.proposal_id}')" title="Modifier le capital investi ou le nombre d'actions">
+                                ✏️ Ajuster Capital / Actions
+                            </button>
+                            <button class="btn btn-success" style="padding: 0.4rem 1.1rem; font-size: 0.85rem; font-weight: 700; background: #10b981;" onclick="approveRobotProposal('${p.proposal_id}')">
                                 ⚡ GO HUMAIN (Exécuter sur Trading 212)
                             </button>
                         </div>
@@ -5159,46 +5251,50 @@
                 });
                 const payload = await res.json();
                 if (payload.success) {
-                    alert(`✅ ${payload.message}`);
+                    alert(`✅ Ordre validé et transmis à Trading 212 !\n\nID Ordre : ${payload.execution?.order_id || 'N/A'}\nSymbole : ${payload.execution?.symbol}\nQuantité : ${payload.execution?.quantity}\nPrix Limite : ${payload.execution?.entry_price}`);
                     loadRobotStatusAndData();
                     loadLivePortfolio();
                 } else {
-                    alert(`❌ Échec de l'ordre : ${payload.error}`);
+                    alert(`❌ Échec exécution: ${payload.error}`);
                 }
             } catch (e) {
-                alert(`❌ Erreur de communication : ${e.message}`);
+                alert(`❌ Erreur: ${e.message}`);
             }
         }
 
         async function rejectRobotProposal(proposalId) {
+            if (!confirm("Rejeter cette proposition de trade ?")) return;
+
             try {
                 const res = await fetch(`${API_URL}/trading212/execution/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ proposal_id: proposalId, reason: "Rejeté manuellement" })
+                    body: JSON.stringify({ proposal_id: proposalId })
                 });
                 const payload = await res.json();
                 if (payload.success) {
                     loadRobotStatusAndData();
+                } else {
+                    alert(`❌ Échec: ${payload.error}`);
                 }
             } catch (e) {
-                console.error("Erreur rejet:", e);
+                alert(`❌ Erreur: ${e.message}`);
             }
         }
 
         async function triggerKillSwitch() {
-            const reason = prompt("🛑 ARRÊT D'URGENCE (KILL-SWITCH) :\nVoulez-vous annuler TOUS les ordres ouverts et figer le robot immédiatement ?\n\nPrécisez le motif (optionnel) :", "Arrêt manuel d'urgence");
+            const reason = prompt("Raison du déclenchement du Kill-Switch d'urgence (optionnel) :", "Arrêt manuel demandé");
             if (reason === null) return;
 
             try {
                 const res = await fetch(`${API_URL}/trading212/execution/kill_switch`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reason: reason || "Arrêt manuel d'urgence" })
+                    body: JSON.stringify({ reason: reason })
                 });
                 const payload = await res.json();
                 if (payload.success) {
-                    alert(`🛑 KILL-SWITCH ACTIVÉ !\n${payload.message}\nOrdres annulés : ${payload.orders_cancellation?.cancelled_count || 0}`);
+                    alert("🛑 KILL-SWITCH ACTIVÉ : Tous les ordres et nouvelles entrées sont gelés.");
                     loadRobotStatusAndData();
                 }
             } catch (e) {
@@ -5207,7 +5303,7 @@
         }
 
         async function resetKillSwitch() {
-            if (!confirm("Souhaitez-vous réarmer le robot et réautoriser le trading ?")) return;
+            if (!confirm("Réarmer le robot d'exécution Trading 212 et autoriser de nouveau les ordres ?")) return;
 
             try {
                 const res = await fetch(`${API_URL}/trading212/execution/reset_kill_switch`, {
@@ -5247,12 +5343,32 @@
             const fb = document.getElementById('robot-settings-feedback');
             if (fb) fb.style.display = 'none';
 
-            // Pré-remplir avec les valeurs actuelles EUR, USD et Toggle US
+            // Pré-remplir immédiatement depuis le cache local pour 0ms latence
+            try {
+                const localG = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}');
+                if (localG.allocated_automate_capital_ceiling_eur && document.getElementById('robot-ceiling-eur-input')) {
+                    document.getElementById('robot-ceiling-eur-input').value = localG.allocated_automate_capital_ceiling_eur;
+                }
+                if (localG.allocated_automate_capital_ceiling_usd && document.getElementById('robot-ceiling-usd-input')) {
+                    document.getElementById('robot-ceiling-usd-input').value = localG.allocated_automate_capital_ceiling_usd;
+                }
+                if (localG.max_risk_per_trade_pct && document.getElementById('robot-rmax-input')) {
+                    document.getElementById('robot-rmax-input').value = localG.max_risk_per_trade_pct;
+                }
+                if (localG.max_position_allocation_pct && document.getElementById('robot-alloc-input')) {
+                    document.getElementById('robot-alloc-input').value = localG.max_position_allocation_pct;
+                }
+                if (typeof localG.us_trading_enabled !== 'undefined' && document.getElementById('robot-us-enabled-checkbox')) {
+                    document.getElementById('robot-us-enabled-checkbox').checked = Boolean(localG.us_trading_enabled);
+                }
+            } catch(e){}
+
+            // Actualiser avec les valeurs serveur
             fetch(`${API_URL}/trading212/execution/status`).then(r => r.json()).then(d => {
                 if (d.success && d.guardrails) {
                     const g = d.guardrails;
-                    if (document.getElementById('robot-ceiling-eur-input')) document.getElementById('robot-ceiling-eur-input').value = g.allocated_automate_capital_ceiling_eur || 3000;
-                    if (document.getElementById('robot-ceiling-usd-input')) document.getElementById('robot-ceiling-usd-input').value = g.allocated_automate_capital_ceiling_usd || 3000;
+                    if (document.getElementById('robot-ceiling-eur-input')) document.getElementById('robot-ceiling-eur-input').value = g.allocated_automate_capital_ceiling_eur || 4500;
+                    if (document.getElementById('robot-ceiling-usd-input')) document.getElementById('robot-ceiling-usd-input').value = g.allocated_automate_capital_ceiling_usd || 3500;
                     if (document.getElementById('robot-rmax-input')) document.getElementById('robot-rmax-input').value = g.max_risk_per_trade_pct || 1.0;
                     if (document.getElementById('robot-alloc-input')) document.getElementById('robot-alloc-input').value = g.max_position_allocation_pct || 20.0;
                     if (document.getElementById('robot-us-enabled-checkbox')) document.getElementById('robot-us-enabled-checkbox').checked = Boolean(g.us_trading_enabled);
@@ -5318,11 +5434,66 @@
             }
         }
 
+        // ---------------------------------------------------------------------
+        // NOUVEAU TRADE : DIMENSIONNEMENT DYNAMIQUE (CAPITAL & ACTIONS)
+        // ---------------------------------------------------------------------
+        function onPropEntryInput() {
+            const entry = parseFloat(document.getElementById('prop-entry-input')?.value || 0);
+            const cap = parseFloat(document.getElementById('prop-capital-input')?.value || 0);
+            if (entry > 0 && cap > 0) {
+                const qty = cap / entry;
+                const qtyInput = document.getElementById('prop-quantity-input');
+                if (qtyInput) qtyInput.value = qty.toFixed(4);
+            }
+            updatePropSizingHelper();
+        }
+
+        function onPropCapitalInput() {
+            const entry = parseFloat(document.getElementById('prop-entry-input')?.value || 0);
+            const cap = parseFloat(document.getElementById('prop-capital-input')?.value || 0);
+            if (entry > 0 && cap > 0) {
+                const qty = cap / entry;
+                const qtyInput = document.getElementById('prop-quantity-input');
+                if (qtyInput) qtyInput.value = qty.toFixed(4);
+            }
+            updatePropSizingHelper();
+        }
+
+        function onPropQuantityInput() {
+            const entry = parseFloat(document.getElementById('prop-entry-input')?.value || 0);
+            const qty = parseFloat(document.getElementById('prop-quantity-input')?.value || 0);
+            if (entry > 0 && qty > 0) {
+                const cap = qty * entry;
+                const capInput = document.getElementById('prop-capital-input');
+                if (capInput) capInput.value = cap.toFixed(2);
+            }
+            updatePropSizingHelper();
+        }
+
+        function updatePropSizingHelper() {
+            const helper = document.getElementById('prop-sizing-helper');
+            const entry = parseFloat(document.getElementById('prop-entry-input')?.value || 0);
+            const cap = parseFloat(document.getElementById('prop-capital-input')?.value || 0);
+            const qty = parseFloat(document.getElementById('prop-quantity-input')?.value || 0);
+
+            if (!helper) return;
+            if (entry > 0 && (cap > 0 || qty > 0)) {
+                const effectiveCap = cap > 0 ? cap : (qty * entry);
+                const effectiveQty = qty > 0 ? qty : (cap / entry);
+                helper.style.display = 'block';
+                helper.innerHTML = `💡 Sizing : <strong>${effectiveCap.toFixed(2)}</strong> (€/$) pour <strong>${effectiveQty.toFixed(4)}</strong> actions à ${entry.toFixed(2)}`;
+            } else {
+                helper.style.display = 'none';
+            }
+        }
+
         function openNewProposalModal() {
             const modal = document.getElementById('new-proposal-modal');
             if (modal) modal.classList.add('active');
             const fb = document.getElementById('new-proposal-feedback');
             if (fb) fb.style.display = 'none';
+            const helper = document.getElementById('prop-sizing-helper');
+            if (helper) helper.style.display = 'none';
         }
 
         function closeNewProposalModal() {
@@ -5333,6 +5504,8 @@
         async function submitNewProposal() {
             const symbol = document.getElementById('prop-symbol-input')?.value.trim().toUpperCase();
             const entry = parseFloat(document.getElementById('prop-entry-input')?.value);
+            const cap = parseFloat(document.getElementById('prop-capital-input')?.value || 0);
+            const qty = parseFloat(document.getElementById('prop-quantity-input')?.value || 0);
             const strat = document.getElementById('prop-strat-select')?.value || 'Mean Reversion';
             const notes = document.getElementById('prop-notes-input')?.value.trim();
             const fb = document.getElementById('new-proposal-feedback');
@@ -5348,14 +5521,172 @@
             }
 
             try {
+                const payloadBody = {
+                    symbol: symbol,
+                    entry_price: entry,
+                    strategy_type: strat,
+                    notes: notes
+                };
+                if (cap > 0) payloadBody.nominal_capital = cap;
+                if (qty > 0) payloadBody.quantity = qty;
+
                 const res = await fetch(`${API_URL}/trading212/execution/propose`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payloadBody)
+                });
+                const payload = await res.json();
+                if (payload.success) {
+                    if (fb) {
+                        fb.style.display = 'block';
+                        fb.style.background = 'rgba(16, 185, 129, 0.15)';
+                        fb.style.color = '#34d399';
+                        fb.textContent = `✅ Proposition créée avec succès ! Grille ${strat} calculée (${payload.proposal?.trade_plan?.nominal_invested} ${payload.proposal?.trade_plan?.currency_symbol || '€'}).`;
+                    }
+                    setTimeout(() => {
+                        closeNewProposalModal();
+                        loadRobotStatusAndData();
+                    }, 1000);
+                } else {
+                    if (fb) {
+                        fb.style.display = 'block';
+                        fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                        fb.style.color = '#f87171';
+                        fb.textContent = `⚠️ Garde-fous : ${payload.error}`;
+                    }
+                }
+            } catch (e) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = `❌ Erreur: ${e.message}`;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // MODIFICATION D'UNE PROPOSITION EXISTANTE (AJUSTER CAPITAL / ACTIONS)
+        // ---------------------------------------------------------------------
+        function openEditProposalModal(proposalId) {
+            const p = _cachedPendingProposals.find(x => x.proposal_id === proposalId);
+            if (!p) {
+                alert("Proposition introuvable.");
+                return;
+            }
+
+            const plan = p.trade_plan || {};
+            const currSymbol = plan.currency_symbol || (p.currency === 'USD' ? '$' : '€');
+            const entryPx = Number(plan.entry_price) || 0;
+            const slPx = Number(plan.stop_loss_price) || 0;
+            const tp1Px = Number(plan.tp1_price) || 0;
+            const tp2Px = Number(plan.tp2_price) || 0;
+            const nominal = Number(plan.nominal_invested) || (entryPx * (Number(plan.quantity) || 1));
+            const qty = Number(plan.quantity) || (entryPx > 0 ? nominal / entryPx : 1);
+
+            document.getElementById('edit-prop-id-hidden').value = proposalId;
+            document.getElementById('edit-prop-symbol-title').textContent = p.symbol;
+            document.getElementById('edit-prop-strat-badge').textContent = p.strategy_type;
+            document.getElementById('edit-prop-entry-display').textContent = `${entryPx.toFixed(2)} ${currSymbol}`;
+            document.getElementById('edit-prop-sl-display').textContent = `${slPx.toFixed(2)} ${currSymbol}`;
+            document.getElementById('edit-prop-currency-label').textContent = currSymbol;
+
+            document.getElementById('edit-prop-entry-hidden').value = entryPx;
+            document.getElementById('edit-prop-sl-hidden').value = slPx;
+            document.getElementById('edit-prop-tp1-hidden').value = tp1Px;
+            document.getElementById('edit-prop-tp2-hidden').value = tp2Px;
+            document.getElementById('edit-prop-curr-symbol-hidden').value = currSymbol;
+
+            document.getElementById('edit-prop-capital-input').value = nominal.toFixed(2);
+            document.getElementById('edit-prop-quantity-input').value = qty.toFixed(4);
+
+            updateEditPropPreview();
+
+            const fb = document.getElementById('edit-proposal-feedback');
+            if (fb) fb.style.display = 'none';
+
+            const modal = document.getElementById('edit-proposal-modal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeEditProposalModal() {
+            const modal = document.getElementById('edit-proposal-modal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function onEditPropCapitalInput() {
+            const entry = parseFloat(document.getElementById('edit-prop-entry-hidden')?.value || 0);
+            const cap = parseFloat(document.getElementById('edit-prop-capital-input')?.value || 0);
+            if (entry > 0 && cap > 0) {
+                const qty = cap / entry;
+                const qtyInput = document.getElementById('edit-prop-quantity-input');
+                if (qtyInput) qtyInput.value = qty.toFixed(4);
+            }
+            updateEditPropPreview();
+        }
+
+        function onEditPropQuantityInput() {
+            const entry = parseFloat(document.getElementById('edit-prop-entry-hidden')?.value || 0);
+            const qty = parseFloat(document.getElementById('edit-prop-quantity-input')?.value || 0);
+            if (entry > 0 && qty > 0) {
+                const cap = qty * entry;
+                const capInput = document.getElementById('edit-prop-capital-input');
+                if (capInput) capInput.value = cap.toFixed(2);
+            }
+            updateEditPropPreview();
+        }
+
+        function updateEditPropPreview() {
+            const entry = parseFloat(document.getElementById('edit-prop-entry-hidden')?.value || 0);
+            const sl = parseFloat(document.getElementById('edit-prop-sl-hidden')?.value || 0);
+            const tp1 = parseFloat(document.getElementById('edit-prop-tp1-hidden')?.value || 0);
+            const tp2 = parseFloat(document.getElementById('edit-prop-tp2-hidden')?.value || 0);
+            const currSymbol = document.getElementById('edit-prop-curr-symbol-hidden')?.value || '€';
+
+            const cap = parseFloat(document.getElementById('edit-prop-capital-input')?.value || 0);
+            const qty = parseFloat(document.getElementById('edit-prop-quantity-input')?.value || 0);
+
+            const effectiveQty = qty > 0 ? qty : (entry > 0 ? cap / entry : 0);
+            const effectiveCap = cap > 0 ? cap : (effectiveQty * entry);
+
+            const risk = Math.max(0, (entry - sl) * effectiveQty);
+            const gainTp1 = Math.max(0, (tp1 - entry) * (effectiveQty * 0.5));
+            const gainTp2 = Math.max(0, (tp2 - entry) * (effectiveQty * 0.5));
+            const totalGain = gainTp1 + gainTp2;
+
+            const capPrev = document.getElementById('edit-prop-capital-preview');
+            const riskPrev = document.getElementById('edit-prop-risk-preview');
+            const gainPrev = document.getElementById('edit-prop-gain-preview');
+
+            if (capPrev) capPrev.textContent = `${effectiveCap.toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${currSymbol}`;
+            if (riskPrev) riskPrev.textContent = `${risk.toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${currSymbol}`;
+            if (gainPrev) gainPrev.textContent = `+${totalGain.toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${currSymbol}`;
+        }
+
+        async function submitEditProposal() {
+            const propId = document.getElementById('edit-prop-id-hidden')?.value;
+            const cap = parseFloat(document.getElementById('edit-prop-capital-input')?.value || 0);
+            const qty = parseFloat(document.getElementById('edit-prop-quantity-input')?.value || 0);
+            const fb = document.getElementById('edit-proposal-feedback');
+
+            if (!propId || (cap <= 0 && qty <= 0)) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.background = 'rgba(239, 68, 68, 0.15)';
+                    fb.style.color = '#f87171';
+                    fb.textContent = 'Veuillez renseigner un capital ou un nombre d\'actions valide.';
+                }
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/execution/update_proposal`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        symbol: symbol,
-                        entry_price: entry,
-                        strategy_type: strat,
-                        notes: notes
+                        proposal_id: propId,
+                        nominal_capital: cap,
+                        quantity: qty
                     })
                 });
                 const payload = await res.json();
@@ -5364,12 +5695,12 @@
                         fb.style.display = 'block';
                         fb.style.background = 'rgba(16, 185, 129, 0.15)';
                         fb.style.color = '#34d399';
-                        fb.textContent = `✅ Proposition créée avec succès ! Grille ${strat} calculée.`;
+                        fb.textContent = `✅ ${payload.message || 'Proposition ajustée avec succès !'}`;
                     }
                     setTimeout(() => {
-                        closeNewProposalModal();
+                        closeEditProposalModal();
                         loadRobotStatusAndData();
-                    }, 1000);
+                    }, 900);
                 } else {
                     if (fb) {
                         fb.style.display = 'block';

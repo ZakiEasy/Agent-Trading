@@ -2400,6 +2400,7 @@ def propose_trading212_trade():
     custom_tp1 = float(data.get("tp1_price")) if data.get("tp1_price") else None
     custom_tp2 = float(data.get("tp2_price")) if data.get("tp2_price") else None
     quantity = float(data.get("quantity")) if data.get("quantity") else None
+    nominal_capital = float(data.get("nominal_capital") or data.get("capital") or 0.0) if (data.get("nominal_capital") or data.get("capital")) else None
     notes = data.get("notes", "")
 
     if not symbol or entry_price <= 0:
@@ -2413,7 +2414,35 @@ def propose_trading212_trade():
         custom_tp1_price=custom_tp1,
         custom_tp2_price=custom_tp2,
         quantity=quantity,
+        nominal_capital=nominal_capital,
         notes=notes
+    )
+    return safe_jsonify(res)
+
+
+@app.route("/api/trading212/execution/update_proposal", methods=["POST"])
+def update_trading212_proposal():
+    """Permet à l'utilisateur de modifier le capital à investir ou le nombre d'actions d'une proposition existante."""
+    data = request.get_json() or {}
+    proposal_id = data.get("proposal_id")
+    quantity = float(data.get("quantity")) if data.get("quantity") else None
+    nominal_capital = float(data.get("nominal_capital") or data.get("capital") or 0.0) if (data.get("nominal_capital") or data.get("capital")) else None
+    entry_price = float(data.get("entry_price")) if data.get("entry_price") else None
+    custom_sl = float(data.get("stop_loss_price")) if data.get("stop_loss_price") else None
+    custom_tp1 = float(data.get("tp1_price")) if data.get("tp1_price") else None
+    custom_tp2 = float(data.get("tp2_price")) if data.get("tp2_price") else None
+
+    if not proposal_id:
+        return safe_jsonify({"success": False, "error": "proposal_id obligatoire."}, status_code=400)
+
+    res = execution_engine.update_proposal(
+        proposal_id=proposal_id,
+        quantity=quantity,
+        nominal_capital=nominal_capital,
+        entry_price=entry_price,
+        custom_sl_price=custom_sl,
+        custom_tp1_price=custom_tp1,
+        custom_tp2_price=custom_tp2
     )
     return safe_jsonify(res)
 

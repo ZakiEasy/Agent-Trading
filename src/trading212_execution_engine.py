@@ -64,6 +64,7 @@ class Trading212ExecutionEngine:
         custom_tp1_price=None,
         custom_tp2_price=None,
         quantity=None,
+        nominal_capital=None,
         notes=""
     ):
         """
@@ -95,6 +96,9 @@ class Trading212ExecutionEngine:
             deployed_cap = sum(p.get("nominal_invested", 0.0) for p in guardrails_engine.active_automate_positions.values() if p.get("currency") == "EUR")
 
         avail_automate_cap = max(0.0, automate_ceiling - deployed_cap)
+
+        if (quantity is None or quantity <= 0) and nominal_capital is not None and float(nominal_capital) > 0 and entry_price > 0:
+            quantity = max(0.0001, round(float(nominal_capital) / entry_price, 4))
 
         if quantity is None or quantity <= 0:
             risk_target_monetary = automate_ceiling * (guardrails_engine.max_risk_per_trade_pct / 100.0)
@@ -157,6 +161,72 @@ class Trading212ExecutionEngine:
             "success": True,
             "message": f"Proposition créée pour {sym} ({strategy_type}). En attente de confirmation humaine.",
             "proposal": proposal_obj
+        }
+
+    def update_proposal(
+        self,
+        proposal_id,
+        quantity=None,
+        nominal_capital=None,
+        entry_price=None,
+        custom_sl_price=None,
+        custom_tp1_price=None,
+        custom_tp2_price=None
+    ):
+        """
+        Met à jour une proposition de trade en attente (capital, nombre d'actions ou cours)
+        avec re-validation instantanée des garde-fous.
+        """
+        if proposal_id not in self.pending_proposals:
+            return {"success": False, "error": f"Proposition {proposal_id} introuvable ou déjà traitée."}
+
+        prop = self.pending_proposals[proposal_id]
+        plan = prop.get("trade_plan", {})
+        sym = prop["symbol"]
+        strat_type = prop.get("strategy_type", "Mean Reversion")
+
+        ep = float(entry_price) if (entry_price is not None and float(entry_price) > 0) else float(plan.get("entry_price", 0.0))
+        sl_p = float(custom_sl_price) if custom_sl_price is not None else plan.get("stop_loss_price")
+        tp1_p = float(custom_tp1_price) if custom_tp1_price is not None else plan.get("tp1_price")
+        tp2_p = float(custom_tp2_price) if custom_tp2_price is not None else plan.get("tp2_price")
+
+        # Calcul de la nouvelle quantité
+        if quantity is not None and float(quantity) > 0:
+            qty = round(float(quantity), 4)
+        elif nominal_capital is not None and float(nominal_capital) > 0 and ep > 0:
+            qty = round(float(nominal_capital) / ep, 4)
+        else:
+            qty = float(plan.get("quantity", 1.0))
+
+        # Re-calcul et validation par les garde-fous
+        is_valid, reason, new_plan = guardrails_engine.validate_trade_plan(
+            symbol=sym,
+            entry_price=ep,
+            stop_loss_price=sl_p,
+            tp1_price=tp1_p,
+            tp2_price=tp2_p,
+            quantity=qty,
+            strategy_type=strat_type,
+            action_type="ENTRY_BUY"
+        )
+
+        if not is_valid:
+            return {
+                "success": False,
+                "error": reason,
+                "proposal_id": proposal_id
+            }
+
+        new_plan["time_stop_days"] = plan.get("time_stop_days", 10)
+        new_plan["strategy_description"] = plan.get("strategy_description", "")
+        prop["trade_plan"] = new_plan
+        prop["updated_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        logger.info(f"✏️ Proposition modifiée : {proposal_id} ({sym} - Qty: {qty} | Capital: {new_plan['nominal_invested']} {new_plan['currency_symbol']})")
+        return {
+            "success": True,
+            "message": f"Proposition {sym} mise à jour avec succès : {new_plan['nominal_invested']:.2f} {new_plan['currency_symbol']} ({qty} actions).",
+            "proposal": prop
         }
 
     def approve_and_execute_trade(self, proposal_id, order_type="LIMIT", time_validity="DAY"):
