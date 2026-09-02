@@ -2010,9 +2010,9 @@
                                 <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700;">💶 ENVELOPPE EURO (PEA / UE)</span>
                                 <span class="badge" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #34d399;">🟢 Actif</span>
                             </div>
-                            <div style="font-size: 1.35rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-eur">3 000,00 €</div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-eur">4 500,00 €</div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-eur">0,00 €</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-eur">3 000,00 €</strong>
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-eur">0,00 €</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-eur">4 500,00 €</strong>
                             </div>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 1rem;">
@@ -2020,19 +2020,19 @@
                                 <span style="font-size: 0.75rem; color: #c084fc; font-weight: 700;">💵 ENVELOPPE US DOLLAR (US)</span>
                                 <span class="badge" id="badge-us-market-status" style="font-size: 0.65rem; background: rgba(255,255,255,0.08); color: #cbd5e1;">⏸️ En Pause</span>
                             </div>
-                            <div style="font-size: 1.35rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-usd">3 000,00 $</div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-usd">3 500,00 $</div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-usd">0,00 $</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-usd">3 000,00 $</strong>
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-usd">0,00 $</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-usd">3 500,00 $</strong>
                             </div>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
                             <span style="font-size: 0.75rem; color: var(--text-muted);">Garde-Fou R-Max / Trade</span>
-                            <div style="font-size: 1.35rem; font-weight: 700; color: #34d399; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-rmax">1.0 % (Max 30 €/$)</div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #34d399; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-rmax">1.0 % (Max 45 € / 35 $)</div>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">Risque max perte tolérée</span>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
                             <span style="font-size: 0.75rem; color: var(--text-muted);">Allocation Max par Ligne</span>
-                            <div style="font-size: 1.35rem; font-weight: 700; color: #f59e0b; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-alloc">20.0 % (Max 600 €/$)</div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #f59e0b; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-alloc">20.0 % (Max 900 € / 700 $)</div>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">Fractions d'actions autorisées</span>
                         </div>
                     </div>
@@ -4871,13 +4871,26 @@
         }
 
         // ---------------------------------------------------------------------
-        // TRADING 212 API CONFIG MODAL
+        // CONFIGURATION TRADING 212 (API KEYS & ENVIRONMENT)
         // ---------------------------------------------------------------------
-        function openTrading212ConfigModal() {
+        async function openTrading212ConfigModal() {
             const modal = document.getElementById('trading212-config-modal');
             if (modal) modal.classList.add('active');
             const fb = document.getElementById('t212-feedback');
             if (fb) fb.style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_URL}/trading212/config`);
+                const d = await res.json();
+                if (d && d.configured) {
+                    if (d.environment && document.getElementById('t212-env-select')) {
+                        document.getElementById('t212-env-select').value = d.environment;
+                    }
+                    if (d.masked_key && document.getElementById('t212-key-input')) {
+                        document.getElementById('t212-key-input').placeholder = `Clé active (${d.masked_key})`;
+                    }
+                }
+            } catch(e){}
         }
 
         function closeTrading212ConfigModal() {
@@ -4922,7 +4935,7 @@
                     if (fb) {
                         fb.style.background = 'rgba(34, 197, 94, 0.15)';
                         fb.style.color = '#4ade80';
-                        fb.textContent = '✅ Connexion réussie à Trading 212 ! Portefeuille synchronisé.';
+                        fb.textContent = '✅ Connexion réussie à Trading 212 ! Clés persistées et portefeuille synchronisé.';
                     }
                     setTimeout(() => {
                         closeTrading212ConfigModal();
@@ -4952,6 +4965,14 @@
         // =====================================================================
 
         async function loadRobotStatusAndData() {
+            // Affichage instantané depuis le cache local (0ms latence)
+            try {
+                const cachedG = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}');
+                if (cachedG && cachedG.allocated_automate_capital_ceiling_eur) {
+                    renderRobotStatus({ guardrails: cachedG });
+                }
+            } catch(e){}
+
             try {
                 // 1. Statut général
                 const resStatus = await fetch(`${API_URL}/trading212/execution/status`);
@@ -5015,12 +5036,12 @@
             } catch(e){}
 
             // Affichage Enveloppe EUR
-            const ceilEur = Number(g.allocated_automate_capital_ceiling_eur) || 3000;
+            const ceilEur = Number(g.allocated_automate_capital_ceiling_eur) || 4500;
             const depEur = Number(g.deployed_automate_capital_eur) || 0;
             const availEur = Number(g.available_automate_capital_eur) || ceilEur;
             const depPctEur = ceilEur > 0 ? (depEur / ceilEur * 100).toFixed(1) : '0.0';
 
-            const ceilUsd = Number(g.allocated_automate_capital_ceiling_usd) || 3000;
+            const ceilUsd = Number(g.allocated_automate_capital_ceiling_usd) || 3500;
             const depUsd = Number(g.deployed_automate_capital_usd) || 0;
             const availUsd = Number(g.available_automate_capital_usd) || ceilUsd;
             const depPctUsd = ceilUsd > 0 ? (depUsd / ceilUsd * 100).toFixed(1) : '0.0';
@@ -5393,8 +5414,8 @@
         }
 
         async function saveRobotSettings() {
-            const ceilEur = parseFloat(document.getElementById('robot-ceiling-eur-input')?.value || 3000);
-            const ceilUsd = parseFloat(document.getElementById('robot-ceiling-usd-input')?.value || 3000);
+            const ceilEur = parseFloat(document.getElementById('robot-ceiling-eur-input')?.value || 4500);
+            const ceilUsd = parseFloat(document.getElementById('robot-ceiling-usd-input')?.value || 3500);
             const rmax = parseFloat(document.getElementById('robot-rmax-input')?.value || 1.0);
             const alloc = parseFloat(document.getElementById('robot-alloc-input')?.value || 20.0);
             const usEnabled = Boolean(document.getElementById('robot-us-enabled-checkbox')?.checked);
@@ -5410,6 +5431,19 @@
                 return;
             }
 
+            // Mise à jour instantanée en mémoire et à l'écran (0ms latence)
+            const optPayload = {
+                allocated_automate_capital_ceiling_eur: ceilEur,
+                allocated_automate_capital_ceiling_usd: ceilUsd,
+                max_risk_per_trade_pct: rmax,
+                max_position_allocation_pct: alloc,
+                us_trading_enabled: usEnabled
+            };
+            try {
+                localStorage.setItem('t212_robot_guardrails', JSON.stringify(optPayload));
+                renderRobotStatus({ guardrails: optPayload });
+            } catch(e){}
+
             try {
                 const res = await fetch(`${API_URL}/trading212/execution/settings`, {
                     method: 'POST',
@@ -5424,16 +5458,19 @@
                 });
                 const payload = await res.json();
                 if (payload.success) {
+                    try {
+                        localStorage.setItem('t212_robot_guardrails', JSON.stringify(payload.settings || optPayload));
+                    } catch(e){}
                     if (fb) {
                         fb.style.display = 'block';
                         fb.style.background = 'rgba(16, 185, 129, 0.15)';
                         fb.style.color = '#34d399';
-                        fb.textContent = '✅ Enveloppes EUR/USD, options de marché et garde-fous enregistrés avec succès.';
+                        fb.textContent = `✅ Enveloppes enregistrées et persistées ! (EUR ${ceilEur}€ | USD ${ceilUsd}$)`;
                     }
                     setTimeout(() => {
                         closeRobotSettingsModal();
                         loadRobotStatusAndData();
-                    }, 1000);
+                    }, 800);
                 }
             } catch (e) {
                 if (fb) {

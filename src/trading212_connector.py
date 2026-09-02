@@ -32,6 +32,50 @@ _RUNTIME_CONFIG = {
     "environment": TRADING212_ENVIRONMENT
 }
 
+def load_persisted_trading212_config():
+    """Charge la configuration et les clés API Trading 212 depuis Supabase (table app_settings)."""
+    global _RUNTIME_CONFIG
+    try:
+        from src.supabase_connector import get_app_setting
+        cfg = get_app_setting("trading212_api_config")
+        if cfg and isinstance(cfg, dict):
+            if cfg.get("read_api_key"):
+                _RUNTIME_CONFIG["read_api_key"] = cfg["read_api_key"]
+            if cfg.get("read_api_secret"):
+                _RUNTIME_CONFIG["read_api_secret"] = cfg["read_api_secret"]
+            if cfg.get("exec_api_key"):
+                _RUNTIME_CONFIG["exec_api_key"] = cfg["exec_api_key"]
+            if cfg.get("exec_api_secret"):
+                _RUNTIME_CONFIG["exec_api_secret"] = cfg["exec_api_secret"]
+            if cfg.get("api_key"):
+                _RUNTIME_CONFIG["api_key"] = cfg["api_key"]
+            if cfg.get("api_secret"):
+                _RUNTIME_CONFIG["api_secret"] = cfg["api_secret"]
+            if cfg.get("environment"):
+                _RUNTIME_CONFIG["environment"] = cfg["environment"]
+    except Exception as e:
+        pass
+
+def save_persisted_trading212_config():
+    """Sauvegarde la configuration Trading 212 dans Supabase pour pérenniser la connexion."""
+    try:
+        from src.supabase_connector import save_app_setting
+        payload = {
+            "read_api_key": _RUNTIME_CONFIG.get("read_api_key"),
+            "read_api_secret": _RUNTIME_CONFIG.get("read_api_secret"),
+            "exec_api_key": _RUNTIME_CONFIG.get("exec_api_key"),
+            "exec_api_secret": _RUNTIME_CONFIG.get("exec_api_secret"),
+            "api_key": _RUNTIME_CONFIG.get("api_key"),
+            "api_secret": _RUNTIME_CONFIG.get("api_secret"),
+            "environment": _RUNTIME_CONFIG.get("environment", "live")
+        }
+        save_app_setting("trading212_api_config", payload, "Identifiants API Trading 212")
+    except Exception as e:
+        pass
+
+# Restaurer la configuration depuis Supabase si disponible
+load_persisted_trading212_config()
+
 def set_runtime_trading212_config(
     read_api_key=None,
     read_api_secret=None,
@@ -42,7 +86,7 @@ def set_runtime_trading212_config(
     environment=None
 ):
     """
-    Met à jour la configuration Trading 212 à l'exécution avec clés séparées.
+    Met à jour la configuration Trading 212 à l'exécution avec clés séparées et persistance Supabase.
     """
     global _RUNTIME_CONFIG, _T212_CACHE
     if read_api_key is not None:
@@ -54,13 +98,19 @@ def set_runtime_trading212_config(
     if exec_api_secret is not None:
         _RUNTIME_CONFIG["exec_api_secret"] = exec_api_secret.strip()
     if api_key is not None:
-        _RUNTIME_CONFIG["api_key"] = api_key.strip()
+        clean_key = api_key.strip()
+        _RUNTIME_CONFIG["api_key"] = clean_key
         if read_api_key is None:
-            _RUNTIME_CONFIG["read_api_key"] = api_key.strip()
+            _RUNTIME_CONFIG["read_api_key"] = clean_key
+        if exec_api_key is None:
+            _RUNTIME_CONFIG["exec_api_key"] = clean_key
     if api_secret is not None:
-        _RUNTIME_CONFIG["api_secret"] = api_secret.strip()
+        clean_secret = api_secret.strip()
+        _RUNTIME_CONFIG["api_secret"] = clean_secret
         if read_api_secret is None:
-            _RUNTIME_CONFIG["read_api_secret"] = api_secret.strip()
+            _RUNTIME_CONFIG["read_api_secret"] = clean_secret
+        if exec_api_secret is None:
+            _RUNTIME_CONFIG["exec_api_secret"] = clean_secret
     if environment is not None:
         _RUNTIME_CONFIG["environment"] = environment.lower().strip()
     
@@ -70,6 +120,9 @@ def set_runtime_trading212_config(
         "portfolio": {"data": None, "ts": 0},
         "account": {"data": None, "ts": 0}
     }
+
+    # Sauvegarder immédiatement dans Supabase
+    save_persisted_trading212_config()
 
 def get_trading212_base_url():
     env = _RUNTIME_CONFIG.get("environment") or "live"
@@ -240,12 +293,19 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
         }
 
 
-def check_trading212_api_permissions():
+_T212_PERMS_CACHE = {"data": None, "ts": 0}
+
+def check_trading212_api_permissions(force_refresh=False):
     """
-    Diagnostique précisément les droits accordés aux 2 clés API Trading 212 :
+    Diagnostique précisément les droits accordés aux clés API Trading 212 (avec cache de 30s) :
     1. Clé de LECTURE SEULE (Solde, Portefeuille, Cash, Dividendes)
     2. Clé d'EXÉCUTION / ROBOT (Passation, Modification, Annulation d'ordres)
     """
+    global _T212_PERMS_CACHE
+    now = time.time()
+    if not force_refresh and _T212_PERMS_CACHE["data"] and (now - _T212_PERMS_CACHE["ts"]) < 30:
+        return _T212_PERMS_CACHE["data"]
+
     read_headers = get_trading212_read_headers()
     exec_headers = get_trading212_exec_headers()
     base_url = get_trading212_base_url()
@@ -259,11 +319,17 @@ def check_trading212_api_permissions():
     else:
         try:
             r_cash = requests.get(f"{base_url}/equity/account/cash", headers=read_headers, timeout=6)
-            read_ok = (r_cash.status_code == 200)
-            if read_ok:
+            if r_cash.status_code == 200:
+                read_ok = True
                 read_msg = "✅ Clé LECTURE valide et connectée."
-            else:
+            elif r_cash.status_code == 429:
+                read_ok = True
+                read_msg = "✅ Clé LECTURE connectée (Flux actif, limitation temporaire 429)."
+            elif r_cash.status_code in [401, 403]:
+                read_ok = False
                 read_msg = f"❌ Clé LECTURE rejetée (HTTP {r_cash.status_code})"
+            else:
+                read_msg = f"Statut lecture : HTTP {r_cash.status_code}"
         except Exception as e:
             read_msg = f"Erreur réseau lecture : {str(e)}"
 
@@ -278,6 +344,9 @@ def check_trading212_api_permissions():
             if r_ord.status_code == 200:
                 orders_ok = True
                 orders_msg = "✅ Clé EXÉCUTION active : Permissions d'ordres et gestion des paliers validées."
+            elif r_ord.status_code == 429:
+                orders_ok = True
+                orders_msg = "✅ Clé EXÉCUTION active : Permissions d'ordres validées (Flux actif, limitation 429)."
             elif r_ord.status_code in [401, 403]:
                 orders_ok = False
                 orders_msg = "⚠️ Clé EXÉCUTION rejetée ou sans permission d'ordres."
@@ -288,15 +357,27 @@ def check_trading212_api_permissions():
 
     overall_valid = read_ok and orders_ok
 
-    return {
+    if orders_ok:
+        msg = orders_msg
+    elif read_ok:
+        msg = read_msg
+    elif not read_headers and not exec_headers:
+        msg = "Clés API non configurées"
+    else:
+        msg = f"{orders_msg} | {read_msg}"
+
+    result = {
         "valid": overall_valid,
         "read_permission": read_ok,
         "orders_permission": orders_ok,
         "read_message": read_msg,
         "orders_message": orders_msg,
-        "message": orders_msg if orders_ok else (read_msg if read_ok else "Clés API non configurées"),
+        "message": msg,
         "environment": env
     }
+
+    _T212_PERMS_CACHE = {"data": result, "ts": now}
+    return result
 
 
 

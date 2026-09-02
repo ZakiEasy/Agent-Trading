@@ -531,11 +531,21 @@ def get_trading212_portfolio():
         "positions": positions
     })
 
-@app.route("/api/trading212/config", methods=["POST"])
+@app.route("/api/trading212/config", methods=["GET", "POST"])
 def configure_trading212():
     """
-    Enregistre et teste la clé API Trading 212 fournie depuis l'interface.
+    Enregistre, persiste sur Supabase et teste la clé API Trading 212 fournie depuis l'interface.
     """
+    if request.method == "GET":
+        from src.trading212_connector import _RUNTIME_CONFIG
+        key = _RUNTIME_CONFIG.get("api_key") or _RUNTIME_CONFIG.get("read_api_key") or ""
+        masked = (key[:6] + "..." + key[-4:]) if len(key) > 10 else ("***" if key else "")
+        return safe_jsonify({
+            "configured": bool(key),
+            "masked_key": masked,
+            "environment": _RUNTIME_CONFIG.get("environment", "live")
+        })
+
     data = request.json or {}
     api_key = data.get("api_key", "")
     api_secret = data.get("api_secret", "")

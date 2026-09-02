@@ -202,17 +202,23 @@ XTB_MIN_COMMISSION_OVER_LIMIT_EUR = 10.0
 # ==============================================================================
 
 # Clé API LECTURE SEULE (Portefeuille en direct, Cash, Dividendes, Historique)
-TRADING212_READ_API_KEY = os.getenv("TRADING212_READ_API_KEY", os.getenv("TRADING212_API_KEY", "50449602ZuRbeYXanAFQpMLXmykBjHTHUdwca"))
-TRADING212_READ_API_SECRET = os.getenv("TRADING212_READ_API_SECRET", os.getenv("TRADING212_API_SECRET", "JLLpB3OPODPJs26XbtBVvKKKIjX_AeavMVVLJ_zXuUA"))
+def _clean_env(var_name, default=""):
+    val = os.getenv(var_name)
+    if val is not None and val.strip():
+        return val.strip()
+    return default
+
+TRADING212_READ_API_KEY = _clean_env("TRADING212_READ_API_KEY") or _clean_env("TRADING212_API_KEY") or "50449602ZuRbeYXanAFQpMLXmykBjHTHUdwca"
+TRADING212_READ_API_SECRET = _clean_env("TRADING212_READ_API_SECRET") or _clean_env("TRADING212_API_SECRET") or "JLLpB3OPODPJs26XbtBVvKKKIjX_AeavMVVLJ_zXuUA"
 
 # Clé API EXÉCUTION / ROBOT (Permissions d'ordres : Passation, Modification, Annulation)
-TRADING212_EXEC_API_KEY = os.getenv("TRADING212_EXEC_API_KEY", "50449602ZwbaMTvzYOlnitShNPOCVmjQfyMdE")
-TRADING212_EXEC_API_SECRET = os.getenv("TRADING212_EXEC_API_SECRET", "v_4r-L2KNEONX2P9vo5D3nhh0khJNBYryvsaKw_ne6A")
+TRADING212_EXEC_API_KEY = _clean_env("TRADING212_EXEC_API_KEY") or _clean_env("TRADING212_API_KEY") or "50449602ZwbaMTvzYOlnitShNPOCVmjQfyMdE"
+TRADING212_EXEC_API_SECRET = _clean_env("TRADING212_EXEC_API_SECRET") or _clean_env("TRADING212_API_SECRET") or "v_4r-L2KNEONX2P9vo5D3nhh0khJNBYryvsaKw_ne6A"
 
 # Rétro-compatibilité
 TRADING212_API_KEY = TRADING212_READ_API_KEY
 TRADING212_API_SECRET = TRADING212_READ_API_SECRET
-TRADING212_ENVIRONMENT = os.getenv("TRADING212_ENVIRONMENT", "live").lower().strip()  # "live" ou "demo"
+TRADING212_ENVIRONMENT = _clean_env("TRADING212_ENVIRONMENT", "live").lower()
 
 if TRADING212_ENVIRONMENT == "demo":
     TRADING212_BASE_URL = "https://demo.trading212.com/api/v0"
