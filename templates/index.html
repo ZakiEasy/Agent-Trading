@@ -131,7 +131,7 @@
             background: transparent;
             border: none;
             color: var(--text-muted);
-            padding: 0.5rem 1.25rem;
+            padding: 0.5rem 1.15rem;
             border-radius: 0.5rem;
             cursor: pointer;
             font-weight: 500;
@@ -140,6 +140,8 @@
             display: flex;
             align-items: center;
             gap: 0.4rem;
+            text-decoration: none;
+            white-space: nowrap;
         }
 
         .nav-btn.active {
@@ -151,6 +153,30 @@
         .nav-btn:hover:not(.active) {
             color: var(--text-main);
             background: rgba(255, 255, 255, 0.02);
+            text-decoration: none;
+        }
+
+        .popout-tab-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            color: var(--text-muted);
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.5rem;
+            font-size: 0.76rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .popout-tab-btn:hover {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.4);
+            color: #93c5fd;
+            text-decoration: none;
+            transform: translateY(-1px);
         }
 
         /* Container Layout */
@@ -1383,30 +1409,30 @@
             </div>
         </div>
         <nav>
-            <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+            <a href="?tab=dashboard" class="nav-btn active" data-tab="dashboard" onclick="handleNavClick(event, 'dashboard')" title="Scanner & Marché (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>📊</span> Scanner & Marché
-            </button>
-            <button class="nav-btn" data-tab="screener" onclick="switchTab('screener')">
+            </a>
+            <a href="?tab=screener" class="nav-btn" data-tab="screener" onclick="handleNavClick(event, 'screener')" title="Recherche & Screener 10Y (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>🔍</span> Recherche & Screener 10Y
-            </button>
-            <button class="nav-btn" data-tab="robot" onclick="switchTab('robot')">
+            </a>
+            <a href="?tab=robot" class="nav-btn" data-tab="robot" onclick="handleNavClick(event, 'robot')" title="Robot Trading 212 (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>🤖</span> Robot Trading 212 <span id="nav-robot-badge" class="badge badge-success" style="font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">🟢 Prêt</span>
-            </button>
-            <button class="nav-btn" data-tab="portfolio" onclick="switchTab('portfolio')">
+            </a>
+            <a href="?tab=portfolio" class="nav-btn" data-tab="portfolio" onclick="handleNavClick(event, 'portfolio')" title="Positions en Cours (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>💼</span> Positions en Cours (Live) <span id="nav-alerts-badge" class="badge badge-warning" style="display:none; font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">0</span>
-            </button>
-            <button class="nav-btn" data-tab="diversification" onclick="switchTab('diversification')">
+            </a>
+            <a href="?tab=diversification" class="nav-btn" data-tab="diversification" onclick="handleNavClick(event, 'diversification')" title="Diversification & Trésorerie (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>🥧</span> Diversification & Trésorerie
-            </button>
-            <button class="nav-btn" data-tab="journal" onclick="switchTab('journal')">
+            </a>
+            <a href="?tab=journal" class="nav-btn" data-tab="journal" onclick="handleNavClick(event, 'journal')" title="Journal de Trading (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>📖</span> Journal de Trading <span id="nav-journal-count" class="badge badge-primary" style="font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">397</span>
-            </button>
-            <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">
+            </a>
+            <a href="?tab=chat" class="nav-btn" data-tab="chat" onclick="handleNavClick(event, 'chat')" title="Assistant Chat (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>💬</span> Assistant Chat
-            </button>
-            <button class="nav-btn" data-tab="simulation" onclick="switchTab('simulation')">
+            </a>
+            <a href="?tab=simulation" class="nav-btn" data-tab="simulation" onclick="handleNavClick(event, 'simulation')" title="Simulation & R-Max (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>🧮</span> Simulation & R-Max
-            </button>
+            </a>
         </nav>
     </header>
 
@@ -1433,6 +1459,7 @@
                         <span id="macro-regime-badge" class="badge badge-neutral" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">SYNCHRONISATION...</span>
                         <span id="macro-sizing-pct" class="badge badge-primary" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">100% SIZING</span>
                         <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="loadMacroBarometer(true)">🔄 Rafraîchir</button>
+                        <a href="?tab=dashboard" target="_blank" class="popout-tab-btn" title="Ouvrir le Scanner dans une fenêtre séparée">↗ Fenêtre Dédiée</a>
                     </div>
                 </div>
 
@@ -1805,10 +1832,11 @@
                             Screenez l'ensemble des marchés US & Européens selon les 8 règles du Protocole (Sharia AAOIFI, Pullbacks qualifiés -3% à -8%, RSI 14, Rebond Support) et validez la rentabilité statistique sur 10 ans.
                         </p>
                     </div>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
                         <button class="btn btn-primary" onclick="runScreenerSearch(true)" style="padding: 0.55rem 1.15rem; font-size: 0.88rem; display: flex; align-items: center; gap: 0.4rem;">
                             <span>⚡</span> Scanner l'Univers
                         </button>
+                        <a href="?tab=screener" target="_blank" class="popout-tab-btn" title="Ouvrir le Screener dans une fenêtre séparée">↗ Fenêtre Dédiée</a>
                     </div>
                 </div>
 
@@ -1980,6 +2008,7 @@
                         <button class="btn" id="btn-kill-switch" style="padding: 0.45rem 0.95rem; font-size: 0.85rem; background: #dc2626; color: #fff; font-weight: 700;" onclick="triggerKillSwitch()" title="Arrêt d'urgence : annule tous les ordres et fige le robot">
                             🛑 KILL-SWITCH
                         </button>
+                        <a href="?tab=robot" target="_blank" class="popout-tab-btn" title="Ouvrir le Robot Trading 212 dans une fenêtre séparée">↗ Fenêtre Dédiée</a>
                     </div>
                 </div>
 
@@ -2263,6 +2292,7 @@
                         <button class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;" onclick="loadLivePortfolio()">
                             🔄 Actualiser les Cours
                         </button>
+                        <a href="?tab=portfolio" target="_blank" class="popout-tab-btn" title="Ouvrir les Positions en Cours dans une fenêtre séparée">↗ Fenêtre Dédiée</a>
                         <button class="btn btn-secondary" style="padding: 0.4rem 0.7rem; font-size: 0.8rem; font-weight: 700;" onclick="toggleCardCollapse('active-positions-card')" title="Réduire / Développer">
                             <span id="active-positions-card-icon">▲</span>
                         </button>
@@ -2338,6 +2368,7 @@
                             🟠 Trading 212 : <span id="div-sync-t212-badge">En direct</span>
                         </span>
                         <span class="badge badge-success" style="font-size: 0.72rem;">Consolidation 🟢</span>
+                        <a href="?tab=diversification" target="_blank" class="popout-tab-btn" title="Ouvrir la Diversification dans une fenêtre séparée">↗ Fenêtre Dédiée</a>
                     </div>
                 </div>
                 <div class="table-container" style="margin: 0; overflow-x: auto;">
@@ -2500,7 +2531,10 @@
                     <h3 style="font-size: 0.95rem; font-weight: 700; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
                         <span>📈</span> Synthèse de Rentabilité du Journal de Trading
                     </h3>
-                    <span class="badge badge-primary" id="journal-trades-badge" style="font-size: 0.75rem;">397 Trades Clôturés</span>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span class="badge badge-primary" id="journal-trades-badge" style="font-size: 0.75rem;">397 Trades Clôturés</span>
+                        <a href="?tab=journal" target="_blank" class="popout-tab-btn" title="Ouvrir le Journal de Trading dans une fenêtre séparée">↗ Fenêtre Dédiée</a>
+                    </div>
                 </div>
                 <div class="table-container" style="margin: 0; overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -4251,11 +4285,40 @@
             antiFifo: { data: null, ts: 0, ttl: 120000 }         // 2 min
         };
 
+        // Gestionnaire de navigation fluide compatible multi-fenêtres & nouvel onglet
+        function handleNavClick(event, tabId) {
+            // Si l'utilisateur clique avec Ctrl, Meta (Cmd), Shift ou clic milieu : laisser le navigateur ouvrir le nouvel onglet
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) {
+                return true;
+            }
+            event.preventDefault();
+            switchTab(tabId);
+            return false;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             loadMacroBarometer();
             recalculateRMaxTool();
             runSimulation();
             updateSortIndicators();
+            
+            // Détection de l'onglet demandé dans l'URL (?tab=xxx ou #xxx)
+            let initialTab = null;
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const tabParam = urlParams.get('tab');
+                const hashParam = window.location.hash.replace('#', '').trim();
+                const validTabs = ['dashboard', 'screener', 'robot', 'portfolio', 'diversification', 'journal', 'chat', 'simulation'];
+                if (tabParam && validTabs.includes(tabParam.toLowerCase())) {
+                    initialTab = tabParam.toLowerCase();
+                } else if (hashParam && validTabs.includes(hashParam.toLowerCase())) {
+                    initialTab = hashParam.toLowerCase();
+                }
+            } catch (e) {}
+
+            if (initialTab && initialTab !== 'dashboard') {
+                switchTab(initialTab, false);
+            }
             
             // Initialiser le compteur de Watchlist
             fetch(`${API_URL}/watchlist/tickers`).then(r => r.json()).then(d => {
@@ -4287,7 +4350,7 @@
         // ---------------------------------------------------------------------
         // TAB SWITCHING (INSTANT DISPLAY FROM CACHE & MOBILE BOTTOM NAV SYNC)
         // ---------------------------------------------------------------------
-        function switchTab(tabId) {
+        function switchTab(tabId, updateUrl = true) {
             try {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
                 document.querySelectorAll('.mobile-nav-item').forEach(btn => btn.classList.remove('active'));
@@ -4304,6 +4367,12 @@
                     targetTab.classList.add('active');
                 } else {
                     console.warn(`Tab ${tabId}-tab not found`);
+                }
+
+                // Synchroniser l'URL sans recharger la page
+                if (updateUrl && window.history && window.history.pushState) {
+                    const newUrl = window.location.pathname + `?tab=${tabId}`;
+                    window.history.pushState({ tab: tabId }, '', newUrl);
                 }
 
                 // Scroll fluide vers le haut
@@ -4329,6 +4398,13 @@
                 console.error(`Error switching to tab ${tabId}:`, err);
             }
         }
+
+        // Gestion de l'historique navigateur (boutons Précédent / Suivant)
+        window.addEventListener('popstate', (e) => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab') || 'dashboard';
+            switchTab(tabParam, false);
+        });
 
         // ---------------------------------------------------------------------
         // DIVERSIFICATION & TREASURY ANALYTICS
@@ -7890,7 +7966,7 @@
                     newsBadge = `<span class="badge ${nBadgeClass}" style="font-size:0.66rem; margin-top:0.25rem; display:inline-block; max-width: 130px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${na.summary}">📰 ${na.diagnostic}</span>`;
                 }
 
-                const volM = r.avg_daily_volume ? (r.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar : '-';
+                const volM = (r.avg_daily_volume !== null && r.avg_daily_volume !== undefined && r.avg_daily_volume > 0) ? (r.avg_daily_volume / 1e6).toFixed(1) + ' M' + symChar : '-';
                 const volColor = (r.avg_daily_volume && r.avg_daily_volume < 1e6) ? 'var(--danger)' : 'var(--text-main)';
 
                 // 1. Rendu Desktop Table Row (Verdicts à gauche, Catégorie en dernier à droite)
@@ -7905,9 +7981,9 @@
                     <td><span class="badge ${vSwingBadge}">${vSwingText}</span></td>
                     <td><span class="badge ${vSniperBadge}">${vSniperText}</span></td>
                     <td><strong>${parseFloat(r.price || 0).toFixed(2)} ${symChar}</strong></td>
-                    <td style="color:${parseFloat(r.drop || 0) <= -3.0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight:600;">${r.drop ? parseFloat(r.drop).toFixed(2) + '%' : '-'}</td>
+                    <td style="color:${parseFloat(r.drop || 0) <= -3.0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight:600;">${(r.drop !== null && r.drop !== undefined && r.drop !== '') ? parseFloat(r.drop).toFixed(2) + '%' : '-'}</td>
                     <td style="color: ${volColor}; font-weight: 500;">${volM}</td>
-                    <td>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
+                    <td>${(r.rsi !== null && r.rsi !== undefined && r.rsi !== '') ? parseFloat(r.rsi).toFixed(1) : '-'}</td>
                     <td>${r.rsi_divergence && r.rsi_divergence.includes('HAUSSIÈRE') ? '<span class="badge badge-primary">OUI 🔥</span>' : '<span style="color:var(--text-muted);">-</span>'}</td>
                     <td><span class="badge-cat">${catText}</span>${newsBadge ? '<br>' + newsBadge : ''}</td>
                     <td style="text-align: center;" onclick="event.stopPropagation();">
@@ -7939,8 +8015,8 @@
                         <div class="m-card-price-row">
                             <div class="m-price">${r.price ? parseFloat(r.price).toFixed(2) + ' ' + symChar : '-'}</div>
                             <div class="m-pills">
-                                <span class="m-pill ${parseFloat(r.drop || 0) <= -3 ? 'm-drop-red' : 'm-drop-neutral'}">📉 ${r.drop ? parseFloat(r.drop).toFixed(2) + '%' : '0%'}</span>
-                                <span class="m-pill">RSI <strong>${r.rsi ? parseFloat(r.rsi).toFixed(1) : '-'}</strong></span>
+                                <span class="m-pill ${parseFloat(r.drop || 0) <= -3 ? 'm-drop-red' : 'm-drop-neutral'}">📉 ${(r.drop !== null && r.drop !== undefined && r.drop !== '') ? parseFloat(r.drop).toFixed(2) + '%' : '0%'}</span>
+                                <span class="m-pill">RSI <strong>${(r.rsi !== null && r.rsi !== undefined && r.rsi !== '') ? parseFloat(r.rsi).toFixed(1) : '-'}</strong></span>
                                 <span class="m-pill ${scoreClass}">Score <strong>${score}/10</strong></span>
                             </div>
                         </div>

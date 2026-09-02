@@ -294,8 +294,17 @@ def get_detailed_analysis(ticker_symbol, capital=CAPITAL_REFERENCE_DEFAULT, forc
         return {"error": str(e), "symbol": ticker_symbol}
 
 @app.route("/")
+@app.route("/dashboard")
+@app.route("/screener")
+@app.route("/robot")
+@app.route("/portfolio")
+@app.route("/diversification")
+@app.route("/journal")
+@app.route("/chat")
+@app.route("/simulation")
 def home():
-    return render_template("index.html")
+    tab = request.path.strip("/") or "dashboard"
+    return render_template("index.html", initial_tab=tab)
 
 @app.route("/stock/<path:ticker>")
 @app.route("/action/<path:ticker>")

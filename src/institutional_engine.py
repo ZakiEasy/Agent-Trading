@@ -1367,6 +1367,15 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     sharia_status = "CONFORME" if is_sharia else "NON CONFORME"
     sharia_reasons = sharia_data.get("reasons", ["Conformité financière validée"])
 
+    if df is None or df.empty or len(df) < 200:
+        from src.market_data import fetch_yahoo_chart_v8
+        try:
+            v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="1y")
+            if v8_df is not None and not v8_df.empty and len(v8_df) >= 30:
+                df = v8_df
+        except Exception:
+            pass
+
     # Métadonnées & Catégories pour la Watchlist
     fund_qual = check_fundamental_quality(None, info=info, symbol=sym, hist=df)
     category = fund_qual.get("category", "Actions & Secteurs")
@@ -1395,7 +1404,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
 
     if not curr_price or curr_price <= 0:
         from src.market_data import fetch_yahoo_chart_v8, FALLBACK_WATCHLIST_REFERENCE_PRICES
-        v8_p, v8_df = fetch_yahoo_chart_v8(sym, range_period="5d")
+        v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="1y")
         if v8_p and v8_p > 0:
             curr_price = float(v8_p)
             if df is None or df.empty:
@@ -1435,16 +1444,21 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     pullback_pct = 0.0
     pullback_type = "NORMAL"
 
-    if df is not None and len(df) >= 200:
-        mm200 = float(df["Close"].rolling(200).mean().iloc[-1])
-        mm50 = float(df["Close"].rolling(50).mean().iloc[-1])
-        trend_following_valid = curr_price >= mm200
-
-        # Calcul du repli récent (sur 10 séances)
+    # Calcul du repli récent (sur 10 séances) indépendant de la MM200
+    if df is not None and len(df) >= 10:
         peak_10 = float(df["High"].iloc[-10:].max())
         if peak_10 > 0:
             pullback_pct = ((curr_price - peak_10) / peak_10) * 100
             pullback_valid = (-8.0 <= pullback_pct <= -2.5)
+
+    if df is not None and len(df) >= 200:
+        mm200 = float(df["Close"].rolling(200).mean().iloc[-1])
+        mm50 = float(df["Close"].rolling(50).mean().iloc[-1])
+        trend_following_valid = curr_price >= mm200
+    elif df is not None and len(df) >= 50:
+        mm50 = float(df["Close"].rolling(50).mean().iloc[-1])
+        mm200 = mm50
+        trend_following_valid = curr_price >= mm50
 
     # 4. Prochains Earnings & Analyse Actualités Live Event-Driven
     earnings_date_str = "Fenêtre > 10j (Aucun risque binaire immédiat)"

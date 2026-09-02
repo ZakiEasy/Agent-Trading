@@ -612,23 +612,35 @@ def fetch_market_data(ticker_symbol, force_refresh=False):
     ticker_obj = yf.Ticker(lookup_sym)
     hist = None
     
-    # 1. Essai via ticker_obj.history
-    for attempt in range(2):
-        try:
-            hist = ticker_obj.history(period="1y")
-            if hist is not None and not hist.empty and len(hist) > 5:
-                break
-        except Exception as e:
-            if attempt == 0:
-                time.sleep(0.3)
-            else:
-                pass
+    # 1. Essai direct et rapide via Yahoo Chart v8 pour les tickers standards (garantit 252 jours sans crumb)
+    try:
+        v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="1y")
+        if v8_df is not None and not v8_df.empty and len(v8_df) >= 30:
+            hist = v8_df
+    except Exception:
+        pass
+
+    # 2. Si v8 n'a pas répondu, essai via ticker_obj.history
+    if hist is None or hist.empty or len(hist) < 30:
+        for attempt in range(2):
+            try:
+                h = ticker_obj.history(period="1y")
+                if h is not None and not h.empty and len(h) >= 30:
+                    hist = h
+                    break
+                elif h is not None and not h.empty and hist is None:
+                    hist = h
+            except Exception as e:
+                if attempt == 0:
+                    time.sleep(0.2)
+                else:
+                    pass
                 
-    # 2. Fallback direct via yf.download si history est vide
-    if hist is None or hist.empty or len(hist) < 5:
+    # 3. Fallback direct via yf.download si history est insuffisant
+    if hist is None or hist.empty or len(hist) < 30:
         try:
             dl_df = yf.download(lookup_sym, period="1y", interval="1d", progress=False, timeout=8)
-            if dl_df is not None and not dl_df.empty and len(dl_df) > 5:
+            if dl_df is not None and not dl_df.empty and len(dl_df) >= 5:
                 if isinstance(dl_df.columns, pd.MultiIndex):
                     try:
                         dl_df = dl_df.xs(lookup_sym, level='Ticker', axis=1)
@@ -638,10 +650,10 @@ def fetch_market_data(ticker_symbol, force_refresh=False):
         except Exception:
             pass
 
-    # 3. Fallback direct via Yahoo Chart v8 (Sans Crumb, 100% résilient au 401)
+    # 4. Fallback de secours v8 avec période 6m si 1y indisponible
     if hist is None or hist.empty or len(hist) < 5:
         try:
-            v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="1y")
+            v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="6mo")
             if v8_df is not None and not v8_df.empty and len(v8_df) > 5:
                 hist = v8_df
         except Exception:

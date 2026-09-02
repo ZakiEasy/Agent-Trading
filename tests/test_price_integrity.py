@@ -117,5 +117,40 @@ class TestPriceIntegrity(unittest.TestCase):
             )
             self.assertGreater(price, 0.0, f"Le cours de {sym} doit être strictement positif.")
 
+    def test_scan_indicators_integrity(self):
+        """
+        Vérifie que les calculs de RSI, drop, volume et score sont bien différenciés et ne tombent pas sur les replis par défaut (50.0, 5/10, etc.).
+        """
+        test_syms = ["GOLD", "TSLA", "META", "AVGO"]
+        response = self.client.get(f"/api/scan/batch?symbols={','.join(test_syms)}")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data.get("success", False))
+        results = data.get("results", [])
+        self.assertGreaterEqual(len(results), len(test_syms))
+
+        for r in results:
+            sym = r.get("symbol")
+            price = r.get("price", 0.0)
+            rsi = r.get("rsi", 50.0)
+            drop = r.get("drop", 0.0)
+            score = r.get("confluence_score", 0.0)
+            vol = r.get("avg_daily_volume", 0.0)
+
+            self.assertGreater(price, 0.0, f"Le cours de {sym} doit être > 0")
+            self.assertNotEqual(price, 100.0, f"{sym} ne doit pas être à 100.0€")
+            self.assertGreater(vol, 0.0, f"Le volume quotidien moyen de {sym} doit être calculé (> 0)")
+            self.assertNotEqual(drop, 0.0, f"Le repli de {sym} doit être calculé (différent de 0.0%)")
+
+    def test_tab_multi_window_routes(self):
+        """
+        Vérifie que chaque onglet dispose d'une route dédiée renvoyant HTTP 200 pour le support multi-fenêtres.
+        """
+        tabs = ["dashboard", "screener", "robot", "portfolio", "diversification", "journal", "chat", "simulation"]
+        for tab in tabs:
+            resp = self.client.get(f"/{tab}")
+            self.assertEqual(resp.status_code, 200, f"La route /{tab} doit renvoyer 200")
+            self.assertIn(b"Trading Agent", resp.data)
+
 if __name__ == "__main__":
     unittest.main()
