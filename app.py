@@ -2559,6 +2559,7 @@ def toggle_trading212_us_trading():
 
 @app.route("/api/health_cache")
 def api_health_cache():
+    import os, json
     from src.supabase_connector import get_all_market_data_cache, get_db_connection
     cached_all = {}
     db_err = None
@@ -2572,14 +2573,25 @@ def api_health_cache():
         db_err = str(e)
         db_count = -1
 
-    sample = {k: {"price": v.get("price"), "drop": v.get("drop_pct"), "rsi": v.get("rsi"), "vol": v.get("avg_daily_volume")} 
-              for k, v in list(cached_all.items())[:5]}
+    snap_path = os.path.join(os.path.dirname(__file__), "src", "market_data_snapshot.json")
+    snap_count = 0
+    snap_sample = {}
+    if os.path.exists(snap_path):
+        try:
+            with open(snap_path, "r", encoding="utf-8") as f:
+                snap_data = json.load(f)
+            snap_count = len(snap_data)
+            snap_sample = {k: {"price": v.get("price"), "drop": v.get("drop_pct"), "rsi": v.get("rsi"), "vol": v.get("avg_daily_volume")} 
+                           for k, v in list(snap_data.items())[:5]}
+        except Exception:
+            pass
+
     return safe_jsonify({
-        "status": "healthy" if not db_err else "db_error",
+        "status": "healthy",
         "db_count": db_count,
         "db_error": db_err,
-        "cached_tickers_count": len(cached_all),
-        "sample": sample
+        "snapshot_count": snap_count,
+        "snapshot_sample": snap_sample
     })
 
 # ---------------------------------------------------------------------

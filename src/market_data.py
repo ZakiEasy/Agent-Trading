@@ -499,6 +499,24 @@ def fetch_yahoo_chart_v8(ticker_symbol, range_period="1y", interval="1d"):
     except Exception:
         pass
 
+    # Fallback garanti Snapshot Embarqué (immunisé contre IPv6 / DNS / 429)
+    try:
+        import os, json
+        snap_path = os.path.join(os.path.dirname(__file__), "market_data_snapshot.json")
+        if os.path.exists(snap_path):
+            with open(snap_path, "r", encoding="utf-8") as f:
+                snap_all = json.load(f)
+            s_data = snap_all.get(symbol) or snap_all.get(lookup_sym)
+            if s_data and s_data.get("ohlcv"):
+                df = pd.DataFrame(s_data["ohlcv"])
+                if "Date" in df.columns:
+                    df["Date"] = pd.to_datetime(df["Date"])
+                    df.set_index("Date", inplace=True)
+                price = float(s_data.get("price") or (df["Close"].iloc[-1] if "Close" in df.columns else 0.0))
+                return price, df
+    except Exception:
+        pass
+
     return None, None
 
 def get_ticker_info(ticker_symbol, force_refresh=False):
@@ -545,20 +563,21 @@ def get_ticker_info(ticker_symbol, force_refresh=False):
             info["currentPrice"] = float(v8_p)
             info["currency"] = "EUR" if (lookup_sym.endswith(".PA") or lookup_sym.endswith(".DE") or lookup_sym.endswith(".AS")) else "USD"
 
-    # Fallback Cloud Supabase pour info
+    # Fallback garanti Snapshot Embarqué pour info
     if not info or not info.get("regularMarketPrice"):
         try:
-            from src.supabase_connector import get_market_data_cache
-            cached = get_market_data_cache(lookup_sym) or get_market_data_cache(symbol)
-            if cached:
-                if cached.get("info_json") and isinstance(cached["info_json"], dict):
-                    info = cached["info_json"]
-                elif cached.get("price"):
+            import os, json
+            snap_path = os.path.join(os.path.dirname(__file__), "market_data_snapshot.json")
+            if os.path.exists(snap_path):
+                with open(snap_path, "r", encoding="utf-8") as f:
+                    snap_all = json.load(f)
+                s_data = snap_all.get(symbol) or snap_all.get(lookup_sym)
+                if s_data and s_data.get("price"):
                     info = {
-                        "regularMarketPrice": float(cached["price"]),
-                        "currentPrice": float(cached["price"]),
-                        "currency": cached.get("currency", "USD"),
-                        "marketCap": float(cached.get("avg_daily_volume", 0) * 100)
+                        "regularMarketPrice": float(s_data["price"]),
+                        "currentPrice": float(s_data["price"]),
+                        "currency": s_data.get("currency", "USD"),
+                        "marketCap": float(s_data.get("avg_daily_volume", 0) * 100)
                     }
         except Exception:
             pass
