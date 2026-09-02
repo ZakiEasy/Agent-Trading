@@ -453,39 +453,53 @@ def fetch_yahoo_chart_v8(ticker_symbol, range_period="1y", interval="1d"):
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{lookup_sym}?interval={interval}&range={range_period}"
     try:
         r = requests.get(url, headers=headers, timeout=7)
-        if r.status_code != 200:
-            return None, None
-        payload = r.json()
-        result = payload.get('chart', {}).get('result')
-        if not result or not isinstance(result, list) or len(result) == 0:
-            return None, None
-        data = result[0]
-        meta = data.get('meta', {})
-        current_price = meta.get('regularMarketPrice')
-        timestamps = data.get('timestamp', [])
-        indicators = data.get('indicators', {})
-        quotes = indicators.get('quote', [{}])[0] if indicators.get('quote') else {}
-        
-        opens = quotes.get('open', [])
-        highs = quotes.get('high', [])
-        lows = quotes.get('low', [])
-        closes = quotes.get('close', [])
-        volumes = quotes.get('volume', [])
-        
-        if not timestamps or not closes:
-            return current_price, None
-            
-        df = pd.DataFrame({
-            'Open': opens,
-            'High': highs,
-            'Low': lows,
-            'Close': closes,
-            'Volume': volumes
-        }, index=pd.to_datetime(timestamps, unit='s'))
-        df = df.dropna(subset=['Close'])
-        return current_price, df
+        if r.status_code == 200:
+            payload = r.json()
+            result = payload.get('chart', {}).get('result')
+            if result and isinstance(result, list) and len(result) > 0:
+                data = result[0]
+                meta = data.get('meta', {})
+                current_price = meta.get('regularMarketPrice')
+                timestamps = data.get('timestamp', [])
+                indicators = data.get('indicators', {})
+                quotes = indicators.get('quote', [{}])[0] if indicators.get('quote') else {}
+                
+                opens = quotes.get('open', [])
+                highs = quotes.get('high', [])
+                lows = quotes.get('low', [])
+                closes = quotes.get('close', [])
+                volumes = quotes.get('volume', [])
+                
+                if timestamps and closes:
+                    df = pd.DataFrame({
+                        'Open': opens,
+                        'High': highs,
+                        'Low': lows,
+                        'Close': closes,
+                        'Volume': volumes
+                    }, index=pd.to_datetime(timestamps, unit='s'))
+                    df = df.dropna(subset=['Close'])
+                    return current_price, df
     except Exception:
-        return None, None
+        pass
+
+    # Fallback Cloud Supabase si Yahoo est bloqué (429 IP Cloud sur Render)
+    try:
+        from src.supabase_connector import get_market_data_cache
+        cached = get_market_data_cache(lookup_sym) or get_market_data_cache(symbol)
+        if cached and cached.get("ohlcv_json"):
+            ohlcv = cached["ohlcv_json"]
+            if isinstance(ohlcv, list) and len(ohlcv) > 0:
+                df = pd.DataFrame(ohlcv)
+                if "Date" in df.columns:
+                    df["Date"] = pd.to_datetime(df["Date"])
+                    df.set_index("Date", inplace=True)
+                price = float(cached.get("price") or (df["Close"].iloc[-1] if "Close" in df.columns else 0.0))
+                return price, df
+    except Exception:
+        pass
+
+    return None, None
 
 def get_ticker_info(ticker_symbol, force_refresh=False):
     """
@@ -530,6 +544,24 @@ def get_ticker_info(ticker_symbol, force_refresh=False):
             info["regularMarketPrice"] = float(v8_p)
             info["currentPrice"] = float(v8_p)
             info["currency"] = "EUR" if (lookup_sym.endswith(".PA") or lookup_sym.endswith(".DE") or lookup_sym.endswith(".AS")) else "USD"
+
+    # Fallback Cloud Supabase pour info
+    if not info or not info.get("regularMarketPrice"):
+        try:
+            from src.supabase_connector import get_market_data_cache
+            cached = get_market_data_cache(lookup_sym) or get_market_data_cache(symbol)
+            if cached:
+                if cached.get("info_json") and isinstance(cached["info_json"], dict):
+                    info = cached["info_json"]
+                elif cached.get("price"):
+                    info = {
+                        "regularMarketPrice": float(cached["price"]),
+                        "currentPrice": float(cached["price"]),
+                        "currency": cached.get("currency", "USD"),
+                        "marketCap": float(cached.get("avg_daily_volume", 0) * 100)
+                    }
+        except Exception:
+            pass
 
     # Secours ultime référentiel Watchlist
     if not info or not info.get("regularMarketPrice"):

@@ -2557,50 +2557,16 @@ def toggle_trading212_us_trading():
 
 
 
-@app.route("/api/debug_scan")
-def api_debug_scan():
-    sym = request.args.get("symbol", "UBER").upper().strip()
-    from src.market_data import fetch_yahoo_chart_v8, get_ticker_data, resolve_ticker_symbol, get_ticker_info
-    import requests
-    lookup_sym = resolve_ticker_symbol(sym)
-    
-    # Test query2 avec headers réalistes
-    h = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7'
-    }
-    q1_code, q2_code, stooq_code, stooq_len = None, None, None, None
-    try:
-        r1 = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{lookup_sym}?interval=1d&range=1y", headers=h, timeout=4)
-        q1_code = r1.status_code
-    except Exception as e:
-        q1_code = str(e)
-        
-    try:
-        r2 = requests.get(f"https://query2.finance.yahoo.com/v8/finance/chart/{lookup_sym}?interval=1d&range=1y", headers=h, timeout=4)
-        q2_code = r2.status_code
-    except Exception as e:
-        q2_code = str(e)
-
-    # Test Stooq CSV
-    stooq_ticker = lookup_sym.lower().replace(".", "-")
-    if not any(stooq_ticker.endswith(x) for x in [".us", ".pa", ".de"]):
-        stooq_ticker += ".us"
-    try:
-        rs = requests.get(f"https://stooq.com/q/d/l/?s={stooq_ticker}&i=d", headers=h, timeout=5)
-        stooq_code = rs.status_code
-        stooq_len = len(rs.text.splitlines())
-    except Exception as e:
-        stooq_code = str(e)
-
+@app.route("/api/health_cache")
+def api_health_cache():
+    from src.supabase_connector import get_all_market_data_cache
+    cached_all = get_all_market_data_cache()
+    sample = {k: {"price": v.get("price"), "drop": v.get("drop_pct"), "rsi": v.get("rsi"), "vol": v.get("avg_daily_volume")} 
+              for k, v in list(cached_all.items())[:5]}
     return safe_jsonify({
-        "symbol": sym,
-        "lookup_sym": lookup_sym,
-        "query1_code": q1_code,
-        "query2_code": q2_code,
-        "stooq_code": stooq_code,
-        "stooq_lines": stooq_len
+        "status": "healthy",
+        "cached_tickers_count": len(cached_all),
+        "sample": sample
     })
 
 # ---------------------------------------------------------------------

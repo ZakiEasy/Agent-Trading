@@ -1414,6 +1414,13 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         elif lookup_sym in FALLBACK_WATCHLIST_REFERENCE_PRICES:
             curr_price = float(FALLBACK_WATCHLIST_REFERENCE_PRICES[lookup_sym]["price"])
 
+    # Si avg_daily_volume est toujours 0 mais qu'on a df et curr_price
+    if (not avg_daily_volume or avg_daily_volume <= 0) and df is not None and not df.empty and "Volume" in df.columns and curr_price and curr_price > 0:
+        try:
+            avg_daily_volume = float(df["Volume"].tail(20).mean() * curr_price)
+        except Exception:
+            pass
+
     if not curr_price or curr_price <= 0:
         return {
             "symbol": sym,

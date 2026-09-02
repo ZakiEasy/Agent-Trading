@@ -717,3 +717,81 @@ def save_app_setting(key, value, description=None):
         print(f"⚠️ Erreur save_app_setting ({key}): {e}")
         return False
 
+
+# ==============================================================================
+# --- 7. CACHE CENTRALISÉ DE MARCHÉ SUPABASE (CLOUD SYNC) ---
+# ==============================================================================
+
+def get_market_data_cache(symbol):
+    """Récupère les données de marché en cache Cloud Supabase pour un symbole."""
+    s = str(symbol or "").upper().strip()
+    if not s:
+        return None
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT * FROM public.market_data_cache 
+                    WHERE symbol = %s;
+                """, (s,))
+                row = cur.fetchone()
+                if row:
+                    return dict(row)
+                return None
+    except Exception as e:
+        return None
+
+def get_all_market_data_cache():
+    """Récupère tout le cache de marché Supabase sous forme de dict symbol -> data."""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM public.market_data_cache;")
+                rows = cur.fetchall() or []
+                return {r["symbol"]: dict(r) for r in rows}
+    except Exception:
+        return {}
+
+def save_market_data_cache(symbol, price=0.0, currency="USD", drop_pct=0.0, rsi=50.0, 
+                           avg_daily_volume=0.0, confluence_score=5.0, 
+                           verdict_swing="ATTENDRE", verdict_sniper="NON ÉLIGIBLE", 
+                           ohlcv_json=None, info_json=None):
+    """Sauvegarde ou met à jour les données de marché d'un symbole dans Supabase."""
+    s = str(symbol or "").upper().strip()
+    if not s:
+        return False
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO public.market_data_cache (
+                        symbol, price, currency, drop_pct, rsi, avg_daily_volume, 
+                        confluence_score, verdict_swing, verdict_sniper, 
+                        ohlcv_json, info_json, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, NOW()
+                    )
+                    ON CONFLICT (symbol) DO UPDATE SET
+                        price = EXCLUDED.price,
+                        currency = EXCLUDED.currency,
+                        drop_pct = EXCLUDED.drop_pct,
+                        rsi = EXCLUDED.rsi,
+                        avg_daily_volume = EXCLUDED.avg_daily_volume,
+                        confluence_score = EXCLUDED.confluence_score,
+                        verdict_swing = EXCLUDED.verdict_swing,
+                        verdict_sniper = EXCLUDED.verdict_sniper,
+                        ohlcv_json = COALESCE(EXCLUDED.ohlcv_json, public.market_data_cache.ohlcv_json),
+                        info_json = COALESCE(EXCLUDED.info_json, public.market_data_cache.info_json),
+                        updated_at = NOW();
+                """, (
+                    s, price, currency, drop_pct, rsi, avg_daily_volume, 
+                    confluence_score, verdict_swing, verdict_sniper,
+                    json.dumps(ohlcv_json) if ohlcv_json else None,
+                    json.dumps(info_json) if info_json else None
+                ))
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"⚠️ Erreur save_market_data_cache ({s}): {e}")
+        return False
+
