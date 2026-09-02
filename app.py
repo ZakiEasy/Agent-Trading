@@ -2559,12 +2559,25 @@ def toggle_trading212_us_trading():
 
 @app.route("/api/health_cache")
 def api_health_cache():
-    from src.supabase_connector import get_all_market_data_cache
-    cached_all = get_all_market_data_cache()
+    from src.supabase_connector import get_all_market_data_cache, get_db_connection
+    cached_all = {}
+    db_err = None
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM public.market_data_cache;")
+                db_count = cur.fetchone()[0]
+        cached_all = get_all_market_data_cache()
+    except Exception as e:
+        db_err = str(e)
+        db_count = -1
+
     sample = {k: {"price": v.get("price"), "drop": v.get("drop_pct"), "rsi": v.get("rsi"), "vol": v.get("avg_daily_volume")} 
               for k, v in list(cached_all.items())[:5]}
     return safe_jsonify({
-        "status": "healthy",
+        "status": "healthy" if not db_err else "db_error",
+        "db_count": db_count,
+        "db_error": db_err,
         "cached_tickers_count": len(cached_all),
         "sample": sample
     })
