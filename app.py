@@ -2563,28 +2563,44 @@ def api_debug_scan():
     from src.market_data import fetch_yahoo_chart_v8, get_ticker_data, resolve_ticker_symbol, get_ticker_info
     import requests
     lookup_sym = resolve_ticker_symbol(sym)
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-    test_v8_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{lookup_sym}?interval=1d&range=1y"
-    http_code = None
-    http_error = None
+    
+    # Test query2 avec headers réalistes
+    h = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7'
+    }
+    q1_code, q2_code, stooq_code, stooq_len = None, None, None, None
     try:
-        r = requests.get(test_v8_url, headers=headers, timeout=5)
-        http_code = r.status_code
+        r1 = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{lookup_sym}?interval=1d&range=1y", headers=h, timeout=4)
+        q1_code = r1.status_code
     except Exception as e:
-        http_error = str(e)
+        q1_code = str(e)
+        
+    try:
+        r2 = requests.get(f"https://query2.finance.yahoo.com/v8/finance/chart/{lookup_sym}?interval=1d&range=1y", headers=h, timeout=4)
+        q2_code = r2.status_code
+    except Exception as e:
+        q2_code = str(e)
 
-    v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="1y")
-    df = get_ticker_data(lookup_sym, period="1y")
-    info = get_ticker_info(lookup_sym)
+    # Test Stooq CSV
+    stooq_ticker = lookup_sym.lower().replace(".", "-")
+    if not any(stooq_ticker.endswith(x) for x in [".us", ".pa", ".de"]):
+        stooq_ticker += ".us"
+    try:
+        rs = requests.get(f"https://stooq.com/q/d/l/?s={stooq_ticker}&i=d", headers=h, timeout=5)
+        stooq_code = rs.status_code
+        stooq_len = len(rs.text.splitlines())
+    except Exception as e:
+        stooq_code = str(e)
+
     return safe_jsonify({
         "symbol": sym,
         "lookup_sym": lookup_sym,
-        "v8_http_code": http_code,
-        "v8_http_error": http_error,
-        "v8_p": v8_p,
-        "v8_df_len": len(v8_df) if v8_df is not None else None,
-        "df_len": len(df) if df is not None else None,
-        "info_keys": list(info.keys()) if isinstance(info, dict) else str(type(info))
+        "query1_code": q1_code,
+        "query2_code": q2_code,
+        "stooq_code": stooq_code,
+        "stooq_lines": stooq_len
     })
 
 # ---------------------------------------------------------------------
