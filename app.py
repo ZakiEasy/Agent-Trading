@@ -1498,8 +1498,8 @@ def get_macro_endpoint():
 def risk_calc_endpoint():
     data = request.json or {}
     capital = float(data.get("capital", CAPITAL_REFERENCE_DEFAULT))
-    entry_price = float(data.get("entry_price", 100.0))
-    stop_loss_price = float(data.get("stop_loss_price", entry_price * 0.97))
+    entry_price = float(data.get("entry_price", 0.0))
+    stop_loss_price = float(data.get("stop_loss_price", entry_price * 0.97 if entry_price > 0 else 0.0))
     macro_regime = data.get("macro_regime", "RÉGIME RISK-ON (Favorable)")
     is_drawdown = bool(data.get("is_drawdown_circuit_breaker", False))
     tp1_pct = float(data.get("tp1_pct", TARGET_TP1_DEFAULT))
@@ -1547,9 +1547,9 @@ def post_v3_risk_calculator():
     """
     data = request.json or {}
     capital = float(data.get("capital", CAPITAL_REFERENCE_DEFAULT))
-    entry = float(data.get("entry_price", 100.0))
-    stop = float(data.get("stop_loss", entry * 0.97))
-    tp = float(data.get("take_profit", entry * 1.0225))
+    entry = float(data.get("entry_price", 0.0))
+    stop = float(data.get("stop_loss", entry * 0.97 if entry > 0 else 0.0))
+    tp = float(data.get("take_profit", entry * 1.0225 if entry > 0 else 0.0))
     sizing = compute_institutional_rmax_sizing(capital, entry, stop, tp)
     return safe_jsonify({"success": True, "data": sizing})
 

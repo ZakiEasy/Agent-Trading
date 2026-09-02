@@ -839,7 +839,9 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
 
     timing = get_market_execution_timing(symbol)
     atr_d1 = compute_daily_atr(df_daily, period=14)
-    p = float(curr_price or (df_daily["Close"].iloc[-1] if (df_daily is not None and not df_daily.empty) else 100.0))
+    from src.market_data import FALLBACK_WATCHLIST_REFERENCE_PRICES
+    ref_px = FALLBACK_WATCHLIST_REFERENCE_PRICES.get(str(symbol).upper(), {}).get("price", 0.0)
+    p = float(curr_price or (df_daily["Close"].iloc[-1] if (df_daily is not None and not df_daily.empty) else ref_px))
 
     # Niveaux indicatifs pour le plan de trade
     m15_open = p
@@ -1108,7 +1110,8 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
     2. VWAP (Volume Weighted Average Price)
     3. Range High de la veille (Previous Day High - PDH)
     """
-    p = float(curr_price or 100.0)
+    last_close = float(df_daily["Close"].dropna().iloc[-1]) if (df_daily is not None and not df_daily.empty and len(df_daily["Close"].dropna()) > 0) else 0.0
+    p = float(curr_price or last_close)
     if df_daily is None or len(df_daily) < 5:
         mm20 = round(p * 1.025, 2)
         vwap = round(p * 1.018, 2)
@@ -1204,8 +1207,8 @@ def detect_sneaky_pivot_m15(df_daily, symbol=None, curr_price=None, timing=None,
         pdl = float(df_daily["Low"].iloc[-2])
         pdh = float(df_daily["High"].iloc[-2])
     else:
-        pdl = (curr_price * 0.985) if curr_price else 100.0
-        pdh = (curr_price * 1.015) if curr_price else 100.0
+        pdl = (curr_price * 0.985) if curr_price else 0.0
+        pdh = (curr_price * 1.015) if curr_price else 0.0
         
     p = curr_price if curr_price else pdl
     is_first_hour = phase in ["M15_FORMATION", "SNIPER_WINDOW"]
@@ -1374,13 +1377,50 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     is_usd = not is_pea
     sym_currency = "€" if (is_pea or sym.endswith(".PA")) else "$"
 
-    curr_price = float(
-        (df["Close"].dropna().iloc[-1] if (df is not None and not df.empty and len(df["Close"].dropna()) > 0) else None)
-        or info.get("regularMarketPrice")
-        or info.get("currentPrice")
-        or info.get("previousClose")
-        or 100.0
-    )
+    curr_price = None
+    if df is not None and not df.empty and len(df["Close"].dropna()) > 0:
+        try:
+            curr_price = float(df["Close"].dropna().iloc[-1])
+        except Exception:
+            curr_price = None
+
+    if not curr_price or curr_price <= 0:
+        if isinstance(info, dict):
+            p_cand = info.get("regularMarketPrice") or info.get("currentPrice") or info.get("previousClose")
+            if p_cand:
+                try:
+                    curr_price = float(p_cand)
+                except Exception:
+                    pass
+
+    if not curr_price or curr_price <= 0:
+        from src.market_data import fetch_yahoo_chart_v8, FALLBACK_WATCHLIST_REFERENCE_PRICES
+        v8_p, v8_df = fetch_yahoo_chart_v8(sym, range_period="5d")
+        if v8_p and v8_p > 0:
+            curr_price = float(v8_p)
+            if df is None or df.empty:
+                df = v8_df
+        elif sym in FALLBACK_WATCHLIST_REFERENCE_PRICES:
+            curr_price = float(FALLBACK_WATCHLIST_REFERENCE_PRICES[sym]["price"])
+        elif lookup_sym in FALLBACK_WATCHLIST_REFERENCE_PRICES:
+            curr_price = float(FALLBACK_WATCHLIST_REFERENCE_PRICES[lookup_sym]["price"])
+
+    if not curr_price or curr_price <= 0:
+        return {
+            "symbol": sym,
+            "company_name": company_name,
+            "category": category,
+            "category_icon": category_icon,
+            "current_price": 0.0,
+            "currency": sym_currency,
+            "is_pea": is_pea,
+            "account_type": account_type,
+            "sharia_compliance": sharia_data.get("compliant", False),
+            "sharia_reasons": sharia_reasons,
+            "verdict": "DONNÉES INDISPONIBLES",
+            "confluence_score": 0,
+            "error": "Flux de marché indisponible pour ce symbole."
+        }
 
     # 2. Macro Baromètre, Saisonnalité & Sentiment Contrarien
     macro = get_macro_sentiment_barometer(force_refresh=force_refresh)

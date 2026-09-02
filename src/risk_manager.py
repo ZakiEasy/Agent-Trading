@@ -17,8 +17,8 @@ from src.config import (
 
 def calculate_trade_sizing(
     capital_total=CAPITAL_REFERENCE_DEFAULT,
-    entry_price=100.0,
-    stop_loss_price=97.0,
+    entry_price=0.0,
+    stop_loss_price=0.0,
     macro_regime="RÉGIME RISK-ON (Favorable)",
     is_drawdown_circuit_breaker=False,
     tp1_pct=TARGET_TP1_DEFAULT,
@@ -32,7 +32,19 @@ def calculate_trade_sizing(
       Allocation Nominale (€) = min( R-Max (€) / Distance Stop-Loss (%), 0.25 * Capital Total )
     """
     if entry_price <= 0:
-        entry_price = 100.0
+        return {
+            "shares_to_buy": 0,
+            "shares_to_buy_float": 0.0,
+            "suggested_nominal": 0.0,
+            "r_max_amount": 0.0,
+            "r_max_pct": 0.0,
+            "stop_distance_pct": 0.0,
+            "entry_price": 0.0,
+            "stop_loss_price": 0.0,
+            "take_profit_1_price": 0.0,
+            "take_profit_2_price": 0.0,
+            "error": "Prix d'entrée nul ou invalide."
+        }
     if stop_loss_price >= entry_price or stop_loss_price <= 0:
         stop_loss_price = entry_price * 0.97
 
