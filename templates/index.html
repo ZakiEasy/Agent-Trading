@@ -1610,10 +1610,12 @@
                             <label>⚖️ Verdict Swing :</label>
                             <select id="filter-verdict-swing" class="filter-select" onchange="applyFilters()">
                                 <option value="ALL">Tous verdicts Swing</option>
-                                <option value="ACHAT">🟢 Achat Validé (Swing)</option>
-                                <option value="ATTENDRE_H1">🟡 Attendre Confirmation H1</option>
+                                <option value="ACHAT">🟢 Achat Validé</option>
+                                <option value="ATTENDRE_SETUP">🟡 Attendre Setup</option>
                                 <option value="ATTENDRE_REPLI">⚪ Attendre Repli</option>
-                                <option value="EVITER">🔴 Éviter / Hors Critères</option>
+                                <option value="EVITER_MM200">🔴 Éviter (&lt; MM200)</option>
+                                <option value="EVITER_SHARIA">🔴 Éviter (Sharia)</option>
+                                <option value="EVITER_AUTRES">🔴 Éviter (Chute &gt; 8% / News)</option>
                                 <option value="RISK_OFF">🛑 Gel (Risk-Off)</option>
                             </select>
                         </div>
@@ -1623,10 +1625,10 @@
                             <label>🎯 Verdict Sniper :</label>
                             <select id="filter-verdict-sniper" class="filter-select" onchange="applyFilters()">
                                 <option value="ALL">Tous statuts Sniper</option>
-                                <option value="ACHAT_SNIPER">🟢 Achat Sniper Validé</option>
-                                <option value="ATTENDRE_M5">🟡 Attendre Rejet M5 (&lt; 90 min)</option>
-                                <option value="PRE_MARKET">🔵 Plan Pré-Ouverture (M15)</option>
-                                <option value="FORMATION_M15">🟠 Formation M15</option>
+                                <option value="ACHAT_SNIPER">🟢 Achat Validé</option>
+                                <option value="PRE_MARKET">🔵 Attendre Setup (Pré-Ouverture)</option>
+                                <option value="FORMATION_M15">🟠 Attendre Setup (Formation M15)</option>
+                                <option value="ATTENDRE_M5">🟡 Attendre Setup (Rejet M5 / Expansion)</option>
                                 <option value="EXPIRED">⚪ Fenêtre Expirée (&gt; 90 min)</option>
                                 <option value="NON_ELIGIBLE">🔘 Non Éligible</option>
                             </select>
@@ -7818,9 +7820,11 @@
                 if (verdictSwingFilter !== 'ALL') {
                     const vSwing = (r.verdict_swing || r.verdict || '').toUpperCase();
                     if (verdictSwingFilter === 'ACHAT' && !vSwing.includes('ACHAT')) return false;
-                    if (verdictSwingFilter === 'ATTENDRE_H1' && !vSwing.includes('CONFIRMATION H1')) return false;
+                    if (verdictSwingFilter === 'ATTENDRE_SETUP' && !vSwing.includes('ATTENDRE SETUP')) return false;
                     if (verdictSwingFilter === 'ATTENDRE_REPLI' && !vSwing.includes('ATTENDRE REPLI')) return false;
-                    if (verdictSwingFilter === 'EVITER' && !(vSwing.includes('ÉVITER') || vSwing.includes('EVITER') || vSwing.includes('HORS CRITÈRES'))) return false;
+                    if (verdictSwingFilter === 'EVITER_MM200' && !vSwing.includes('MM200')) return false;
+                    if (verdictSwingFilter === 'EVITER_SHARIA' && !vSwing.includes('SHARIA')) return false;
+                    if (verdictSwingFilter === 'EVITER_AUTRES' && !(vSwing.includes('CHUTE') || vSwing.includes('NEWS') || (vSwing.includes('ÉVITER') && !vSwing.includes('MM200') && !vSwing.includes('SHARIA')))) return false;
                     if (verdictSwingFilter === 'RISK_OFF' && !(vSwing.includes('RISK-OFF') || vSwing.includes('GEL') || vSwing.includes('LIQUIDITÉS'))) return false;
                 }
 
@@ -7828,9 +7832,9 @@
                 if (verdictSniperFilter !== 'ALL') {
                     const vSniper = (r.verdict_sniper || 'NON ÉLIGIBLE').toUpperCase();
                     if (verdictSniperFilter === 'ACHAT_SNIPER' && !vSniper.includes('ACHAT')) return false;
-                    if (verdictSniperFilter === 'ATTENDRE_M5' && !vSniper.includes('REJET M5')) return false;
                     if (verdictSniperFilter === 'PRE_MARKET' && !(vSniper.includes('PRÉ-OUVERTURE') || vSniper.includes('PRE-OUVERTURE') || vSniper.includes('SURVEILLANCE'))) return false;
                     if (verdictSniperFilter === 'FORMATION_M15' && !vSniper.includes('FORMATION')) return false;
+                    if (verdictSniperFilter === 'ATTENDRE_M5' && !(vSniper.includes('REJET M5') || vSniper.includes('EXPANSION') || vSniper.includes('SNEAKY'))) return false;
                     if (verdictSniperFilter === 'EXPIRED' && !(vSniper.includes('EXPIRÉE') || vSniper.includes('EXPIREE'))) return false;
                     if (verdictSniperFilter === 'NON_ELIGIBLE' && !(vSniper.includes('NON ÉLIGIBLE') || vSniper.includes('NON ELIGIBLE'))) return false;
                 }
