@@ -2586,12 +2586,23 @@ def api_health_cache():
         except Exception:
             pass
 
+    xtb_snap_path = os.path.join(os.path.dirname(__file__), "data", "xtb_history_snapshot.json")
+    xtb_snap_trades = 0
+    if os.path.exists(xtb_snap_path):
+        try:
+            with open(xtb_snap_path, "r", encoding="utf-8") as f:
+                xtb_data = json.load(f)
+            xtb_snap_trades = len(xtb_data.get("closed_positions", []))
+        except Exception:
+            pass
+
     return safe_jsonify({
         "status": "healthy",
         "db_count": db_count,
         "db_error": db_err,
         "snapshot_count": snap_count,
-        "snapshot_sample": snap_sample
+        "snapshot_sample": snap_sample,
+        "xtb_snapshot_trades": xtb_snap_trades
     })
 
 # ---------------------------------------------------------------------

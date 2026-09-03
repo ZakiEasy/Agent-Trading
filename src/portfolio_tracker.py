@@ -4,7 +4,10 @@ import math
 import concurrent.futures
 from datetime import datetime
 import pandas as pd
-import yfinance as yf
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 from src.supabase_connector import (
     get_supabase_positions,

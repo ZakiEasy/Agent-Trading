@@ -1,4 +1,7 @@
-import yfinance as yf
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta

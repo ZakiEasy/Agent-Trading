@@ -12,8 +12,12 @@ import os
 import time
 import json
 from datetime import datetime
-import psycopg2
-from psycopg2.extras import RealDictCursor
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+except ImportError:
+    psycopg2 = None
+    RealDictCursor = None
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,6 +33,8 @@ SUPABASE_DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", "LAk4UUk@Tfs@9qC")
 
 def get_db_connection():
     """Crée et retourne une connexion PostgreSQL directe à Supabase."""
+    if not psycopg2:
+        raise RuntimeError("psycopg2 non installé")
     return psycopg2.connect(
         host=SUPABASE_DB_HOST,
         port=SUPABASE_DB_PORT,
@@ -37,6 +43,36 @@ def get_db_connection():
         dbname=SUPABASE_DB_NAME,
         connect_timeout=10
     )
+
+
+def _get_xtb_snapshot_data():
+    """Charge les données consolidées depuis data/xtb_history_snapshot.json en tant que fallback persistant."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    snap_path = os.path.join(base_dir, "data", "xtb_history_snapshot.json")
+    if os.path.exists(snap_path):
+        try:
+            with open(snap_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Erreur lecture snapshot XTB ({snap_path}): {e}")
+    return {}
+
+
+def _save_xtb_snapshot_data(patch_dict):
+    """Met à jour atomiquement les clés du snapshot local data/xtb_history_snapshot.json."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    snap_path = os.path.join(base_dir, "data", "xtb_history_snapshot.json")
+    data = _get_xtb_snapshot_data() or {}
+    data.update(patch_dict)
+    data["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    try:
+        os.makedirs(os.path.dirname(snap_path), exist_ok=True)
+        with open(snap_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"⚠️ Erreur écriture snapshot XTB ({snap_path}): {e}")
+        return False
 
 
 # ==============================================================================
@@ -177,10 +213,40 @@ def get_supabase_positions(status="ACTIVE"):
                 for r in rows:
                     if r.get("id"):
                         r["id"] = str(r["id"])
-                return rows
+                if rows:
+                    return rows
     except Exception as e:
         print(f"⚠️ Erreur get_supabase_positions: {e}")
-        return []
+
+    # Fallback local JSON snapshot
+    snap = _get_xtb_snapshot_data()
+    open_pos = snap.get("open_positions", [])
+    if open_pos:
+        formatted = []
+        for p in open_pos:
+            st = p.get("status", "ACTIVE")
+            if status != "ALL" and st != status:
+                continue
+            formatted.append({
+                "id": str(p.get("id")),
+                "symbol": p.get("symbol"),
+                "company_name": p.get("name") or p.get("company_name") or p.get("symbol"),
+                "broker": p.get("broker", "XTB"),
+                "account_type": p.get("account") or p.get("account_type", "CTO Euro"),
+                "pru": float(p.get("pru", 0.0)),
+                "quantity": float(p.get("quantity", 0.0)),
+                "invested_capital": float(p.get("invested_amount") or p.get("invested_capital", 0.0)),
+                "current_price": float(p.get("current_price") or p.get("pru", 0.0)),
+                "stop_loss": float(p.get("stop_loss", 0.0)),
+                "take_profit_1": float(p.get("tp1") or p.get("take_profit_1", 0.0)),
+                "take_profit_2": float(p.get("tp2") or p.get("take_profit_2", 0.0)),
+                "currency": p.get("currency", "EUR"),
+                "status": st,
+                "notes": p.get("notes", "")
+            })
+        return formatted
+
+    return []
 
 
 def save_or_update_position(pos_data):
@@ -279,10 +345,13 @@ def batch_save_positions(open_positions):
                         p.get("notes", "")
                     ))
                 conn.commit()
+                # Sauvegarder également dans le snapshot local
+                _save_xtb_snapshot_data({"open_positions": open_positions})
                 return True, f"{len(open_positions)} positions actives synchronisées en base de données !"
     except Exception as e:
-        print(f"⚠️ Erreur batch_save_positions: {e}")
-        return False, str(e)
+        print(f"⚠️ Erreur batch_save_positions BDD (bascule snapshot local): {e}")
+        _save_xtb_snapshot_data({"open_positions": open_positions})
+        return True, f"{len(open_positions)} positions actives sauvegardées dans le snapshot local (BDD hors-ligne) !"
 
 
 def close_supabase_position(pos_id_or_symbol, exit_price, exit_date=None, notes=""):
@@ -404,10 +473,26 @@ def get_supabase_trade_journal(account_type=None, limit=None):
                         "currency": r.get("currency", "EUR"),
                         "comment": r.get("notes") or ""
                     })
-                return trades
+                if trades:
+                    return trades
     except Exception as e:
         print(f"⚠️ Erreur get_supabase_trade_journal: {e}")
-        return []
+
+    # Fallback local JSON snapshot
+    snap = _get_xtb_snapshot_data()
+    closed = snap.get("closed_positions", [])
+    if closed:
+        filtered = []
+        for t in closed:
+            acc = t.get("account") or t.get("account_type", "CTO Euro")
+            if account_type and acc != account_type:
+                continue
+            filtered.append(t)
+        if limit and int(limit) > 0:
+            filtered = filtered[:int(limit)]
+        return filtered
+
+    return []
 
 
 def batch_save_trade_journal(trades_list):
@@ -460,10 +545,13 @@ def batch_save_trade_journal(trades_list):
                     ))
                     count += 1
                 conn.commit()
+                # Sauvegarder également dans le snapshot local
+                _save_xtb_snapshot_data({"closed_positions": trades_list})
                 return True, f"{count} trades enregistrés dans le Journal en base de données !"
     except Exception as e:
-        print(f"⚠️ Erreur batch_save_trade_journal: {e}")
-        return False, str(e)
+        print(f"⚠️ Erreur batch_save_trade_journal BDD (bascule snapshot local): {e}")
+        _save_xtb_snapshot_data({"closed_positions": trades_list})
+        return True, f"{len(trades_list)} trades sauvegardés dans le snapshot local (BDD hors-ligne) !"
 
 
 # ==============================================================================
@@ -503,10 +591,26 @@ def get_supabase_treasury_operations(account_type=None, limit=None):
                         "currency": r.get("currency", "EUR"),
                         "comment": r.get("comment") or ""
                     })
-                return ops
+                if ops:
+                    return ops
     except Exception as e:
         print(f"⚠️ Erreur get_supabase_treasury_operations: {e}")
-        return []
+
+    # Fallback local JSON snapshot
+    snap = _get_xtb_snapshot_data()
+    cash_ops = snap.get("cash_operations", [])
+    if cash_ops:
+        filtered = []
+        for op in cash_ops:
+            acc = op.get("account") or op.get("account_type", "CTO Euro")
+            if account_type and acc != account_type:
+                continue
+            filtered.append(op)
+        if limit and int(limit) > 0:
+            filtered = filtered[:int(limit)]
+        return filtered
+
+    return []
 
 
 def batch_save_treasury_operations(cash_operations):
@@ -543,10 +647,13 @@ def batch_save_treasury_operations(cash_operations):
                     ))
                     count += 1
                 conn.commit()
+                # Sauvegarder également dans le snapshot local
+                _save_xtb_snapshot_data({"cash_operations": cash_operations})
                 return True, f"{count} opérations de trésorerie synchronisées en base de données !"
     except Exception as e:
-        print(f"⚠️ Erreur batch_save_treasury_operations: {e}")
-        return False, str(e)
+        print(f"⚠️ Erreur batch_save_treasury_operations BDD (bascule snapshot local): {e}")
+        _save_xtb_snapshot_data({"cash_operations": cash_operations})
+        return True, f"{len(cash_operations)} opérations de trésorerie sauvegardées dans le snapshot local (BDD hors-ligne) !"
 
 
 # ==============================================================================
