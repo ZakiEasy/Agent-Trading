@@ -1028,15 +1028,24 @@ def import_all_history_files():
                 seen_cash_ids.add(c["id"])
                 all_cash.append(c)
 
-    # 1. Enregistrer dans le Journal
-    batch_save_trade_journal(all_closed)
+    # Si le parsing direct a échoué (ex: openpyxl non dispo ou fichiers en cours d'écriture), fallback sur le snapshot
+    if not all_closed and not all_open and not all_cash:
+        from src.supabase_connector import _get_xtb_snapshot_data
+        snap = _get_xtb_snapshot_data()
+        all_closed = snap.get("closed_positions", [])
+        all_open = snap.get("open_positions", [])
+        all_cash = snap.get("cash_operations", [])
+        agg_open = all_open
+    else:
+        # 1. Enregistrer dans le Journal
+        batch_save_trade_journal(all_closed)
 
-    # 2. Enregistrer les positions ouvertes agrégées
-    agg_open = aggregate_open_positions(all_open)
-    batch_save_positions(agg_open)
+        # 2. Enregistrer les positions ouvertes agrégées
+        agg_open = aggregate_open_positions(all_open)
+        batch_save_positions(agg_open)
 
-    # 3. Enregistrer les opérations de trésorerie
-    batch_save_treasury_operations(all_cash)
+        # 3. Enregistrer les opérations de trésorerie
+        batch_save_treasury_operations(all_cash)
 
     stats = calculate_trading_performance_stats(all_closed)
     cash_summary = calculate_cash_and_treasury_summary(all_cash)
