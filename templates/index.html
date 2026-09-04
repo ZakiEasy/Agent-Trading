@@ -1604,6 +1604,7 @@
                         <div class="filter-group" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.2rem 0.5rem;">
                             <label style="color: #60a5fa; font-weight: 700;">🎯 Stratégie :</label>
                             <select id="filter-strategy" class="filter-select" onchange="onStrategyFilterChange()" style="color: #60a5fa; font-weight: 700;">
+                                <option value="V5" selected>🔥 V5 MR + POC (SMA200*0.97)</option>
                                 <option value="ALL">⚡ V4 Sniper & Swing (5 Piliers)</option>
                                 <option value="V3">🏛️ V3 Institutionnel (3 Piliers)</option>
                                 <option value="V2">📈 V2 Standard (Mean Reversion)</option>
@@ -3228,7 +3229,8 @@
                         <div class="form-group" style="margin-bottom: 0;">
                             <label style="font-size: 0.75rem; font-weight: 700; color: #60a5fa;">🎯 Stratégie à Backtester</label>
                             <select id="bt-strategy" style="color: #60a5fa; font-weight: 700;">
-                                <option value="v4_sniper_swing" selected>⚡ V4 Sniper & Swing (Confluence 5 Piliers + M15/ATR ≥ 25%)</option>
+                                <option value="v5_mean_reversion_poc" selected>🔥 V5 Mean Reversion + POC (SMA200*0.97 + POC 60d + Dynamic TP2)</option>
+                                <option value="v4_sniper_swing">⚡ V4 Sniper & Swing (Confluence 5 Piliers + M15/ATR ≥ 25%)</option>
                                 <option value="v3_institutional">🏛️ V3 Institutionnel (Confluence 3 Moteurs + R-Max)</option>
                                 <option value="v2_standard">📈 V2 Standard (Mean Reversion Simple)</option>
                                 <option value="v1_classic">📊 V1 Classique (RSI / MA Naïf)</option>
