@@ -16,7 +16,7 @@ DEFAULT_WATCHLIST = [
     # Hyperscalers & Géants Cloud/IA
     "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "UBER", "BABA", "BKNG", "BYDDY",
     # Éditeurs de Logiciels & SaaS
-    "CRM", "SAP", "ESTC", "ASAN",
+    "CRM", "SAP", "ESTC", "ASAN", "PANW",
     # Semi-conducteurs & Équipements
     "NVDA", "TSM", "AVGO", "ASML", "ASML.AS", "ARM", "QCOM", "INTC", "STMPA.PA",
     # Mémoire & Stockage de Données
