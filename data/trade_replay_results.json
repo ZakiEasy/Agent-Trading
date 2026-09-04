@@ -1,0 +1,343 @@
+{
+  "generated_at": "2026-09-04T00:23:48.818961",
+  "parameters": {
+    "tp1_pct": 1.8,
+    "tp2_pct": 2.5,
+    "stop_loss_pct": -2.0,
+    "max_holding_days": 10
+  },
+  "summary": {
+    "total_trades": 440,
+    "improved_trades_count": 224,
+    "improved_pct": 50.9,
+    "real": {
+      "win_rate_pct": 84.8,
+      "winning_trades": 373,
+      "losing_trades": 67,
+      "total_net_pnl": 4956.87,
+      "avg_duration_days": 36.2
+    },
+    "simulated": {
+      "win_rate_pct": 70.7,
+      "winning_trades": 311,
+      "losing_trades": 129,
+      "total_net_pnl": 384.43,
+      "avg_duration_days": 2.6,
+      "exit_reasons": {
+        "FIN_PERIODE": 8,
+        "BREAKEVEN_SECURISE (0.0%)": 82,
+        "STOP_LOSS (-2.0%)": 128,
+        "TP2_OPTIMAL (+2.5% Mean Reversion)": 219,
+        "DONNEES_MANQUANTES": 3
+      }
+    },
+    "comparison": {
+      "net_pnl_delta_eur": -4572.44,
+      "total_days_saved": 14759.6,
+      "avg_days_saved_per_trade": 33.5,
+      "conclusion": "Le protocole aurait généré -4572.44 € de différentiel tout en réduisant la durée de détention de 33.5 jours par trade en moyenne."
+    }
+  },
+  "by_symbol": [
+    {
+      "symbol": "META",
+      "trades_count": 25,
+      "real_pnl": 854.64,
+      "sim_pnl": -82.6,
+      "pnl_diff": -937.24,
+      "real_avg_days": 45.5,
+      "sim_avg_days": 1.6,
+      "days_saved": 1095.7
+    },
+    {
+      "symbol": "TSLA",
+      "trades_count": 49,
+      "real_pnl": 770.08,
+      "sim_pnl": 110.39,
+      "pnl_diff": -659.69,
+      "real_avg_days": 17.5,
+      "sim_avg_days": 1.3,
+      "days_saved": 794.0
+    },
+    {
+      "symbol": "MSFT",
+      "trades_count": 24,
+      "real_pnl": 330.07,
+      "sim_pnl": -134.75,
+      "pnl_diff": -464.82,
+      "real_avg_days": 186.0,
+      "sim_avg_days": 2.3,
+      "days_saved": 4409.0
+    },
+    {
+      "symbol": "AAPL",
+      "trades_count": 31,
+      "real_pnl": 347.98,
+      "sim_pnl": -26.66,
+      "pnl_diff": -374.64,
+      "real_avg_days": 13.3,
+      "sim_avg_days": 2.2,
+      "days_saved": 342.0
+    },
+    {
+      "symbol": "WDC",
+      "trades_count": 5,
+      "real_pnl": 223.17,
+      "sim_pnl": -91.69,
+      "pnl_diff": -314.86,
+      "real_avg_days": 7.7,
+      "sim_avg_days": 1.0,
+      "days_saved": 33.3
+    },
+    {
+      "symbol": "AVGO",
+      "trades_count": 19,
+      "real_pnl": 300.81,
+      "sim_pnl": 17.46,
+      "pnl_diff": -283.35,
+      "real_avg_days": 25.7,
+      "sim_avg_days": 1.4,
+      "days_saved": 463.1
+    },
+    {
+      "symbol": "RMS.PA",
+      "trades_count": 6,
+      "real_pnl": 319.5,
+      "sim_pnl": 39.36,
+      "pnl_diff": -280.14,
+      "real_avg_days": 6.0,
+      "sim_avg_days": 1.8,
+      "days_saved": 24.9
+    },
+    {
+      "symbol": "ORCL",
+      "trades_count": 4,
+      "real_pnl": 218.52,
+      "sim_pnl": -19.07,
+      "pnl_diff": -237.59,
+      "real_avg_days": 14.3,
+      "sim_avg_days": 1.5,
+      "days_saved": 51.3
+    },
+    {
+      "symbol": "NVDA",
+      "trades_count": 25,
+      "real_pnl": 254.1,
+      "sim_pnl": 18.6,
+      "pnl_diff": -235.5,
+      "real_avg_days": 23.9,
+      "sim_avg_days": 1.2,
+      "days_saved": 567.6
+    },
+    {
+      "symbol": "GOOGL",
+      "trades_count": 17,
+      "real_pnl": 235.5,
+      "sim_pnl": 68.54,
+      "pnl_diff": -166.96,
+      "real_avg_days": 23.1,
+      "sim_avg_days": 2.4,
+      "days_saved": 352.3
+    },
+    {
+      "symbol": "ASML.AS",
+      "trades_count": 2,
+      "real_pnl": 66.0,
+      "sim_pnl": -18.35,
+      "pnl_diff": -84.35,
+      "real_avg_days": 0.5,
+      "sim_avg_days": 1.0,
+      "days_saved": -1.0
+    },
+    {
+      "symbol": "TSM",
+      "trades_count": 11,
+      "real_pnl": 132.71,
+      "sim_pnl": 52.68,
+      "pnl_diff": -80.03,
+      "real_avg_days": 3.1,
+      "sim_avg_days": 1.6,
+      "days_saved": 16.3
+    },
+    {
+      "symbol": "AMZN",
+      "trades_count": 14,
+      "real_pnl": 108.7,
+      "sim_pnl": 41.11,
+      "pnl_diff": -67.59,
+      "real_avg_days": 16.7,
+      "sim_avg_days": 2.0,
+      "days_saved": 206.4
+    },
+    {
+      "symbol": "XOM",
+      "trades_count": 2,
+      "real_pnl": 42.24,
+      "sim_pnl": -24.37,
+      "pnl_diff": -66.61,
+      "real_avg_days": 3.6,
+      "sim_avg_days": 1.0,
+      "days_saved": 5.2
+    },
+    {
+      "symbol": "NFLX",
+      "trades_count": 18,
+      "real_pnl": 60.84,
+      "sim_pnl": 4.4,
+      "pnl_diff": -56.44,
+      "real_avg_days": 39.8,
+      "sim_avg_days": 2.0,
+      "days_saved": 680.6
+    },
+    {
+      "symbol": "SAP",
+      "trades_count": 4,
+      "real_pnl": 22.31,
+      "sim_pnl": -24.41,
+      "pnl_diff": -46.72,
+      "real_avg_days": 27.0,
+      "sim_avg_days": 1.2,
+      "days_saved": 103.1
+    },
+    {
+      "symbol": "IS3R.DE",
+      "trades_count": 28,
+      "real_pnl": 63.08,
+      "sim_pnl": 21.96,
+      "pnl_diff": -41.12,
+      "real_avg_days": 89.3,
+      "sim_avg_days": 1.0,
+      "days_saved": 2472.2
+    },
+    {
+      "symbol": "SPOT",
+      "trades_count": 1,
+      "real_pnl": 0.27,
+      "sim_pnl": 35.03,
+      "pnl_diff": 34.76,
+      "real_avg_days": 13.9,
+      "sim_avg_days": 1.0,
+      "days_saved": 12.9
+    },
+    {
+      "symbol": "CARR",
+      "trades_count": 2,
+      "real_pnl": 34.7,
+      "sim_pnl": 2.96,
+      "pnl_diff": -31.74,
+      "real_avg_days": 0.6,
+      "sim_avg_days": 4.5,
+      "days_saved": -7.9
+    },
+    {
+      "symbol": "ARM",
+      "trades_count": 6,
+      "real_pnl": 61.49,
+      "sim_pnl": 31.95,
+      "pnl_diff": -29.54,
+      "real_avg_days": 28.9,
+      "sim_avg_days": 1.0,
+      "days_saved": 167.6
+    },
+    {
+      "symbol": "SU.PA",
+      "trades_count": 4,
+      "real_pnl": 40.8,
+      "sim_pnl": 12.84,
+      "pnl_diff": -27.96,
+      "real_avg_days": 1.4,
+      "sim_avg_days": 2.0,
+      "days_saved": -2.3
+    },
+    {
+      "symbol": "FIG",
+      "trades_count": 4,
+      "real_pnl": 26.69,
+      "sim_pnl": 3.7,
+      "pnl_diff": -22.99,
+      "real_avg_days": 26.1,
+      "sim_avg_days": 1.0,
+      "days_saved": 100.4
+    },
+    {
+      "symbol": "CRM",
+      "trades_count": 4,
+      "real_pnl": 7.77,
+      "sim_pnl": -14.16,
+      "pnl_diff": -21.93,
+      "real_avg_days": 12.6,
+      "sim_avg_days": 1.2,
+      "days_saved": 45.5
+    },
+    {
+      "symbol": "SPCX",
+      "trades_count": 10,
+      "real_pnl": 40.84,
+      "sim_pnl": 19.89,
+      "pnl_diff": -20.95,
+      "real_avg_days": 10.1,
+      "sim_avg_days": 1.0,
+      "days_saved": 91.3
+    },
+    {
+      "symbol": "STMPA.PA",
+      "trades_count": 9,
+      "real_pnl": 19.64,
+      "sim_pnl": 2.22,
+      "pnl_diff": -17.42,
+      "real_avg_days": 2.1,
+      "sim_avg_days": 1.7,
+      "days_saved": 3.5
+    },
+    {
+      "symbol": "RYAAY",
+      "trades_count": 8,
+      "real_pnl": -13.86,
+      "sim_pnl": -29.27,
+      "pnl_diff": -15.41,
+      "real_avg_days": 29.1,
+      "sim_avg_days": 1.6,
+      "days_saved": 219.9
+    },
+    {
+      "symbol": "QCOM",
+      "trades_count": 6,
+      "real_pnl": 23.62,
+      "sim_pnl": 8.78,
+      "pnl_diff": -14.84,
+      "real_avg_days": 2.4,
+      "sim_avg_days": 1.0,
+      "days_saved": 8.2
+    },
+    {
+      "symbol": "BABA",
+      "trades_count": 2,
+      "real_pnl": 14.2,
+      "sim_pnl": -0.58,
+      "pnl_diff": -14.78,
+      "real_avg_days": 5.8,
+      "sim_avg_days": 2.0,
+      "days_saved": 7.7
+    },
+    {
+      "symbol": "OR.PA",
+      "trades_count": 3,
+      "real_pnl": 17.95,
+      "sim_pnl": 5.58,
+      "pnl_diff": -12.37,
+      "real_avg_days": 4.0,
+      "sim_avg_days": 2.0,
+      "days_saved": 6.1
+    },
+    {
+      "symbol": "HFG.DE",
+      "trades_count": 3,
+      "real_pnl": 25.06,
+      "sim_pnl": 13.5,
+      "pnl_diff": -11.56,
+      "real_avg_days": 1.6,
+      "sim_avg_days": 1.0,
+      "days_saved": 1.7
+    }
+  ]
+}

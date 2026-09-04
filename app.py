@@ -321,11 +321,22 @@ def view_stock_detail(ticker):
 def get_watchlist():
     """
     Retourne la liste complète des actions de la Watchlist depuis Supabase avec fallback automatique
-    sur Google Sheets ou la configuration locale si Supabase est vide ou inaccessible.
+    sur Google Sheets, le cache snapshot local ou la configuration locale si Supabase est vide ou inaccessible.
     """
     try:
         force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
         sb_wl = get_supabase_watchlist(only_active=True)
+        
+        # Charger le snapshot local persistant si existant
+        local_snapshot_file = BASE_DIR / "data" / "watchlist_snapshot.json"
+        local_items = []
+        if local_snapshot_file.exists():
+            try:
+                with open(local_snapshot_file, "r", encoding="utf-8") as f:
+                    local_items = json.load(f)
+            except Exception:
+                local_items = []
+
         if not sb_wl:
             from src.sheets_connector import read_watchlist_from_sheets, read_sharia_statuses_from_sheets
             sheet_tickers = read_watchlist_from_sheets(force_refresh=force) or []
@@ -350,6 +361,8 @@ def get_watchlist():
                         "currency": "EUR" if is_pea else "USD",
                         "is_active": True
                     })
+            elif local_items:
+                sb_wl = local_items
             else:
                 sb_wl = []
                 for sym in list(dict.fromkeys(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL)):
@@ -366,6 +379,15 @@ def get_watchlist():
                         "currency": "EUR" if is_pea else "USD",
                         "is_active": True
                     })
+        elif local_items:
+            # Fusionner les ajouts récents du snapshot local non encore synchronisés dans Supabase
+            existing_syms = set(str(item.get("symbol", "")).upper() for item in sb_wl)
+            for l_item in local_items:
+                l_sym = str(l_item.get("symbol", "")).upper()
+                if l_sym and l_sym not in existing_syms:
+                    sb_wl.append(l_item)
+                    existing_syms.add(l_sym)
+
         return safe_jsonify({"success": True, "watchlist": sb_wl, "count": len(sb_wl)})
     except Exception as e:
         logger.error(f"Erreur get_watchlist: {e}")
@@ -374,7 +396,7 @@ def get_watchlist():
 @app.route("/api/watchlist/add", methods=["POST"])
 def add_watchlist_ticker():
     """
-    Endpoint pour ajouter ou mettre à jour une action dans Supabase.
+    Endpoint pour ajouter ou mettre à jour une action dans Supabase, Google Sheets et le cache snapshot local.
     """
     data = request.json or {}
     symbol = data.get("ticker", "").upper().strip()
@@ -424,15 +446,72 @@ def add_watchlist_ticker():
         currency=currency
     )
 
+    # 5. Écrire en miroir dans Google Sheets
+    sheets_success = False
+    try:
+        from src.sheets_connector import add_ticker_to_sheets
+        sheets_success, _ = add_ticker_to_sheets(
+            ticker_symbol=symbol,
+            name=name,
+            category=category,
+            is_pea=is_pea,
+            sharia_status=sharia_status,
+            current_price=price,
+            source_verif=source_verif
+        )
+    except Exception as e:
+        logger.warning(f"Impossible d'écrire {symbol} dans Google Sheets : {e}")
+
+    # 6. Sauvegarder dans le cache snapshot local persistant
+    try:
+        local_dir = BASE_DIR / "data"
+        local_dir.mkdir(exist_ok=True)
+        local_snapshot_file = local_dir / "watchlist_snapshot.json"
+        local_items = []
+        if local_snapshot_file.exists():
+            try:
+                with open(local_snapshot_file, "r", encoding="utf-8") as f:
+                    local_items = json.load(f)
+            except Exception:
+                local_items = []
+        
+        # Mettre à jour ou ajouter
+        found = False
+        new_entry = {
+            "symbol": symbol,
+            "name": name,
+            "category": category,
+            "category_icon": fund_q.get("category_icon", "📦"),
+            "is_pea": is_pea,
+            "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+            "sharia_status": sharia_status,
+            "currency": currency,
+            "price": price,
+            "is_active": True
+        }
+        for idx, item in enumerate(local_items):
+            if str(item.get("symbol", "")).upper() == symbol:
+                local_items[idx] = new_entry
+                found = True
+                break
+        if not found:
+            local_items.append(new_entry)
+            
+        with open(local_snapshot_file, "w", encoding="utf-8") as f:
+            json.dump(local_items, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f"Erreur enregistrement cache snapshot local pour {symbol} : {e}")
+
     return jsonify({
         "success": True,
-        "message": f"Action {symbol} ({name}) ajoutée avec succès dans la Watchlist BDD !",
+        "message": f"Action {symbol} ({name}) ajoutée avec succès dans la Watchlist (BDD, Google Sheets & Local) !",
         "ticker": symbol,
         "name": name,
         "category": category,
         "is_pea": is_pea,
         "account_type": "PEA (Europe)" if is_pea else "CTO (US)",
         "sharia_status": sharia_status,
+        "sheets_synced": sheets_success,
         "data": analysis
     })
 

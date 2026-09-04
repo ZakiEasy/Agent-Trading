@@ -1103,20 +1103,135 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
     return data_res
 
 
+def compute_volume_profile(df_daily, curr_price, lookback_days=60, num_bins=30):
+    """
+    Volume Profile (VP) :
+    Mesure le volume transigé par niveau de prix sur la période récente (60 jours).
+    Identifie :
+    - POC (Point of Control) : Niveau de prix ayant enregistré le volume maximal d'échange.
+    - VAH (Value Area High) & VAL (Value Area Low) : Zone englobant 70% du volume total.
+    - HVA (High Value Areas) : Zones de forte acceptation/consolidation.
+    - LVA (Low Value Areas) : Vides de liquidité propices aux mouvements directionnels rapides.
+    """
+    last_close = float(df_daily["Close"].dropna().iloc[-1]) if (df_daily is not None and not df_daily.empty and len(df_daily["Close"].dropna()) > 0) else 0.0
+    p = float(curr_price or last_close)
+
+    if df_daily is None or len(df_daily) < 10 or "Volume" not in df_daily.columns:
+        return {
+            "poc": round(p * 1.015, 2),
+            "dist_poc_pct": 1.5,
+            "vah": round(p * 1.03, 2),
+            "val": round(p * 0.98, 2),
+            "is_in_hva": True,
+            "is_in_lva": False,
+            "zone_desc": "Données de volume limitées — approximation du POC."
+        }
+
+    sub_df = df_daily.iloc[-lookback_days:].copy()
+    highs = sub_df["High"].values
+    lows = sub_df["Low"].values
+    volumes = sub_df["Volume"].fillna(0).values
+
+    min_p = float(np.nanmin(lows))
+    max_p = float(np.nanmax(highs))
+
+    if max_p <= min_p or len(volumes) == 0 or np.sum(volumes) == 0:
+        return {
+            "poc": round(p * 1.015, 2),
+            "dist_poc_pct": 1.5,
+            "vah": round(p * 1.03, 2),
+            "val": round(p * 0.98, 2),
+            "is_in_hva": True,
+            "is_in_lva": False,
+            "zone_desc": "Volume Profile neutre."
+        }
+
+    # Discrétisation en bins de prix
+    bins = np.linspace(min_p, max_p, num_bins + 1)
+    bin_volumes = np.zeros(num_bins)
+
+    for h, l, v in zip(highs, lows, volumes):
+        if h > l and v > 0:
+            mask = (bins[:-1] >= l) & (bins[1:] <= h)
+            overlap_count = np.sum(mask)
+            if overlap_count > 0:
+                bin_volumes[mask] += (v / overlap_count)
+            else:
+                idx = np.clip(np.digitize((h + l) / 2.0, bins) - 1, 0, num_bins - 1)
+                bin_volumes[idx] += v
+
+    poc_idx = int(np.argmax(bin_volumes))
+    poc_price = float((bins[poc_idx] + bins[poc_idx + 1]) / 2.0)
+
+    # Calcul de la Value Area (70% du volume total)
+    total_volume = np.sum(bin_volumes)
+    target_70 = total_volume * 0.70
+    cum_vol = bin_volumes[poc_idx]
+    lower_idx = poc_idx
+    upper_idx = poc_idx
+
+    while cum_vol < target_70 and (lower_idx > 0 or upper_idx < num_bins - 1):
+        next_lower_vol = bin_volumes[lower_idx - 1] if lower_idx > 0 else 0
+        next_upper_vol = bin_volumes[upper_idx + 1] if upper_idx < num_bins - 1 else 0
+
+        if next_upper_vol >= next_lower_vol and upper_idx < num_bins - 1:
+            upper_idx += 1
+            cum_vol += next_upper_vol
+        elif lower_idx > 0:
+            lower_idx -= 1
+            cum_vol += next_lower_vol
+        elif upper_idx < num_bins - 1:
+            upper_idx += 1
+            cum_vol += next_upper_vol
+        else:
+            break
+
+    val_price = float(bins[lower_idx])
+    vah_price = float(bins[upper_idx + 1])
+
+    # Positionnement actuel vs HVA / LVA
+    curr_bin_idx = np.clip(np.digitize(p, bins) - 1, 0, num_bins - 1)
+    avg_bin_vol = total_volume / num_bins
+    is_in_hva = bin_volumes[curr_bin_idx] >= (avg_bin_vol * 1.15)
+    is_in_lva = bin_volumes[curr_bin_idx] <= (avg_bin_vol * 0.65)
+
+    dist_poc_pct = round(((poc_price - p) / p) * 100, 2)
+
+    if is_in_hva:
+        zone_desc = f"Dans une High Value Area (HVA) de forte consolidation [{val_price:.2f} - {vah_price:.2f}]."
+    elif is_in_lva:
+        zone_desc = f"Dans une Low Value Area (LVA - vide de liquidité), propice à une accélération vers le POC."
+    else:
+        zone_desc = f"Entre zones de valeur (VAL: {val_price:.2f}, VAH: {vah_price:.2f})."
+
+    return {
+        "poc": round(poc_price, 2),
+        "dist_poc_pct": dist_poc_pct,
+        "vah": round(vah_price, 2),
+        "val": round(val_price, 2),
+        "is_in_hva": is_in_hva,
+        "is_in_lva": is_in_lva,
+        "zone_desc": zone_desc
+    }
+
+
 def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
     """
     Calcule les niveaux mathématiques de retour à la moyenne (Mean Reversion) :
     1. MM20 Daily (Moyenne Mobile Simple 20 séances)
     2. VWAP (Volume Weighted Average Price)
-    3. Range High de la veille (Previous Day High - PDH)
+    3. POC (Point of Control) du Volume Profile
+    4. Range High de la veille (Previous Day High - PDH)
     """
     last_close = float(df_daily["Close"].dropna().iloc[-1]) if (df_daily is not None and not df_daily.empty and len(df_daily["Close"].dropna()) > 0) else 0.0
     p = float(curr_price or last_close)
     if df_daily is None or len(df_daily) < 5:
         mm20 = round(p * 1.025, 2)
         vwap = round(p * 1.018, 2)
+        poc = round(p * 1.022, 2)
         pdh = round(p * 1.020, 2)
         pdl = round(p * 0.980, 2)
+        vp_info = {"poc": poc, "dist_poc_pct": 2.2, "zone_desc": "Volume Profile estimé."}
     else:
         # MM20 Daily
         close = df_daily["Close"].dropna()
@@ -1149,16 +1264,23 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
         except Exception:
             vwap = mm20
 
+        # Volume Profile & POC (Point of Control)
+        vp_info = compute_volume_profile(df_daily, p)
+        poc = vp_info["poc"]
+
     dist_mm20_pct = round(((mm20 - p) / p) * 100, 2)
     dist_vwap_pct = round(((vwap - p) / p) * 100, 2)
+    dist_poc_pct = round(((poc - p) / p) * 100, 2)
     dist_pdh_pct = round(((pdh - p) / p) * 100, 2)
     
-    # Choix de la cible TP2 Mean Reversion : MM20, VWAP ou Range High selon proximité
+    # Choix de la cible TP2 Mean Reversion : MM20, VWAP, ou POC du Volume Profile
     candidates = []
     if mm20 > p * 1.012:
         candidates.append((mm20, f"MM20 Daily ({mm20:.2f})"))
     if vwap > p * 1.015:
         candidates.append((vwap, f"VWAP ({vwap:.2f})"))
+    if poc > p * 1.015:
+        candidates.append((poc, f"POC Volume Profile ({poc:.2f})"))
     if pdh > p * 1.015:
         candidates.append((pdh, f"Range High Veille ({pdh:.2f})"))
         
@@ -1179,6 +1301,9 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
         "dist_mm20_pct": dist_mm20_pct,
         "vwap": round(vwap, 2),
         "dist_vwap_pct": dist_vwap_pct,
+        "poc": round(poc, 2),
+        "dist_poc_pct": dist_poc_pct,
+        "volume_profile": vp_info,
         "pdh": round(pdh, 2),
         "pdl": round(pdl, 2),
         "dist_pdh_pct": dist_pdh_pct,
@@ -1726,13 +1851,13 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         },
         {
             "step": 5,
-            "title": "5. Timing, Entrée & Cible Mean Reversion",
-            "status": f"{selected_method} | MM20 {mr_targets['mm20']:.2f} {sym_currency}",
+            "title": "5. Timing, Volume Profile & Entrée",
+            "status": f"{selected_method} | POC {mr_targets['poc']:.2f} {sym_currency}",
             "badge": "badge-success" if (has_sniper_signal or has_sneaky_signal or has_breakout) else "badge-warning",
             "items": [
                 f"**Méthode Sélectionnée :** `[{selected_method}]`",
-                f"**Analyse de l'Action des Prix :** {method_desc} | RSI(14) : {rsi_val:.1f} ({rsi_desc}) | Support tactique : {support_lvl:.2f} {sym_currency}",
-                f"**Cible de Retour à la Moyenne :** MM20 Journalière : **{mr_targets['mm20']:.2f} {sym_currency}** ({'+' if mr_targets['dist_mm20_pct'] >= 0 else ''}{mr_targets['dist_mm20_pct']}%) | VWAP : **{mr_targets['vwap']:.2f} {sym_currency}** ({'+' if mr_targets['dist_vwap_pct'] >= 0 else ''}{mr_targets['dist_vwap_pct']}%) | Range High Veille : **{mr_targets['pdh']:.2f} {sym_currency}**"
+                f"**Volume Profile (VP) :** POC : **{mr_targets['poc']:.2f} {sym_currency}** ({'+' if mr_targets['dist_poc_pct'] >= 0 else ''}{mr_targets['dist_poc_pct']}%) | VAH : {mr_targets.get('volume_profile', {}).get('vah', 0.0):.2f} {sym_currency} | VAL : {mr_targets.get('volume_profile', {}).get('val', 0.0):.2f} {sym_currency} — {mr_targets.get('volume_profile', {}).get('zone_desc', '')}",
+                f"**Analyse de l'Action des Prix :** {method_desc} | RSI(14) : {rsi_val:.1f} ({rsi_desc}) | Support tactique : {support_lvl:.2f} {sym_currency}"
             ]
         },
         {
@@ -1746,7 +1871,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
                 f"**TP1 (Sécurisation 50 %) :** {tp1_price:.2f} {sym_currency} (+{dist_tp1_pct}%) [Objectif +1,5 % à +2,0 % pour valider 1R et sécuriser la moitié de la position]",
                 f"**Step Stop (Break-Even) :** Remontée immédiate du Stop-Loss au prix d'achat ({entry_price:.2f} {sym_currency}) dès TP1 atteint pour un trade à risque zéro sur le solde",
                 f"**TP2 Mean Reversion (Cible Finale 50 %) :** {tp2_price:.2f} {sym_currency} (+{dist_tp2_pct}%) [Ciblant {mr_targets['target_tp2_name']}]",
-                f"**Horizon Estimé :** ~1 à 10 jours ouvrés"
+                f"**Horizon Estimé :** ~1 à 10 jours ouvrés / Respect de la règle du Time in Market (Le cash est une position)"
             ]
         },
         {

@@ -1,0 +1,4117 @@
+{
+  "generated_at": "2026-09-04T00:34:51.790156",
+  "strategies": [
+    "v1_classic",
+    "v2_standard",
+    "v3_institutional",
+    "v5_mean_reversion_poc"
+  ],
+  "periods": [
+    "crisis_2000",
+    "crisis_2008",
+    "crisis_2020",
+    "crisis_2022"
+  ],
+  "results": {
+    "crisis_2000": {
+      "period_name": "💥 Krach Dot-Com & Déflation Tech (1999-2003)",
+      "v1_classic": {
+        "total_trades": 3042,
+        "winning_trades": 2370,
+        "losing_trades": 666,
+        "win_rate_pct": 77.9,
+        "profit_factor": 1.39,
+        "total_net_pnl": 266834.31,
+        "total_return_pct": 2668.34,
+        "max_drawdown_pct": 37.57,
+        "sharpe_ratio": 2.44,
+        "sortino_ratio": 2.31,
+        "avg_holding_days": 1.6,
+        "avg_win_pct": 2.41,
+        "avg_loss_pct": -5.89,
+        "payoff_ratio": 0.41,
+        "expectancy_pct": 0.59,
+        "exit_reasons": {
+          "STOP_LOSS": 645,
+          "TP1 (+1.25%)": 1002,
+          "TP2 (+2.25%)": 1371,
+          "TIME_STOP (J+10)": 20,
+          "FIN_SIMULATION": 4
+        },
+        "ticker_stats": {
+          "SAP": {
+            "trades": 331,
+            "wins": 230,
+            "pnl": 11259.39,
+            "win_rate": 69.5
+          },
+          "AMD": {
+            "trades": 106,
+            "wins": 81,
+            "pnl": 14534.74,
+            "win_rate": 76.4
+          },
+          "XOM": {
+            "trades": 25,
+            "wins": 22,
+            "pnl": 1829.1,
+            "win_rate": 88.0
+          },
+          "MRK.DE": {
+            "trades": 39,
+            "wins": 33,
+            "pnl": 668.06,
+            "win_rate": 84.6
+          },
+          "LLY": {
+            "trades": 190,
+            "wins": 150,
+            "pnl": 11630.13,
+            "win_rate": 78.9
+          },
+          "RYAAY": {
+            "trades": 215,
+            "wins": 161,
+            "pnl": 6760.27,
+            "win_rate": 74.9
+          },
+          "NOK": {
+            "trades": 126,
+            "wins": 92,
+            "pnl": 7701.81,
+            "win_rate": 73.0
+          },
+          "AMZN": {
+            "trades": 50,
+            "wins": 43,
+            "pnl": 7645.05,
+            "win_rate": 86.0
+          },
+          "ASML.AS": {
+            "trades": 103,
+            "wins": 80,
+            "pnl": 24259.45,
+            "win_rate": 77.7
+          },
+          "QCOM": {
+            "trades": 92,
+            "wins": 74,
+            "pnl": 10923.74,
+            "win_rate": 80.4
+          },
+          "MRK": {
+            "trades": 135,
+            "wins": 104,
+            "pnl": -320.12,
+            "win_rate": 77.0
+          },
+          "TSM": {
+            "trades": 37,
+            "wins": 27,
+            "pnl": 1790.31,
+            "win_rate": 73.0
+          },
+          "ERIC": {
+            "trades": 81,
+            "wins": 58,
+            "pnl": 9577.42,
+            "win_rate": 71.6
+          },
+          "COST": {
+            "trades": 28,
+            "wins": 26,
+            "pnl": 4450.14,
+            "win_rate": 92.9
+          },
+          "ASML": {
+            "trades": 29,
+            "wins": 18,
+            "pnl": -4207.41,
+            "win_rate": 62.1
+          },
+          "NVDA": {
+            "trades": 46,
+            "wins": 30,
+            "pnl": 8408.21,
+            "win_rate": 65.2
+          },
+          "AAPL": {
+            "trades": 22,
+            "wins": 17,
+            "pnl": 698.1,
+            "win_rate": 77.3
+          },
+          "BKNG": {
+            "trades": 361,
+            "wins": 288,
+            "pnl": 32842.28,
+            "win_rate": 79.8
+          },
+          "INTC": {
+            "trades": 17,
+            "wins": 14,
+            "pnl": 2691.14,
+            "win_rate": 82.4
+          },
+          "MSFT": {
+            "trades": 14,
+            "wins": 9,
+            "pnl": -1517.44,
+            "win_rate": 64.3
+          },
+          "KER.PA": {
+            "trades": 150,
+            "wins": 121,
+            "pnl": 23102.55,
+            "win_rate": 80.7
+          },
+          "RMS.PA": {
+            "trades": 219,
+            "wins": 187,
+            "pnl": 8786.68,
+            "win_rate": 85.4
+          },
+          "005930.KS": {
+            "trades": 113,
+            "wins": 87,
+            "pnl": 15850.9,
+            "win_rate": 77.0
+          },
+          "EL.PA": {
+            "trades": 43,
+            "wins": 37,
+            "pnl": 13313.07,
+            "win_rate": 86.0
+          },
+          "AI.PA": {
+            "trades": 106,
+            "wins": 95,
+            "pnl": 30961.96,
+            "win_rate": 89.6
+          },
+          "OR.PA": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 1654.2,
+            "win_rate": 85.7
+          },
+          "TTE.PA": {
+            "trades": 32,
+            "wins": 26,
+            "pnl": -33577.65,
+            "win_rate": 81.2
+          },
+          "SU.PA": {
+            "trades": 18,
+            "wins": 18,
+            "pnl": 8506.12,
+            "win_rate": 100.0
+          },
+          "LIN.PA": {
+            "trades": 73,
+            "wins": 52,
+            "pnl": 4965.03,
+            "win_rate": 71.2
+          },
+          "SAN.PA": {
+            "trades": 23,
+            "wins": 18,
+            "pnl": 1592.46,
+            "win_rate": 78.3
+          },
+          "ENGI.PA": {
+            "trades": 24,
+            "wins": 19,
+            "pnl": 8997.64,
+            "win_rate": 79.2
+          },
+          "CSCO": {
+            "trades": 19,
+            "wins": 16,
+            "pnl": 1726.13,
+            "win_rate": 84.2
+          },
+          "MC.PA": {
+            "trades": 14,
+            "wins": 12,
+            "pnl": 3364.64,
+            "win_rate": 85.7
+          },
+          "AIR.PA": {
+            "trades": 15,
+            "wins": 10,
+            "pnl": -1460.75,
+            "win_rate": 66.7
+          },
+          "STMPA.PA": {
+            "trades": 139,
+            "wins": 109,
+            "pnl": 27426.96,
+            "win_rate": 78.4
+          }
+        }
+      },
+      "v2_standard": {
+        "total_trades": 3543,
+        "winning_trades": 2599,
+        "losing_trades": 940,
+        "win_rate_pct": 73.4,
+        "profit_factor": 1.45,
+        "total_net_pnl": 449642.22,
+        "total_return_pct": 4496.42,
+        "max_drawdown_pct": 36.6,
+        "sharpe_ratio": 2.8,
+        "sortino_ratio": 2.63,
+        "avg_holding_days": 1.4,
+        "avg_win_pct": 2.39,
+        "avg_loss_pct": -4.45,
+        "payoff_ratio": 0.54,
+        "expectancy_pct": 0.57,
+        "exit_reasons": {
+          "STOP_LOSS": 934,
+          "TP1 (+1.25%)": 1107,
+          "TP2 (+2.25%)": 1492,
+          "TIME_STOP (J+10)": 9,
+          "FIN_SIMULATION": 1
+        },
+        "ticker_stats": {
+          "SAP": {
+            "trades": 395,
+            "wins": 255,
+            "pnl": 16761.72,
+            "win_rate": 64.6
+          },
+          "AMD": {
+            "trades": 134,
+            "wins": 99,
+            "pnl": 25266.05,
+            "win_rate": 73.9
+          },
+          "XOM": {
+            "trades": 28,
+            "wins": 21,
+            "pnl": -2042.6,
+            "win_rate": 75.0
+          },
+          "LLY": {
+            "trades": 224,
+            "wins": 162,
+            "pnl": 19526.47,
+            "win_rate": 72.3
+          },
+          "MRK.DE": {
+            "trades": 52,
+            "wins": 42,
+            "pnl": 8989.05,
+            "win_rate": 80.8
+          },
+          "RYAAY": {
+            "trades": 241,
+            "wins": 170,
+            "pnl": 21639.79,
+            "win_rate": 70.5
+          },
+          "NOK": {
+            "trades": 158,
+            "wins": 101,
+            "pnl": 11009.37,
+            "win_rate": 63.9
+          },
+          "MRK": {
+            "trades": 174,
+            "wins": 121,
+            "pnl": -6194.34,
+            "win_rate": 69.5
+          },
+          "ASML.AS": {
+            "trades": 125,
+            "wins": 97,
+            "pnl": 43207.01,
+            "win_rate": 77.6
+          },
+          "QCOM": {
+            "trades": 109,
+            "wins": 80,
+            "pnl": 11014.86,
+            "win_rate": 73.4
+          },
+          "AMZN": {
+            "trades": 68,
+            "wins": 58,
+            "pnl": 10485.23,
+            "win_rate": 85.3
+          },
+          "ASML": {
+            "trades": 35,
+            "wins": 25,
+            "pnl": 11681.37,
+            "win_rate": 71.4
+          },
+          "ERIC": {
+            "trades": 102,
+            "wins": 65,
+            "pnl": -9219.2,
+            "win_rate": 63.7
+          },
+          "NVDA": {
+            "trades": 60,
+            "wins": 41,
+            "pnl": 17167.11,
+            "win_rate": 68.3
+          },
+          "AAPL": {
+            "trades": 32,
+            "wins": 24,
+            "pnl": -1879.6,
+            "win_rate": 75.0
+          },
+          "INTC": {
+            "trades": 21,
+            "wins": 17,
+            "pnl": 3522.52,
+            "win_rate": 81.0
+          },
+          "TSM": {
+            "trades": 41,
+            "wins": 29,
+            "pnl": 2274.18,
+            "win_rate": 70.7
+          },
+          "COST": {
+            "trades": 34,
+            "wins": 29,
+            "pnl": 9911.55,
+            "win_rate": 85.3
+          },
+          "BKNG": {
+            "trades": 407,
+            "wins": 300,
+            "pnl": 53036.9,
+            "win_rate": 73.7
+          },
+          "MSFT": {
+            "trades": 17,
+            "wins": 11,
+            "pnl": -1052.22,
+            "win_rate": 64.7
+          },
+          "KER.PA": {
+            "trades": 164,
+            "wins": 129,
+            "pnl": 31258.21,
+            "win_rate": 78.7
+          },
+          "RMS.PA": {
+            "trades": 213,
+            "wins": 175,
+            "pnl": 15946.06,
+            "win_rate": 82.2
+          },
+          "005930.KS": {
+            "trades": 133,
+            "wins": 100,
+            "pnl": 40485.55,
+            "win_rate": 75.2
+          },
+          "EL.PA": {
+            "trades": 48,
+            "wins": 41,
+            "pnl": 25643.5,
+            "win_rate": 85.4
+          },
+          "AI.PA": {
+            "trades": 109,
+            "wins": 95,
+            "pnl": 38783.94,
+            "win_rate": 87.2
+          },
+          "OR.PA": {
+            "trades": 10,
+            "wins": 9,
+            "pnl": 6035.9,
+            "win_rate": 90.0
+          },
+          "TTE.PA": {
+            "trades": 30,
+            "wins": 24,
+            "pnl": -47525.9,
+            "win_rate": 80.0
+          },
+          "MC.PA": {
+            "trades": 20,
+            "wins": 18,
+            "pnl": 8397.43,
+            "win_rate": 90.0
+          },
+          "LIN.PA": {
+            "trades": 82,
+            "wins": 56,
+            "pnl": 28649.07,
+            "win_rate": 68.3
+          },
+          "SAN.PA": {
+            "trades": 27,
+            "wins": 17,
+            "pnl": -2335.12,
+            "win_rate": 63.0
+          },
+          "SU.PA": {
+            "trades": 25,
+            "wins": 20,
+            "pnl": 9210.64,
+            "win_rate": 80.0
+          },
+          "CSCO": {
+            "trades": 19,
+            "wins": 17,
+            "pnl": 6413.34,
+            "win_rate": 89.5
+          },
+          "ENGI.PA": {
+            "trades": 20,
+            "wins": 16,
+            "pnl": 12652.79,
+            "win_rate": 80.0
+          },
+          "AIR.PA": {
+            "trades": 18,
+            "wins": 11,
+            "pnl": -129.03,
+            "win_rate": 61.1
+          },
+          "STMPA.PA": {
+            "trades": 168,
+            "wins": 124,
+            "pnl": 31050.62,
+            "win_rate": 73.8
+          }
+        }
+      },
+      "v3_institutional": {
+        "total_trades": 835,
+        "winning_trades": 687,
+        "losing_trades": 144,
+        "win_rate_pct": 82.3,
+        "profit_factor": 1.49,
+        "total_net_pnl": 4595.14,
+        "total_return_pct": 45.95,
+        "max_drawdown_pct": 9.97,
+        "sharpe_ratio": 1.25,
+        "sortino_ratio": 0.91,
+        "avg_holding_days": 2.1,
+        "avg_win_pct": 2.05,
+        "avg_loss_pct": -7.01,
+        "payoff_ratio": 0.29,
+        "expectancy_pct": 0.48,
+        "exit_reasons": {
+          "TP2 (+2.25%)": 391,
+          "TP1 (+1.25%)": 303,
+          "STOP_LOSS": 104,
+          "TIME_STOP (J+10)": 32,
+          "BREAKEVEN (0.0%)": 5
+        },
+        "ticker_stats": {
+          "COST": {
+            "trades": 30,
+            "wins": 22,
+            "pnl": 11.78,
+            "win_rate": 73.3
+          },
+          "AMD": {
+            "trades": 55,
+            "wins": 41,
+            "pnl": -301.38,
+            "win_rate": 74.5
+          },
+          "LLY": {
+            "trades": 20,
+            "wins": 14,
+            "pnl": -46.4,
+            "win_rate": 70.0
+          },
+          "AAPL": {
+            "trades": 53,
+            "wins": 42,
+            "pnl": 205.1,
+            "win_rate": 79.2
+          },
+          "ASML.AS": {
+            "trades": 61,
+            "wins": 56,
+            "pnl": 618.55,
+            "win_rate": 91.8
+          },
+          "ASML": {
+            "trades": 43,
+            "wins": 38,
+            "pnl": 227.21,
+            "win_rate": 88.4
+          },
+          "QCOM": {
+            "trades": 34,
+            "wins": 30,
+            "pnl": 175.89,
+            "win_rate": 88.2
+          },
+          "XOM": {
+            "trades": 23,
+            "wins": 22,
+            "pnl": 468.64,
+            "win_rate": 95.7
+          },
+          "RYAAY": {
+            "trades": 37,
+            "wins": 31,
+            "pnl": 552.43,
+            "win_rate": 83.8
+          },
+          "MRK": {
+            "trades": 26,
+            "wins": 17,
+            "pnl": -19.32,
+            "win_rate": 65.4
+          },
+          "INTC": {
+            "trades": 33,
+            "wins": 27,
+            "pnl": 351.46,
+            "win_rate": 81.8
+          },
+          "AMZN": {
+            "trades": 56,
+            "wins": 47,
+            "pnl": 66.47,
+            "win_rate": 83.9
+          },
+          "TSM": {
+            "trades": 39,
+            "wins": 31,
+            "pnl": 133.56,
+            "win_rate": 79.5
+          },
+          "MSFT": {
+            "trades": 22,
+            "wins": 17,
+            "pnl": 306.54,
+            "win_rate": 77.3
+          },
+          "CSCO": {
+            "trades": 30,
+            "wins": 26,
+            "pnl": 271.7,
+            "win_rate": 86.7
+          },
+          "NVDA": {
+            "trades": 55,
+            "wins": 38,
+            "pnl": -255.65,
+            "win_rate": 69.1
+          },
+          "BKNG": {
+            "trades": 35,
+            "wins": 30,
+            "pnl": 178.19,
+            "win_rate": 85.7
+          },
+          "SAP": {
+            "trades": 29,
+            "wins": 22,
+            "pnl": 231.66,
+            "win_rate": 75.9
+          },
+          "MRK.DE": {
+            "trades": 20,
+            "wins": 18,
+            "pnl": 399.97,
+            "win_rate": 90.0
+          },
+          "RMS.PA": {
+            "trades": 21,
+            "wins": 18,
+            "pnl": -701.69,
+            "win_rate": 85.7
+          },
+          "SU.PA": {
+            "trades": 10,
+            "wins": 8,
+            "pnl": 101.11,
+            "win_rate": 80.0
+          },
+          "AI.PA": {
+            "trades": 11,
+            "wins": 11,
+            "pnl": 246.03,
+            "win_rate": 100.0
+          },
+          "TTE.PA": {
+            "trades": 15,
+            "wins": 14,
+            "pnl": 196.21,
+            "win_rate": 93.3
+          },
+          "SAN.PA": {
+            "trades": 21,
+            "wins": 19,
+            "pnl": 451.67,
+            "win_rate": 90.5
+          },
+          "ENGI.PA": {
+            "trades": 11,
+            "wins": 9,
+            "pnl": 155.03,
+            "win_rate": 81.8
+          },
+          "OR.PA": {
+            "trades": 13,
+            "wins": 13,
+            "pnl": 324.19,
+            "win_rate": 100.0
+          },
+          "EL.PA": {
+            "trades": 8,
+            "wins": 8,
+            "pnl": 172.96,
+            "win_rate": 100.0
+          },
+          "KER.PA": {
+            "trades": 12,
+            "wins": 7,
+            "pnl": -182.91,
+            "win_rate": 58.3
+          },
+          "STMPA.PA": {
+            "trades": 12,
+            "wins": 11,
+            "pnl": 256.14,
+            "win_rate": 91.7
+          }
+        }
+      },
+      "v5_mean_reversion_poc": {
+        "total_trades": 1632,
+        "winning_trades": 941,
+        "losing_trades": 688,
+        "win_rate_pct": 57.7,
+        "profit_factor": 1.34,
+        "total_net_pnl": 26384.35,
+        "total_return_pct": 263.84,
+        "max_drawdown_pct": 22.41,
+        "sharpe_ratio": 1.77,
+        "sortino_ratio": 1.23,
+        "avg_holding_days": 1.1,
+        "avg_win_pct": 2.05,
+        "avg_loss_pct": -2.03,
+        "payoff_ratio": 1.01,
+        "expectancy_pct": 0.32,
+        "exit_reasons": {
+          "TP1 (+1.25%)": 605,
+          "TP2 (+2.25%)": 330,
+          "STOP_LOSS": 697
+        },
+        "ticker_stats": {
+          "AMD": {
+            "trades": 87,
+            "wins": 54,
+            "pnl": 2349.09,
+            "win_rate": 62.1
+          },
+          "COST": {
+            "trades": 76,
+            "wins": 45,
+            "pnl": 1334.87,
+            "win_rate": 59.2
+          },
+          "LLY": {
+            "trades": 40,
+            "wins": 18,
+            "pnl": -44.76,
+            "win_rate": 45.0
+          },
+          "XOM": {
+            "trades": 47,
+            "wins": 25,
+            "pnl": 444.61,
+            "win_rate": 53.2
+          },
+          "AAPL": {
+            "trades": 96,
+            "wins": 57,
+            "pnl": 2362.46,
+            "win_rate": 59.4
+          },
+          "RYAAY": {
+            "trades": 78,
+            "wins": 36,
+            "pnl": 995.12,
+            "win_rate": 46.2
+          },
+          "ASML": {
+            "trades": 92,
+            "wins": 49,
+            "pnl": 86.33,
+            "win_rate": 53.3
+          },
+          "ASML.AS": {
+            "trades": 121,
+            "wins": 76,
+            "pnl": 5742.49,
+            "win_rate": 62.8
+          },
+          "MSFT": {
+            "trades": 53,
+            "wins": 36,
+            "pnl": 1205.42,
+            "win_rate": 67.9
+          },
+          "QCOM": {
+            "trades": 62,
+            "wins": 40,
+            "pnl": 2059.76,
+            "win_rate": 64.5
+          },
+          "MRK": {
+            "trades": 52,
+            "wins": 28,
+            "pnl": 257.7,
+            "win_rate": 53.8
+          },
+          "AMZN": {
+            "trades": 106,
+            "wins": 65,
+            "pnl": 1222.82,
+            "win_rate": 61.3
+          },
+          "TSM": {
+            "trades": 94,
+            "wins": 46,
+            "pnl": -432.08,
+            "win_rate": 48.9
+          },
+          "CSCO": {
+            "trades": 62,
+            "wins": 42,
+            "pnl": 2359.25,
+            "win_rate": 67.7
+          },
+          "INTC": {
+            "trades": 67,
+            "wins": 40,
+            "pnl": 1374.44,
+            "win_rate": 59.7
+          },
+          "NVDA": {
+            "trades": 108,
+            "wins": 64,
+            "pnl": 1962.31,
+            "win_rate": 59.3
+          },
+          "BKNG": {
+            "trades": 55,
+            "wins": 30,
+            "pnl": 850.86,
+            "win_rate": 54.5
+          },
+          "MRK.DE": {
+            "trades": 32,
+            "wins": 14,
+            "pnl": 173.76,
+            "win_rate": 43.8
+          },
+          "SAP": {
+            "trades": 52,
+            "wins": 29,
+            "pnl": 1023.95,
+            "win_rate": 55.8
+          },
+          "RMS.PA": {
+            "trades": 27,
+            "wins": 17,
+            "pnl": -3600.61,
+            "win_rate": 63.0
+          },
+          "SU.PA": {
+            "trades": 17,
+            "wins": 9,
+            "pnl": 176.28,
+            "win_rate": 52.9
+          },
+          "TTE.PA": {
+            "trades": 23,
+            "wins": 16,
+            "pnl": 944.67,
+            "win_rate": 69.6
+          },
+          "SAN.PA": {
+            "trades": 40,
+            "wins": 22,
+            "pnl": 663.33,
+            "win_rate": 55.0
+          },
+          "005930.KS": {
+            "trades": 37,
+            "wins": 17,
+            "pnl": -295.01,
+            "win_rate": 45.9
+          },
+          "EL.PA": {
+            "trades": 19,
+            "wins": 12,
+            "pnl": 769.98,
+            "win_rate": 63.2
+          },
+          "AI.PA": {
+            "trades": 22,
+            "wins": 13,
+            "pnl": 385.15,
+            "win_rate": 59.1
+          },
+          "KER.PA": {
+            "trades": 21,
+            "wins": 12,
+            "pnl": 551.07,
+            "win_rate": 57.1
+          },
+          "OR.PA": {
+            "trades": 20,
+            "wins": 14,
+            "pnl": 804.34,
+            "win_rate": 70.0
+          },
+          "ENGI.PA": {
+            "trades": 10,
+            "wins": 4,
+            "pnl": -100.26,
+            "win_rate": 40.0
+          },
+          "STMPA.PA": {
+            "trades": 16,
+            "wins": 11,
+            "pnl": 757.01,
+            "win_rate": 68.8
+          }
+        }
+      }
+    },
+    "crisis_2008": {
+      "period_name": "🏦 Grande Crise Financière (GFC) & Subprimes (2007-2009)",
+      "v1_classic": {
+        "total_trades": 1326,
+        "winning_trades": 1007,
+        "losing_trades": 319,
+        "win_rate_pct": 75.9,
+        "profit_factor": 1.32,
+        "total_net_pnl": 16768.06,
+        "total_return_pct": 167.68,
+        "max_drawdown_pct": 13.25,
+        "sharpe_ratio": 2.04,
+        "sortino_ratio": 2.92,
+        "avg_holding_days": 1.9,
+        "avg_win_pct": 2.11,
+        "avg_loss_pct": -5.03,
+        "payoff_ratio": 0.42,
+        "expectancy_pct": 0.39,
+        "exit_reasons": {
+          "TP2 (+2.25%)": 523,
+          "STOP_LOSS": 295,
+          "TP1 (+1.25%)": 484,
+          "TIME_STOP (J+10)": 20,
+          "FIN_SIMULATION": 4
+        },
+        "ticker_stats": {
+          "AAPL": {
+            "trades": 13,
+            "wins": 9,
+            "pnl": -9.02,
+            "win_rate": 69.2
+          },
+          "RYAAY": {
+            "trades": 176,
+            "wins": 137,
+            "pnl": 4268.05,
+            "win_rate": 77.8
+          },
+          "RMS.PA": {
+            "trades": 121,
+            "wins": 93,
+            "pnl": 1233.64,
+            "win_rate": 76.9
+          },
+          "MRK": {
+            "trades": 50,
+            "wins": 34,
+            "pnl": -362.96,
+            "win_rate": 68.0
+          },
+          "QCOM": {
+            "trades": 21,
+            "wins": 12,
+            "pnl": -565.39,
+            "win_rate": 57.1
+          },
+          "SAN.PA": {
+            "trades": 26,
+            "wins": 19,
+            "pnl": 102.88,
+            "win_rate": 73.1
+          },
+          "AMD": {
+            "trades": 57,
+            "wins": 45,
+            "pnl": 1713.83,
+            "win_rate": 78.9
+          },
+          "ASML.AS": {
+            "trades": 36,
+            "wins": 28,
+            "pnl": 468.12,
+            "win_rate": 77.8
+          },
+          "MRK.DE": {
+            "trades": 18,
+            "wins": 16,
+            "pnl": 761.74,
+            "win_rate": 88.9
+          },
+          "CRM": {
+            "trades": 35,
+            "wins": 25,
+            "pnl": -31.89,
+            "win_rate": 71.4
+          },
+          "LIN.PA": {
+            "trades": 70,
+            "wins": 42,
+            "pnl": -1720.53,
+            "win_rate": 60.0
+          },
+          "SU.PA": {
+            "trades": 9,
+            "wins": 8,
+            "pnl": 274.12,
+            "win_rate": 88.9
+          },
+          "SAP": {
+            "trades": 66,
+            "wins": 47,
+            "pnl": -294.72,
+            "win_rate": 71.2
+          },
+          "BKNG": {
+            "trades": 56,
+            "wins": 45,
+            "pnl": 1355.0,
+            "win_rate": 80.4
+          },
+          "ENGI.PA": {
+            "trades": 21,
+            "wins": 16,
+            "pnl": 336.58,
+            "win_rate": 76.2
+          },
+          "ERIC": {
+            "trades": 27,
+            "wins": 21,
+            "pnl": 91.0,
+            "win_rate": 77.8
+          },
+          "NOK": {
+            "trades": 53,
+            "wins": 34,
+            "pnl": -1199.95,
+            "win_rate": 64.2
+          },
+          "LLY": {
+            "trades": 43,
+            "wins": 32,
+            "pnl": 422.2,
+            "win_rate": 74.4
+          },
+          "STMPA.PA": {
+            "trades": 136,
+            "wins": 107,
+            "pnl": 2696.13,
+            "win_rate": 78.7
+          },
+          "AI.PA": {
+            "trades": 50,
+            "wins": 46,
+            "pnl": 2675.43,
+            "win_rate": 92.0
+          },
+          "KER.PA": {
+            "trades": 78,
+            "wins": 59,
+            "pnl": 1125.87,
+            "win_rate": 75.6
+          },
+          "AIR.PA": {
+            "trades": 23,
+            "wins": 19,
+            "pnl": 768.52,
+            "win_rate": 82.6
+          },
+          "TSM": {
+            "trades": 11,
+            "wins": 8,
+            "pnl": 85.92,
+            "win_rate": 72.7
+          },
+          "EL.PA": {
+            "trades": 13,
+            "wins": 11,
+            "pnl": 401.36,
+            "win_rate": 84.6
+          },
+          "NVDA": {
+            "trades": 19,
+            "wins": 14,
+            "pnl": -55.45,
+            "win_rate": 73.7
+          },
+          "TTE.PA": {
+            "trades": 17,
+            "wins": 15,
+            "pnl": 595.6,
+            "win_rate": 88.2
+          },
+          "COST": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 78.12,
+            "win_rate": 75.0
+          },
+          "GOOGL": {
+            "trades": 15,
+            "wins": 12,
+            "pnl": 369.49,
+            "win_rate": 80.0
+          },
+          "CSCO": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 88.0,
+            "win_rate": 100.0
+          },
+          "ASML": {
+            "trades": 13,
+            "wins": 11,
+            "pnl": 188.79,
+            "win_rate": 84.6
+          },
+          "MSFT": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 265.17,
+            "win_rate": 100.0
+          },
+          "OR.PA": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 270.59,
+            "win_rate": 85.7
+          },
+          "AMZN": {
+            "trades": 5,
+            "wins": 2,
+            "pnl": -344.92,
+            "win_rate": 40.0
+          },
+          "XOM": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": -41.03,
+            "win_rate": 60.0
+          },
+          "LR.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 276.53,
+            "win_rate": 100.0
+          },
+          "MC.PA": {
+            "trades": 9,
+            "wins": 7,
+            "pnl": -49.71,
+            "win_rate": 77.8
+          },
+          "INTC": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 268.32,
+            "win_rate": 100.0
+          },
+          "AVGO": {
+            "trades": 6,
+            "wins": 5,
+            "pnl": 262.63,
+            "win_rate": 83.3
+          }
+        }
+      },
+      "v2_standard": {
+        "total_trades": 1575,
+        "winning_trades": 1130,
+        "losing_trades": 443,
+        "win_rate_pct": 71.7,
+        "profit_factor": 1.47,
+        "total_net_pnl": 27593.54,
+        "total_return_pct": 275.94,
+        "max_drawdown_pct": 12.84,
+        "sharpe_ratio": 2.91,
+        "sortino_ratio": 4.66,
+        "avg_holding_days": 1.6,
+        "avg_win_pct": 2.06,
+        "avg_loss_pct": -3.71,
+        "payoff_ratio": 0.56,
+        "expectancy_pct": 0.43,
+        "exit_reasons": {
+          "STOP_LOSS": 435,
+          "TP1 (+1.25%)": 573,
+          "TP2 (+2.25%)": 558,
+          "TIME_STOP (J+10)": 5,
+          "FIN_SIMULATION": 4
+        },
+        "ticker_stats": {
+          "RMS.PA": {
+            "trades": 138,
+            "wins": 99,
+            "pnl": 1345.4,
+            "win_rate": 71.7
+          },
+          "RYAAY": {
+            "trades": 191,
+            "wins": 146,
+            "pnl": 8373.1,
+            "win_rate": 76.4
+          },
+          "CRM": {
+            "trades": 37,
+            "wins": 27,
+            "pnl": 883.73,
+            "win_rate": 73.0
+          },
+          "QCOM": {
+            "trades": 18,
+            "wins": 13,
+            "pnl": 292.82,
+            "win_rate": 72.2
+          },
+          "ASML.AS": {
+            "trades": 44,
+            "wins": 36,
+            "pnl": 1391.35,
+            "win_rate": 81.8
+          },
+          "STMPA.PA": {
+            "trades": 177,
+            "wins": 131,
+            "pnl": 4671.19,
+            "win_rate": 74.0
+          },
+          "SAP": {
+            "trades": 80,
+            "wins": 56,
+            "pnl": 475.29,
+            "win_rate": 70.0
+          },
+          "AI.PA": {
+            "trades": 53,
+            "wins": 44,
+            "pnl": 2573.3,
+            "win_rate": 83.0
+          },
+          "ENGI.PA": {
+            "trades": 31,
+            "wins": 24,
+            "pnl": 972.89,
+            "win_rate": 77.4
+          },
+          "LLY": {
+            "trades": 56,
+            "wins": 43,
+            "pnl": 1041.57,
+            "win_rate": 76.8
+          },
+          "LIN.PA": {
+            "trades": 88,
+            "wins": 46,
+            "pnl": -2247.33,
+            "win_rate": 52.3
+          },
+          "AMD": {
+            "trades": 66,
+            "wins": 46,
+            "pnl": 1324.93,
+            "win_rate": 69.7
+          },
+          "SAN.PA": {
+            "trades": 31,
+            "wins": 23,
+            "pnl": 116.01,
+            "win_rate": 74.2
+          },
+          "MRK.DE": {
+            "trades": 22,
+            "wins": 15,
+            "pnl": 449.79,
+            "win_rate": 68.2
+          },
+          "SU.PA": {
+            "trades": 13,
+            "wins": 9,
+            "pnl": -46.86,
+            "win_rate": 69.2
+          },
+          "OR.PA": {
+            "trades": 9,
+            "wins": 6,
+            "pnl": 87.86,
+            "win_rate": 66.7
+          },
+          "MRK": {
+            "trades": 60,
+            "wins": 41,
+            "pnl": 203.24,
+            "win_rate": 68.3
+          },
+          "AIR.PA": {
+            "trades": 33,
+            "wins": 27,
+            "pnl": 1595.7,
+            "win_rate": 81.8
+          },
+          "TTE.PA": {
+            "trades": 19,
+            "wins": 16,
+            "pnl": 689.1,
+            "win_rate": 84.2
+          },
+          "LR.PA": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": 32.66,
+            "win_rate": 66.7
+          },
+          "KER.PA": {
+            "trades": 94,
+            "wins": 66,
+            "pnl": 1626.37,
+            "win_rate": 70.2
+          },
+          "TSM": {
+            "trades": 10,
+            "wins": 4,
+            "pnl": -563.94,
+            "win_rate": 40.0
+          },
+          "BKNG": {
+            "trades": 59,
+            "wins": 51,
+            "pnl": 2592.15,
+            "win_rate": 86.4
+          },
+          "MC.PA": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 57.34,
+            "win_rate": 75.0
+          },
+          "EL.PA": {
+            "trades": 17,
+            "wins": 14,
+            "pnl": 665.41,
+            "win_rate": 82.4
+          },
+          "NOK": {
+            "trades": 65,
+            "wins": 38,
+            "pnl": -582.51,
+            "win_rate": 58.5
+          },
+          "ERIC": {
+            "trades": 38,
+            "wins": 25,
+            "pnl": -467.28,
+            "win_rate": 65.8
+          },
+          "ASML": {
+            "trades": 10,
+            "wins": 8,
+            "pnl": 163.27,
+            "win_rate": 80.0
+          },
+          "AMZN": {
+            "trades": 11,
+            "wins": 4,
+            "pnl": -1172.76,
+            "win_rate": 36.4
+          },
+          "NVDA": {
+            "trades": 26,
+            "wins": 16,
+            "pnl": 16.59,
+            "win_rate": 61.5
+          },
+          "AAPL": {
+            "trades": 16,
+            "wins": 10,
+            "pnl": -26.32,
+            "win_rate": 62.5
+          },
+          "GOOGL": {
+            "trades": 18,
+            "wins": 14,
+            "pnl": 443.29,
+            "win_rate": 77.8
+          },
+          "MSFT": {
+            "trades": 6,
+            "wins": 3,
+            "pnl": -257.72,
+            "win_rate": 50.0
+          },
+          "XOM": {
+            "trades": 7,
+            "wins": 5,
+            "pnl": 273.05,
+            "win_rate": 71.4
+          },
+          "COST": {
+            "trades": 7,
+            "wins": 4,
+            "pnl": -8.82,
+            "win_rate": 57.1
+          },
+          "CSCO": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 60.58,
+            "win_rate": 100.0
+          },
+          "INTC": {
+            "trades": 6,
+            "wins": 5,
+            "pnl": 105.88,
+            "win_rate": 83.3
+          },
+          "AVGO": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 443.22,
+            "win_rate": 85.7
+          }
+        }
+      },
+      "v3_institutional": {
+        "total_trades": 323,
+        "winning_trades": 257,
+        "losing_trades": 65,
+        "win_rate_pct": 79.6,
+        "profit_factor": 1.19,
+        "total_net_pnl": 727.83,
+        "total_return_pct": 7.28,
+        "max_drawdown_pct": 5.51,
+        "sharpe_ratio": 0.57,
+        "sortino_ratio": 0.53,
+        "avg_holding_days": 2.2,
+        "avg_win_pct": 1.8,
+        "avg_loss_pct": -4.96,
+        "payoff_ratio": 0.36,
+        "expectancy_pct": 0.43,
+        "exit_reasons": {
+          "TP1 (+1.25%)": 146,
+          "STOP_LOSS": 55,
+          "TP2 (+2.25%)": 111,
+          "TIME_STOP (J+10)": 8,
+          "BREAKEVEN (0.0%)": 2,
+          "FIN_SIMULATION": 1
+        },
+        "ticker_stats": {
+          "CRM": {
+            "trades": 21,
+            "wins": 18,
+            "pnl": 95.98,
+            "win_rate": 85.7
+          },
+          "RMS.PA": {
+            "trades": 20,
+            "wins": 18,
+            "pnl": 113.44,
+            "win_rate": 90.0
+          },
+          "QCOM": {
+            "trades": 11,
+            "wins": 7,
+            "pnl": -101.04,
+            "win_rate": 63.6
+          },
+          "ASML": {
+            "trades": 10,
+            "wins": 9,
+            "pnl": 45.74,
+            "win_rate": 90.0
+          },
+          "LLY": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 163.21,
+            "win_rate": 100.0
+          },
+          "ENGI.PA": {
+            "trades": 9,
+            "wins": 6,
+            "pnl": 14.38,
+            "win_rate": 66.7
+          },
+          "AMZN": {
+            "trades": 21,
+            "wins": 18,
+            "pnl": 79.39,
+            "win_rate": 85.7
+          },
+          "RYAAY": {
+            "trades": 17,
+            "wins": 13,
+            "pnl": 170.08,
+            "win_rate": 76.5
+          },
+          "AAPL": {
+            "trades": 22,
+            "wins": 15,
+            "pnl": -247.53,
+            "win_rate": 68.2
+          },
+          "MRK": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 99.91,
+            "win_rate": 100.0
+          },
+          "SU.PA": {
+            "trades": 8,
+            "wins": 7,
+            "pnl": 222.23,
+            "win_rate": 87.5
+          },
+          "MSFT": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -47.42,
+            "win_rate": 50.0
+          },
+          "BKNG": {
+            "trades": 25,
+            "wins": 25,
+            "pnl": 337.7,
+            "win_rate": 100.0
+          },
+          "MRK.DE": {
+            "trades": 3,
+            "wins": 1,
+            "pnl": -178.3,
+            "win_rate": 33.3
+          },
+          "TSM": {
+            "trades": 13,
+            "wins": 11,
+            "pnl": 71.12,
+            "win_rate": 84.6
+          },
+          "LR.PA": {
+            "trades": 9,
+            "wins": 6,
+            "pnl": 14.05,
+            "win_rate": 66.7
+          },
+          "OR.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -74.97,
+            "win_rate": 50.0
+          },
+          "SAP": {
+            "trades": 9,
+            "wins": 4,
+            "pnl": -198.66,
+            "win_rate": 44.4
+          },
+          "AI.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 55.23,
+            "win_rate": 100.0
+          },
+          "INTC": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": -38.25,
+            "win_rate": 60.0
+          },
+          "TTE.PA": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 27.2,
+            "win_rate": 80.0
+          },
+          "NVDA": {
+            "trades": 21,
+            "wins": 17,
+            "pnl": 84.64,
+            "win_rate": 81.0
+          },
+          "KER.PA": {
+            "trades": 14,
+            "wins": 8,
+            "pnl": -122.47,
+            "win_rate": 57.1
+          },
+          "ASML.AS": {
+            "trades": 9,
+            "wins": 7,
+            "pnl": 4.24,
+            "win_rate": 77.8
+          },
+          "COST": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 33.51,
+            "win_rate": 100.0
+          },
+          "EL.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 10.13,
+            "win_rate": 100.0
+          },
+          "XOM": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 90.54,
+            "win_rate": 85.7
+          },
+          "AMD": {
+            "trades": 18,
+            "wins": 13,
+            "pnl": -182.39,
+            "win_rate": 72.2
+          },
+          "CSCO": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 11.08,
+            "win_rate": 100.0
+          },
+          "GOOGL": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 49.78,
+            "win_rate": 100.0
+          },
+          "STMPA.PA": {
+            "trades": 12,
+            "wins": 10,
+            "pnl": 86.97,
+            "win_rate": 83.3
+          },
+          "SAN.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -49.21,
+            "win_rate": 50.0
+          },
+          "AVGO": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 87.52,
+            "win_rate": 100.0
+          }
+        }
+      },
+      "v5_mean_reversion_poc": {
+        "total_trades": 649,
+        "winning_trades": 374,
+        "losing_trades": 275,
+        "win_rate_pct": 57.6,
+        "profit_factor": 1.54,
+        "total_net_pnl": 7820.34,
+        "total_return_pct": 78.2,
+        "max_drawdown_pct": 3.69,
+        "sharpe_ratio": 2.4,
+        "sortino_ratio": 3.08,
+        "avg_holding_days": 1.2,
+        "avg_win_pct": 1.78,
+        "avg_loss_pct": -1.53,
+        "payoff_ratio": 1.16,
+        "expectancy_pct": 0.38,
+        "exit_reasons": {
+          "STOP_LOSS": 274,
+          "TP1 (+1.25%)": 260,
+          "TP2 (+2.25%)": 114,
+          "FIN_SIMULATION": 1
+        },
+        "ticker_stats": {
+          "QCOM": {
+            "trades": 34,
+            "wins": 19,
+            "pnl": 246.83,
+            "win_rate": 55.9
+          },
+          "CRM": {
+            "trades": 43,
+            "wins": 32,
+            "pnl": 1743.07,
+            "win_rate": 74.4
+          },
+          "RMS.PA": {
+            "trades": 35,
+            "wins": 24,
+            "pnl": 739.34,
+            "win_rate": 68.6
+          },
+          "ENGI.PA": {
+            "trades": 25,
+            "wins": 14,
+            "pnl": 71.62,
+            "win_rate": 56.0
+          },
+          "RYAAY": {
+            "trades": 35,
+            "wins": 18,
+            "pnl": 451.54,
+            "win_rate": 51.4
+          },
+          "TSM": {
+            "trades": 32,
+            "wins": 17,
+            "pnl": 202.66,
+            "win_rate": 53.1
+          },
+          "LLY": {
+            "trades": 10,
+            "wins": 2,
+            "pnl": -193.56,
+            "win_rate": 20.0
+          },
+          "AI.PA": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 338.33,
+            "win_rate": 100.0
+          },
+          "AMZN": {
+            "trades": 38,
+            "wins": 20,
+            "pnl": 662.13,
+            "win_rate": 52.6
+          },
+          "AAPL": {
+            "trades": 29,
+            "wins": 20,
+            "pnl": 327.23,
+            "win_rate": 69.0
+          },
+          "OR.PA": {
+            "trades": 8,
+            "wins": 4,
+            "pnl": 58.8,
+            "win_rate": 50.0
+          },
+          "MRK": {
+            "trades": 12,
+            "wins": 8,
+            "pnl": 253.31,
+            "win_rate": 66.7
+          },
+          "SU.PA": {
+            "trades": 23,
+            "wins": 12,
+            "pnl": 130.66,
+            "win_rate": 52.2
+          },
+          "NVDA": {
+            "trades": 36,
+            "wins": 21,
+            "pnl": 452.62,
+            "win_rate": 58.3
+          },
+          "MSFT": {
+            "trades": 5,
+            "wins": 2,
+            "pnl": -81.24,
+            "win_rate": 40.0
+          },
+          "BKNG": {
+            "trades": 36,
+            "wins": 28,
+            "pnl": 1480.63,
+            "win_rate": 77.8
+          },
+          "LR.PA": {
+            "trades": 17,
+            "wins": 9,
+            "pnl": 166.65,
+            "win_rate": 52.9
+          },
+          "ASML.AS": {
+            "trades": 16,
+            "wins": 9,
+            "pnl": 196.62,
+            "win_rate": 56.2
+          },
+          "TTE.PA": {
+            "trades": 14,
+            "wins": 10,
+            "pnl": 320.09,
+            "win_rate": 71.4
+          },
+          "MRK.DE": {
+            "trades": 11,
+            "wins": 3,
+            "pnl": -175.93,
+            "win_rate": 27.3
+          },
+          "INTC": {
+            "trades": 13,
+            "wins": 7,
+            "pnl": -14.83,
+            "win_rate": 53.8
+          },
+          "GOOGL": {
+            "trades": 12,
+            "wins": 5,
+            "pnl": -70.66,
+            "win_rate": 41.7
+          },
+          "STMPA.PA": {
+            "trades": 25,
+            "wins": 15,
+            "pnl": 147.76,
+            "win_rate": 60.0
+          },
+          "XOM": {
+            "trades": 18,
+            "wins": 9,
+            "pnl": 16.15,
+            "win_rate": 50.0
+          },
+          "KER.PA": {
+            "trades": 22,
+            "wins": 10,
+            "pnl": -6.95,
+            "win_rate": 45.5
+          },
+          "ASML": {
+            "trades": 15,
+            "wins": 8,
+            "pnl": 57.99,
+            "win_rate": 53.3
+          },
+          "COST": {
+            "trades": 20,
+            "wins": 11,
+            "pnl": 31.95,
+            "win_rate": 55.0
+          },
+          "EL.PA": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 97.75,
+            "win_rate": 80.0
+          },
+          "CSCO": {
+            "trades": 5,
+            "wins": 2,
+            "pnl": -49.62,
+            "win_rate": 40.0
+          },
+          "SAP": {
+            "trades": 14,
+            "wins": 4,
+            "pnl": -211.87,
+            "win_rate": 28.6
+          },
+          "AMD": {
+            "trades": 28,
+            "wins": 17,
+            "pnl": 445.68,
+            "win_rate": 60.7
+          },
+          "SAN.PA": {
+            "trades": 3,
+            "wins": 1,
+            "pnl": -157.75,
+            "win_rate": 33.3
+          },
+          "AVGO": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 143.34,
+            "win_rate": 75.0
+          }
+        }
+      }
+    },
+    "crisis_2020": {
+      "period_name": "🦠 Krach Éclair Covid-19 (2020)",
+      "v1_classic": {
+        "total_trades": 509,
+        "winning_trades": 399,
+        "losing_trades": 109,
+        "win_rate_pct": 78.4,
+        "profit_factor": 1.5,
+        "total_net_pnl": 6642.3,
+        "total_return_pct": 66.42,
+        "max_drawdown_pct": 20.02,
+        "sharpe_ratio": 2.23,
+        "sortino_ratio": 2.66,
+        "avg_holding_days": 1.9,
+        "avg_win_pct": 2.19,
+        "avg_loss_pct": -5.52,
+        "payoff_ratio": 0.4,
+        "expectancy_pct": 0.53,
+        "exit_reasons": {
+          "TP1 (+1.25%)": 205,
+          "TP2 (+2.25%)": 192,
+          "STOP_LOSS": 103,
+          "TIME_STOP (J+10)": 5,
+          "FIN_SIMULATION": 4
+        },
+        "ticker_stats": {
+          "DELL": {
+            "trades": 10,
+            "wins": 10,
+            "pnl": 359.02,
+            "win_rate": 100.0
+          },
+          "RYAAY": {
+            "trades": 58,
+            "wins": 43,
+            "pnl": 647.25,
+            "win_rate": 74.1
+          },
+          "TSM": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -75.49,
+            "win_rate": 50.0
+          },
+          "SAP": {
+            "trades": 21,
+            "wins": 18,
+            "pnl": 141.69,
+            "win_rate": 85.7
+          },
+          "TSLA": {
+            "trades": 22,
+            "wins": 17,
+            "pnl": 910.7,
+            "win_rate": 77.3
+          },
+          "MRK": {
+            "trades": 13,
+            "wins": 9,
+            "pnl": -96.07,
+            "win_rate": 69.2
+          },
+          "LIN.PA": {
+            "trades": 17,
+            "wins": 12,
+            "pnl": 24.81,
+            "win_rate": 70.6
+          },
+          "AVGO": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 87.58,
+            "win_rate": 75.0
+          },
+          "TTE.PA": {
+            "trades": 18,
+            "wins": 12,
+            "pnl": -193.4,
+            "win_rate": 66.7
+          },
+          "RMS.PA": {
+            "trades": 32,
+            "wins": 23,
+            "pnl": -3.02,
+            "win_rate": 71.9
+          },
+          "BKNG": {
+            "trades": 20,
+            "wins": 15,
+            "pnl": 83.02,
+            "win_rate": 75.0
+          },
+          "XOM": {
+            "trades": 14,
+            "wins": 11,
+            "pnl": 72.2,
+            "win_rate": 78.6
+          },
+          "ERIC": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 39.36,
+            "win_rate": 75.0
+          },
+          "GOOGL": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 98.77,
+            "win_rate": 100.0
+          },
+          "UBER": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": 39.53,
+            "win_rate": 66.7
+          },
+          "GTT.PA": {
+            "trades": 16,
+            "wins": 13,
+            "pnl": 403.92,
+            "win_rate": 81.2
+          },
+          "META": {
+            "trades": 44,
+            "wins": 36,
+            "pnl": 648.16,
+            "win_rate": 81.8
+          },
+          "MSFT": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 26.15,
+            "win_rate": 100.0
+          },
+          "STMPA.PA": {
+            "trades": 44,
+            "wins": 39,
+            "pnl": 1259.96,
+            "win_rate": 88.6
+          },
+          "KER.PA": {
+            "trades": 16,
+            "wins": 8,
+            "pnl": -571.59,
+            "win_rate": 50.0
+          },
+          "LLY": {
+            "trades": 24,
+            "wins": 19,
+            "pnl": 64.43,
+            "win_rate": 79.2
+          },
+          "AI.PA": {
+            "trades": 14,
+            "wins": 11,
+            "pnl": 182.3,
+            "win_rate": 78.6
+          },
+          "AIR.PA": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 230.53,
+            "win_rate": 75.0
+          },
+          "ENGI.PA": {
+            "trades": 12,
+            "wins": 10,
+            "pnl": 266.41,
+            "win_rate": 83.3
+          },
+          "CRM": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": -151.66,
+            "win_rate": 75.0
+          },
+          "EL.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -67.26,
+            "win_rate": 50.0
+          },
+          "QCOM": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 127.18,
+            "win_rate": 100.0
+          },
+          "SAN.PA": {
+            "trades": 7,
+            "wins": 7,
+            "pnl": 259.61,
+            "win_rate": 100.0
+          },
+          "GOLD": {
+            "trades": 21,
+            "wins": 21,
+            "pnl": 1224.3,
+            "win_rate": 100.0
+          },
+          "BYDDY": {
+            "trades": 4,
+            "wins": 2,
+            "pnl": -160.75,
+            "win_rate": 50.0
+          },
+          "LR.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 90.43,
+            "win_rate": 100.0
+          },
+          "AMD": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 19.49,
+            "win_rate": 75.0
+          },
+          "MC.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 81.84,
+            "win_rate": 100.0
+          },
+          "ESTC": {
+            "trades": 4,
+            "wins": 2,
+            "pnl": -90.08,
+            "win_rate": 50.0
+          },
+          "NOK": {
+            "trades": 15,
+            "wins": 11,
+            "pnl": 103.5,
+            "win_rate": 73.3
+          },
+          "ASML.AS": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 34.87,
+            "win_rate": 100.0
+          },
+          "ASML": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 56.02,
+            "win_rate": 100.0
+          },
+          "INTC": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 8.63,
+            "win_rate": 75.0
+          },
+          "CSCO": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -73.01,
+            "win_rate": 0.0
+          },
+          "SU.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": 33.84,
+            "win_rate": 50.0
+          },
+          "ASAN": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 291.99,
+            "win_rate": 100.0
+          },
+          "BABA": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 207.14,
+            "win_rate": 100.0
+          }
+        }
+      },
+      "v2_standard": {
+        "total_trades": 613,
+        "winning_trades": 451,
+        "losing_trades": 159,
+        "win_rate_pct": 73.6,
+        "profit_factor": 1.6,
+        "total_net_pnl": 9524.83,
+        "total_return_pct": 95.25,
+        "max_drawdown_pct": 21.91,
+        "sharpe_ratio": 3.01,
+        "sortino_ratio": 3.93,
+        "avg_holding_days": 1.6,
+        "avg_win_pct": 2.22,
+        "avg_loss_pct": -4.1,
+        "payoff_ratio": 0.54,
+        "expectancy_pct": 0.57,
+        "exit_reasons": {
+          "TP2 (+2.25%)": 217,
+          "TP1 (+1.25%)": 234,
+          "STOP_LOSS": 157,
+          "TIME_STOP (J+10)": 1,
+          "FIN_SIMULATION": 4
+        },
+        "ticker_stats": {
+          "GOLD": {
+            "trades": 25,
+            "wins": 22,
+            "pnl": 1223.17,
+            "win_rate": 88.0
+          },
+          "DELL": {
+            "trades": 8,
+            "wins": 8,
+            "pnl": 361.43,
+            "win_rate": 100.0
+          },
+          "RYAAY": {
+            "trades": 66,
+            "wins": 44,
+            "pnl": 673.42,
+            "win_rate": 66.7
+          },
+          "STMPA.PA": {
+            "trades": 54,
+            "wins": 44,
+            "pnl": 1362.81,
+            "win_rate": 81.5
+          },
+          "TSM": {
+            "trades": 6,
+            "wins": 4,
+            "pnl": -51.77,
+            "win_rate": 66.7
+          },
+          "AVGO": {
+            "trades": 6,
+            "wins": 4,
+            "pnl": 13.97,
+            "win_rate": 66.7
+          },
+          "TSLA": {
+            "trades": 30,
+            "wins": 24,
+            "pnl": 1281.9,
+            "win_rate": 80.0
+          },
+          "MRK": {
+            "trades": 11,
+            "wins": 7,
+            "pnl": -6.31,
+            "win_rate": 63.6
+          },
+          "LIN.PA": {
+            "trades": 22,
+            "wins": 17,
+            "pnl": 434.11,
+            "win_rate": 77.3
+          },
+          "NVDA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 60.69,
+            "win_rate": 100.0
+          },
+          "BABA": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 421.58,
+            "win_rate": 100.0
+          },
+          "KER.PA": {
+            "trades": 24,
+            "wins": 13,
+            "pnl": -496.28,
+            "win_rate": 54.2
+          },
+          "BKNG": {
+            "trades": 28,
+            "wins": 18,
+            "pnl": -180.62,
+            "win_rate": 64.3
+          },
+          "META": {
+            "trades": 47,
+            "wins": 37,
+            "pnl": 1102.35,
+            "win_rate": 78.7
+          },
+          "RMS.PA": {
+            "trades": 33,
+            "wins": 24,
+            "pnl": 187.85,
+            "win_rate": 72.7
+          },
+          "TTE.PA": {
+            "trades": 22,
+            "wins": 13,
+            "pnl": -129.93,
+            "win_rate": 59.1
+          },
+          "XOM": {
+            "trades": 19,
+            "wins": 10,
+            "pnl": -361.1,
+            "win_rate": 52.6
+          },
+          "ERIC": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 101.15,
+            "win_rate": 100.0
+          },
+          "UBER": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 114.41,
+            "win_rate": 80.0
+          },
+          "NOK": {
+            "trades": 16,
+            "wins": 13,
+            "pnl": 683.31,
+            "win_rate": 81.2
+          },
+          "AIR.PA": {
+            "trades": 17,
+            "wins": 11,
+            "pnl": 353.22,
+            "win_rate": 64.7
+          },
+          "GTT.PA": {
+            "trades": 17,
+            "wins": 12,
+            "pnl": 216.69,
+            "win_rate": 70.6
+          },
+          "SAP": {
+            "trades": 25,
+            "wins": 18,
+            "pnl": 554.47,
+            "win_rate": 72.0
+          },
+          "AI.PA": {
+            "trades": 15,
+            "wins": 12,
+            "pnl": 248.58,
+            "win_rate": 80.0
+          },
+          "EL.PA": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 93.34,
+            "win_rate": 100.0
+          },
+          "ENGI.PA": {
+            "trades": 13,
+            "wins": 9,
+            "pnl": 91.44,
+            "win_rate": 69.2
+          },
+          "LLY": {
+            "trades": 24,
+            "wins": 21,
+            "pnl": 702.81,
+            "win_rate": 87.5
+          },
+          "INTC": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 105.08,
+            "win_rate": 80.0
+          },
+          "SAN.PA": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 273.58,
+            "win_rate": 100.0
+          },
+          "SU.PA": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 113.01,
+            "win_rate": 100.0
+          },
+          "BYDDY": {
+            "trades": 5,
+            "wins": 1,
+            "pnl": -500.55,
+            "win_rate": 20.0
+          },
+          "LR.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -36.35,
+            "win_rate": 50.0
+          },
+          "QCOM": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 73.51,
+            "win_rate": 100.0
+          },
+          "AMD": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 122.45,
+            "win_rate": 75.0
+          },
+          "AMZN": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -80.62,
+            "win_rate": 0.0
+          },
+          "ASML.AS": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 33.39,
+            "win_rate": 80.0
+          },
+          "CSCO": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": -59.87,
+            "win_rate": 60.0
+          },
+          "CRM": {
+            "trades": 12,
+            "wins": 7,
+            "pnl": -231.08,
+            "win_rate": 58.3
+          },
+          "ESTC": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": 20.81,
+            "win_rate": 66.7
+          },
+          "ASML": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 56.02,
+            "win_rate": 100.0
+          },
+          "MC.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 64.54,
+            "win_rate": 100.0
+          },
+          "ASAN": {
+            "trades": 7,
+            "wins": 7,
+            "pnl": 514.22,
+            "win_rate": 100.0
+          }
+        }
+      },
+      "v3_institutional": {
+        "total_trades": 189,
+        "winning_trades": 154,
+        "losing_trades": 34,
+        "win_rate_pct": 81.5,
+        "profit_factor": 1.26,
+        "total_net_pnl": 530.22,
+        "total_return_pct": 5.3,
+        "max_drawdown_pct": 5.24,
+        "sharpe_ratio": 0.74,
+        "sortino_ratio": 0.51,
+        "avg_holding_days": 2.1,
+        "avg_win_pct": 2.08,
+        "avg_loss_pct": -5.8,
+        "payoff_ratio": 0.36,
+        "expectancy_pct": 0.65,
+        "exit_reasons": {
+          "TP1 (+1.25%)": 89,
+          "TP2 (+2.25%)": 64,
+          "STOP_LOSS": 28,
+          "TIME_STOP (J+10)": 4,
+          "BREAKEVEN (0.0%)": 2,
+          "FIN_SIMULATION": 2
+        },
+        "ticker_stats": {
+          "STMPA.PA": {
+            "trades": 9,
+            "wins": 9,
+            "pnl": 182.02,
+            "win_rate": 100.0
+          },
+          "AVGO": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 70.12,
+            "win_rate": 100.0
+          },
+          "TSLA": {
+            "trades": 11,
+            "wins": 11,
+            "pnl": 60.27,
+            "win_rate": 100.0
+          },
+          "KER.PA": {
+            "trades": 7,
+            "wins": 4,
+            "pnl": -62.84,
+            "win_rate": 57.1
+          },
+          "SAN.PA": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 104.0,
+            "win_rate": 100.0
+          },
+          "BKNG": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": -104.36,
+            "win_rate": 60.0
+          },
+          "MRK": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -1.28,
+            "win_rate": 66.7
+          },
+          "RMS.PA": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 81.67,
+            "win_rate": 100.0
+          },
+          "AMD": {
+            "trades": 12,
+            "wins": 8,
+            "pnl": 83.98,
+            "win_rate": 66.7
+          },
+          "META": {
+            "trades": 15,
+            "wins": 12,
+            "pnl": -21.89,
+            "win_rate": 80.0
+          },
+          "RYAAY": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 21.79,
+            "win_rate": 80.0
+          },
+          "TSM": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 66.01,
+            "win_rate": 100.0
+          },
+          "SAP": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -213.43,
+            "win_rate": 66.7
+          },
+          "AAPL": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -17.23,
+            "win_rate": 50.0
+          },
+          "QCOM": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 56.32,
+            "win_rate": 100.0
+          },
+          "UBER": {
+            "trades": 9,
+            "wins": 6,
+            "pnl": -10.84,
+            "win_rate": 66.7
+          },
+          "GTT.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -56.91,
+            "win_rate": 50.0
+          },
+          "ASML.AS": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 59.5,
+            "win_rate": 85.7
+          },
+          "CRM": {
+            "trades": 9,
+            "wins": 7,
+            "pnl": -57.41,
+            "win_rate": 77.8
+          },
+          "MSFT": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -96.79,
+            "win_rate": 0.0
+          },
+          "GOOGL": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -16.45,
+            "win_rate": 66.7
+          },
+          "AI.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 52.48,
+            "win_rate": 100.0
+          },
+          "NVDA": {
+            "trades": 6,
+            "wins": 5,
+            "pnl": -6.04,
+            "win_rate": 83.3
+          },
+          "LLY": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 179.2,
+            "win_rate": 85.7
+          },
+          "ESTC": {
+            "trades": 11,
+            "wins": 8,
+            "pnl": -23.51,
+            "win_rate": 72.7
+          },
+          "SU.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 10.61,
+            "win_rate": 100.0
+          },
+          "LR.PA": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -30.56,
+            "win_rate": 66.7
+          },
+          "INTC": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 45.24,
+            "win_rate": 100.0
+          },
+          "BABA": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 70.61,
+            "win_rate": 100.0
+          },
+          "AMZN": {
+            "trades": 6,
+            "wins": 5,
+            "pnl": 2.81,
+            "win_rate": 83.3
+          },
+          "ASML": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -20.85,
+            "win_rate": 66.7
+          },
+          "BYDDY": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": -19.38,
+            "win_rate": 80.0
+          },
+          "DELL": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 10.78,
+            "win_rate": 100.0
+          },
+          "GOLD": {
+            "trades": 8,
+            "wins": 7,
+            "pnl": 30.38,
+            "win_rate": 87.5
+          },
+          "EL.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 11.39,
+            "win_rate": 100.0
+          },
+          "ASAN": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 48.63,
+            "win_rate": 100.0
+          },
+          "XOM": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 6.04,
+            "win_rate": 100.0
+          },
+          "TTE.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 18.48,
+            "win_rate": 100.0
+          },
+          "ENGI.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 17.66,
+            "win_rate": 100.0
+          }
+        }
+      },
+      "v5_mean_reversion_poc": {
+        "total_trades": 408,
+        "winning_trades": 250,
+        "losing_trades": 156,
+        "win_rate_pct": 61.3,
+        "profit_factor": 1.57,
+        "total_net_pnl": 4720.89,
+        "total_return_pct": 47.21,
+        "max_drawdown_pct": 7.52,
+        "sharpe_ratio": 2.65,
+        "sortino_ratio": 2.52,
+        "avg_holding_days": 1.1,
+        "avg_win_pct": 1.84,
+        "avg_loss_pct": -1.91,
+        "payoff_ratio": 0.96,
+        "expectancy_pct": 0.39,
+        "exit_reasons": {
+          "TP1 (+1.25%)": 173,
+          "TP2 (+2.25%)": 77,
+          "STOP_LOSS": 156,
+          "FIN_SIMULATION": 2
+        },
+        "ticker_stats": {
+          "STMPA.PA": {
+            "trades": 19,
+            "wins": 14,
+            "pnl": 315.1,
+            "win_rate": 73.7
+          },
+          "TSM": {
+            "trades": 7,
+            "wins": 5,
+            "pnl": 170.12,
+            "win_rate": 71.4
+          },
+          "TSLA": {
+            "trades": 25,
+            "wins": 19,
+            "pnl": 1026.84,
+            "win_rate": 76.0
+          },
+          "AVGO": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 113.95,
+            "win_rate": 80.0
+          },
+          "KER.PA": {
+            "trades": 14,
+            "wins": 5,
+            "pnl": -230.64,
+            "win_rate": 35.7
+          },
+          "GTT.PA": {
+            "trades": 8,
+            "wins": 4,
+            "pnl": 118.81,
+            "win_rate": 50.0
+          },
+          "BKNG": {
+            "trades": 13,
+            "wins": 4,
+            "pnl": -194.97,
+            "win_rate": 30.8
+          },
+          "LR.PA": {
+            "trades": 9,
+            "wins": 6,
+            "pnl": 166.47,
+            "win_rate": 66.7
+          },
+          "SAN.PA": {
+            "trades": 10,
+            "wins": 9,
+            "pnl": 290.95,
+            "win_rate": 90.0
+          },
+          "TTE.PA": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": 35.92,
+            "win_rate": 60.0
+          },
+          "MRK": {
+            "trades": 6,
+            "wins": 2,
+            "pnl": -41.19,
+            "win_rate": 33.3
+          },
+          "QCOM": {
+            "trades": 10,
+            "wins": 6,
+            "pnl": 95.25,
+            "win_rate": 60.0
+          },
+          "RYAAY": {
+            "trades": 7,
+            "wins": 5,
+            "pnl": 133.96,
+            "win_rate": 71.4
+          },
+          "BABA": {
+            "trades": 16,
+            "wins": 8,
+            "pnl": -46.4,
+            "win_rate": 50.0
+          },
+          "SAP": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 254.61,
+            "win_rate": 75.0
+          },
+          "AMD": {
+            "trades": 19,
+            "wins": 10,
+            "pnl": -106.37,
+            "win_rate": 52.6
+          },
+          "META": {
+            "trades": 26,
+            "wins": 18,
+            "pnl": 258.38,
+            "win_rate": 69.2
+          },
+          "ASML.AS": {
+            "trades": 14,
+            "wins": 9,
+            "pnl": 106.75,
+            "win_rate": 64.3
+          },
+          "AAPL": {
+            "trades": 11,
+            "wins": 6,
+            "pnl": 9.01,
+            "win_rate": 54.5
+          },
+          "GOOGL": {
+            "trades": 11,
+            "wins": 8,
+            "pnl": 168.02,
+            "win_rate": 72.7
+          },
+          "UBER": {
+            "trades": 15,
+            "wins": 9,
+            "pnl": 199.7,
+            "win_rate": 60.0
+          },
+          "INTC": {
+            "trades": 4,
+            "wins": 2,
+            "pnl": 12.7,
+            "win_rate": 50.0
+          },
+          "EL.PA": {
+            "trades": 2,
+            "wins": 0,
+            "pnl": -69.43,
+            "win_rate": 0.0
+          },
+          "AI.PA": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 188.44,
+            "win_rate": 80.0
+          },
+          "IS3R.DE": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 103.87,
+            "win_rate": 100.0
+          },
+          "LLY": {
+            "trades": 14,
+            "wins": 10,
+            "pnl": 452.82,
+            "win_rate": 71.4
+          },
+          "NVDA": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 166.86,
+            "win_rate": 75.0
+          },
+          "CRM": {
+            "trades": 16,
+            "wins": 10,
+            "pnl": -19.26,
+            "win_rate": 62.5
+          },
+          "ESTC": {
+            "trades": 20,
+            "wins": 11,
+            "pnl": 146.27,
+            "win_rate": 55.0
+          },
+          "SU.PA": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": 27.95,
+            "win_rate": 66.7
+          },
+          "DELL": {
+            "trades": 3,
+            "wins": 0,
+            "pnl": -191.89,
+            "win_rate": 0.0
+          },
+          "RMS.PA": {
+            "trades": 7,
+            "wins": 2,
+            "pnl": -73.04,
+            "win_rate": 28.6
+          },
+          "AMZN": {
+            "trades": 13,
+            "wins": 4,
+            "pnl": -179.12,
+            "win_rate": 30.8
+          },
+          "BYDDY": {
+            "trades": 10,
+            "wins": 4,
+            "pnl": 30.38,
+            "win_rate": 40.0
+          },
+          "ASML": {
+            "trades": 8,
+            "wins": 5,
+            "pnl": -55.8,
+            "win_rate": 62.5
+          },
+          "MSFT": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 191.19,
+            "win_rate": 80.0
+          },
+          "OR.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 47.9,
+            "win_rate": 100.0
+          },
+          "GOLD": {
+            "trades": 20,
+            "wins": 17,
+            "pnl": 890.84,
+            "win_rate": 85.0
+          },
+          "ENGI.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 35.92,
+            "win_rate": 100.0
+          },
+          "MRK.DE": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 61.18,
+            "win_rate": 100.0
+          },
+          "XOM": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -47.88,
+            "win_rate": 0.0
+          },
+          "ASAN": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": 156.72,
+            "win_rate": 60.0
+          }
+        }
+      }
+    },
+    "crisis_2022": {
+      "period_name": "📉 Bear Market Inflation & Choc de Taux (2022)",
+      "v1_classic": {
+        "total_trades": 634,
+        "winning_trades": 496,
+        "losing_trades": 136,
+        "win_rate_pct": 78.2,
+        "profit_factor": 1.44,
+        "total_net_pnl": 8078.04,
+        "total_return_pct": 80.78,
+        "max_drawdown_pct": 15.37,
+        "sharpe_ratio": 2.42,
+        "sortino_ratio": 3.85,
+        "avg_holding_days": 1.8,
+        "avg_win_pct": 2.12,
+        "avg_loss_pct": -5.36,
+        "payoff_ratio": 0.4,
+        "expectancy_pct": 0.51,
+        "exit_reasons": {
+          "TP2 (+2.25%)": 219,
+          "TP1 (+1.25%)": 276,
+          "STOP_LOSS": 132,
+          "TIME_STOP (J+10)": 3,
+          "FIN_SIMULATION": 4
+        },
+        "ticker_stats": {
+          "LLY": {
+            "trades": 21,
+            "wins": 18,
+            "pnl": 505.12,
+            "win_rate": 85.7
+          },
+          "BYDDY": {
+            "trades": 21,
+            "wins": 18,
+            "pnl": 1072.92,
+            "win_rate": 85.7
+          },
+          "AIR.PA": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 143.41,
+            "win_rate": 100.0
+          },
+          "NOK": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 174.04,
+            "win_rate": 100.0
+          },
+          "TSLA": {
+            "trades": 48,
+            "wins": 34,
+            "pnl": 555.93,
+            "win_rate": 70.8
+          },
+          "ERIC": {
+            "trades": 13,
+            "wins": 10,
+            "pnl": -377.85,
+            "win_rate": 76.9
+          },
+          "GTT.PA": {
+            "trades": 14,
+            "wins": 13,
+            "pnl": 467.49,
+            "win_rate": 92.9
+          },
+          "BKNG": {
+            "trades": 13,
+            "wins": 11,
+            "pnl": 441.64,
+            "win_rate": 84.6
+          },
+          "DELL": {
+            "trades": 6,
+            "wins": 5,
+            "pnl": 96.46,
+            "win_rate": 83.3
+          },
+          "ASAN": {
+            "trades": 11,
+            "wins": 9,
+            "pnl": 229.88,
+            "win_rate": 81.8
+          },
+          "MRK": {
+            "trades": 11,
+            "wins": 9,
+            "pnl": 75.98,
+            "win_rate": 81.8
+          },
+          "GOLD": {
+            "trades": 19,
+            "wins": 15,
+            "pnl": 549.11,
+            "win_rate": 78.9
+          },
+          "META": {
+            "trades": 80,
+            "wins": 61,
+            "pnl": 73.53,
+            "win_rate": 76.2
+          },
+          "RYAAY": {
+            "trades": 58,
+            "wins": 36,
+            "pnl": -632.99,
+            "win_rate": 62.1
+          },
+          "SAP": {
+            "trades": 32,
+            "wins": 22,
+            "pnl": -120.91,
+            "win_rate": 68.8
+          },
+          "BABA": {
+            "trades": 11,
+            "wins": 7,
+            "pnl": 309.86,
+            "win_rate": 63.6
+          },
+          "RMS.PA": {
+            "trades": 45,
+            "wins": 35,
+            "pnl": 256.67,
+            "win_rate": 77.8
+          },
+          "STMPA.PA": {
+            "trades": 33,
+            "wins": 28,
+            "pnl": 684.07,
+            "win_rate": 84.8
+          },
+          "ESTC": {
+            "trades": 10,
+            "wins": 7,
+            "pnl": 117.56,
+            "win_rate": 70.0
+          },
+          "AI.PA": {
+            "trades": 11,
+            "wins": 11,
+            "pnl": 404.54,
+            "win_rate": 100.0
+          },
+          "AVGO": {
+            "trades": 9,
+            "wins": 9,
+            "pnl": 334.02,
+            "win_rate": 100.0
+          },
+          "KER.PA": {
+            "trades": 20,
+            "wins": 15,
+            "pnl": -4.32,
+            "win_rate": 75.0
+          },
+          "CRM": {
+            "trades": 19,
+            "wins": 15,
+            "pnl": 40.02,
+            "win_rate": 78.9
+          },
+          "UBER": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 127.68,
+            "win_rate": 100.0
+          },
+          "NVDA": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 91.72,
+            "win_rate": 100.0
+          },
+          "AMD": {
+            "trades": 15,
+            "wins": 9,
+            "pnl": -419.81,
+            "win_rate": 60.0
+          },
+          "MRK.DE": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 59.78,
+            "win_rate": 80.0
+          },
+          "ASML.AS": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 297.9,
+            "win_rate": 100.0
+          },
+          "COST": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 101.42,
+            "win_rate": 85.7
+          },
+          "AMZN": {
+            "trades": 13,
+            "wins": 8,
+            "pnl": -73.04,
+            "win_rate": 61.5
+          },
+          "ASML": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 33.12,
+            "win_rate": 100.0
+          },
+          "LR.PA": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 212.26,
+            "win_rate": 100.0
+          },
+          "TTE.PA": {
+            "trades": 9,
+            "wins": 9,
+            "pnl": 418.27,
+            "win_rate": 100.0
+          },
+          "SAN.PA": {
+            "trades": 16,
+            "wins": 11,
+            "pnl": -158.48,
+            "win_rate": 68.8
+          },
+          "EL.PA": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 62.45,
+            "win_rate": 80.0
+          },
+          "QCOM": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -66.57,
+            "win_rate": 50.0
+          },
+          "XOM": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 162.18,
+            "win_rate": 100.0
+          },
+          "LIN.PA": {
+            "trades": 10,
+            "wins": 9,
+            "pnl": 967.95,
+            "win_rate": 90.0
+          },
+          "MC.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 51.25,
+            "win_rate": 100.0
+          },
+          "SU.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 30.42,
+            "win_rate": 100.0
+          },
+          "AAPL": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 32.39,
+            "win_rate": 100.0
+          },
+          "CSCO": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 59.02,
+            "win_rate": 100.0
+          },
+          "GOOGL": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 77.64,
+            "win_rate": 100.0
+          },
+          "INTC": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 268.92,
+            "win_rate": 100.0
+          },
+          "TSM": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 242.87,
+            "win_rate": 100.0
+          },
+          "ENGI.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 59.0,
+            "win_rate": 100.0
+          },
+          "IS3R.DE": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 43.52,
+            "win_rate": 100.0
+          }
+        }
+      },
+      "v2_standard": {
+        "total_trades": 782,
+        "winning_trades": 554,
+        "losing_trades": 227,
+        "win_rate_pct": 70.8,
+        "profit_factor": 1.44,
+        "total_net_pnl": 10180.28,
+        "total_return_pct": 101.8,
+        "max_drawdown_pct": 13.83,
+        "sharpe_ratio": 2.83,
+        "sortino_ratio": 5.13,
+        "avg_holding_days": 1.5,
+        "avg_win_pct": 2.19,
+        "avg_loss_pct": -3.71,
+        "payoff_ratio": 0.59,
+        "expectancy_pct": 0.47,
+        "exit_reasons": {
+          "TP1 (+1.25%)": 281,
+          "TP2 (+2.25%)": 273,
+          "STOP_LOSS": 223,
+          "TIME_STOP (J+10)": 1,
+          "FIN_SIMULATION": 4
+        },
+        "ticker_stats": {
+          "BYDDY": {
+            "trades": 20,
+            "wins": 18,
+            "pnl": 1321.69,
+            "win_rate": 90.0
+          },
+          "GOOGL": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 270.43,
+            "win_rate": 100.0
+          },
+          "ERIC": {
+            "trades": 17,
+            "wins": 13,
+            "pnl": 60.07,
+            "win_rate": 76.5
+          },
+          "AMZN": {
+            "trades": 17,
+            "wins": 11,
+            "pnl": 167.23,
+            "win_rate": 64.7
+          },
+          "TSLA": {
+            "trades": 61,
+            "wins": 37,
+            "pnl": 307.4,
+            "win_rate": 60.7
+          },
+          "GTT.PA": {
+            "trades": 14,
+            "wins": 12,
+            "pnl": 422.77,
+            "win_rate": 85.7
+          },
+          "XOM": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 72.98,
+            "win_rate": 75.0
+          },
+          "ESTC": {
+            "trades": 14,
+            "wins": 10,
+            "pnl": 251.73,
+            "win_rate": 71.4
+          },
+          "DELL": {
+            "trades": 8,
+            "wins": 5,
+            "pnl": -4.82,
+            "win_rate": 62.5
+          },
+          "ASAN": {
+            "trades": 18,
+            "wins": 14,
+            "pnl": 336.36,
+            "win_rate": 77.8
+          },
+          "BABA": {
+            "trades": 15,
+            "wins": 8,
+            "pnl": 310.07,
+            "win_rate": 53.3
+          },
+          "MRK": {
+            "trades": 10,
+            "wins": 8,
+            "pnl": 95.62,
+            "win_rate": 80.0
+          },
+          "GOLD": {
+            "trades": 25,
+            "wins": 17,
+            "pnl": 168.7,
+            "win_rate": 68.0
+          },
+          "LLY": {
+            "trades": 22,
+            "wins": 17,
+            "pnl": 447.65,
+            "win_rate": 77.3
+          },
+          "RYAAY": {
+            "trades": 73,
+            "wins": 45,
+            "pnl": 359.03,
+            "win_rate": 61.6
+          },
+          "META": {
+            "trades": 93,
+            "wins": 63,
+            "pnl": 409.59,
+            "win_rate": 67.7
+          },
+          "STMPA.PA": {
+            "trades": 46,
+            "wins": 31,
+            "pnl": 78.34,
+            "win_rate": 67.4
+          },
+          "BKNG": {
+            "trades": 11,
+            "wins": 7,
+            "pnl": 139.42,
+            "win_rate": 63.6
+          },
+          "SAP": {
+            "trades": 38,
+            "wins": 26,
+            "pnl": 166.81,
+            "win_rate": 68.4
+          },
+          "RMS.PA": {
+            "trades": 52,
+            "wins": 38,
+            "pnl": 555.41,
+            "win_rate": 73.1
+          },
+          "ASML.AS": {
+            "trades": 10,
+            "wins": 8,
+            "pnl": 372.61,
+            "win_rate": 80.0
+          },
+          "AIR.PA": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 320.1,
+            "win_rate": 100.0
+          },
+          "CRM": {
+            "trades": 20,
+            "wins": 16,
+            "pnl": 286.61,
+            "win_rate": 80.0
+          },
+          "AI.PA": {
+            "trades": 15,
+            "wins": 12,
+            "pnl": 240.83,
+            "win_rate": 80.0
+          },
+          "KER.PA": {
+            "trades": 26,
+            "wins": 16,
+            "pnl": -87.91,
+            "win_rate": 61.5
+          },
+          "AVGO": {
+            "trades": 9,
+            "wins": 9,
+            "pnl": 466.45,
+            "win_rate": 100.0
+          },
+          "NVDA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 96.63,
+            "win_rate": 100.0
+          },
+          "AMD": {
+            "trades": 21,
+            "wins": 12,
+            "pnl": -166.68,
+            "win_rate": 57.1
+          },
+          "MRK.DE": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 85.53,
+            "win_rate": 75.0
+          },
+          "COST": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 132.22,
+            "win_rate": 75.0
+          },
+          "NOK": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 141.39,
+            "win_rate": 80.0
+          },
+          "ASML": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 33.12,
+            "win_rate": 100.0
+          },
+          "LR.PA": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 212.2,
+            "win_rate": 85.7
+          },
+          "TTE.PA": {
+            "trades": 6,
+            "wins": 6,
+            "pnl": 310.28,
+            "win_rate": 100.0
+          },
+          "EL.PA": {
+            "trades": 6,
+            "wins": 5,
+            "pnl": 169.0,
+            "win_rate": 83.3
+          },
+          "CSCO": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -14.97,
+            "win_rate": 66.7
+          },
+          "INTC": {
+            "trades": 12,
+            "wins": 8,
+            "pnl": -33.17,
+            "win_rate": 66.7
+          },
+          "SAN.PA": {
+            "trades": 15,
+            "wins": 11,
+            "pnl": 112.06,
+            "win_rate": 73.3
+          },
+          "ENGI.PA": {
+            "trades": 5,
+            "wins": 2,
+            "pnl": -155.58,
+            "win_rate": 40.0
+          },
+          "QCOM": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": -42.81,
+            "win_rate": 60.0
+          },
+          "LIN.PA": {
+            "trades": 9,
+            "wins": 8,
+            "pnl": 1075.79,
+            "win_rate": 88.9
+          },
+          "MC.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 110.26,
+            "win_rate": 100.0
+          },
+          "TSM": {
+            "trades": 8,
+            "wins": 7,
+            "pnl": 349.25,
+            "win_rate": 87.5
+          },
+          "SU.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -58.68,
+            "win_rate": 50.0
+          },
+          "UBER": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 144.9,
+            "win_rate": 80.0
+          },
+          "IS3R.DE": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 84.98,
+            "win_rate": 100.0
+          },
+          "AAPL": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 59.39,
+            "win_rate": 100.0
+          }
+        }
+      },
+      "v3_institutional": {
+        "total_trades": 141,
+        "winning_trades": 108,
+        "losing_trades": 33,
+        "win_rate_pct": 76.6,
+        "profit_factor": 1.07,
+        "total_net_pnl": 134.26,
+        "total_return_pct": 1.34,
+        "max_drawdown_pct": 3.68,
+        "sharpe_ratio": 0.26,
+        "sortino_ratio": 0.19,
+        "avg_holding_days": 2.2,
+        "avg_win_pct": 1.83,
+        "avg_loss_pct": -5.55,
+        "payoff_ratio": 0.33,
+        "expectancy_pct": 0.1,
+        "exit_reasons": {
+          "TP2 (+2.25%)": 48,
+          "TP1 (+1.25%)": 60,
+          "STOP_LOSS": 27,
+          "TIME_STOP (J+10)": 6
+        },
+        "ticker_stats": {
+          "AMZN": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 48.55,
+            "win_rate": 100.0
+          },
+          "DELL": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 65.48,
+            "win_rate": 100.0
+          },
+          "GTT.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 18.2,
+            "win_rate": 100.0
+          },
+          "ASAN": {
+            "trades": 7,
+            "wins": 7,
+            "pnl": 86.03,
+            "win_rate": 100.0
+          },
+          "LR.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 16.07,
+            "win_rate": 100.0
+          },
+          "LLY": {
+            "trades": 6,
+            "wins": 4,
+            "pnl": -48.67,
+            "win_rate": 66.7
+          },
+          "AMD": {
+            "trades": 8,
+            "wins": 6,
+            "pnl": 18.44,
+            "win_rate": 75.0
+          },
+          "NVDA": {
+            "trades": 10,
+            "wins": 9,
+            "pnl": 65.04,
+            "win_rate": 90.0
+          },
+          "ESTC": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -66.24,
+            "win_rate": 50.0
+          },
+          "KER.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 25.93,
+            "win_rate": 100.0
+          },
+          "TSLA": {
+            "trades": 12,
+            "wins": 9,
+            "pnl": -19.71,
+            "win_rate": 75.0
+          },
+          "RYAAY": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -99.88,
+            "win_rate": 0.0
+          },
+          "BKNG": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -83.95,
+            "win_rate": 50.0
+          },
+          "SAP": {
+            "trades": 2,
+            "wins": 0,
+            "pnl": -182.53,
+            "win_rate": 0.0
+          },
+          "CSCO": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 56.57,
+            "win_rate": 100.0
+          },
+          "MRK": {
+            "trades": 3,
+            "wins": 1,
+            "pnl": -77.18,
+            "win_rate": 33.3
+          },
+          "XOM": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 70.32,
+            "win_rate": 100.0
+          },
+          "ENGI.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 37.07,
+            "win_rate": 100.0
+          },
+          "AVGO": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -23.79,
+            "win_rate": 66.7
+          },
+          "TTE.PA": {
+            "trades": 4,
+            "wins": 4,
+            "pnl": 148.15,
+            "win_rate": 100.0
+          },
+          "STMPA.PA": {
+            "trades": 10,
+            "wins": 8,
+            "pnl": 125.24,
+            "win_rate": 80.0
+          },
+          "SU.PA": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": -17.82,
+            "win_rate": 66.7
+          },
+          "EL.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 37.33,
+            "win_rate": 100.0
+          },
+          "ASML.AS": {
+            "trades": 5,
+            "wins": 5,
+            "pnl": 101.89,
+            "win_rate": 100.0
+          },
+          "ASML": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": 6.27,
+            "win_rate": 50.0
+          },
+          "GOLD": {
+            "trades": 13,
+            "wins": 11,
+            "pnl": 110.24,
+            "win_rate": 84.6
+          },
+          "MSFT": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 51.89,
+            "win_rate": 100.0
+          },
+          "BYDDY": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": 10.78,
+            "win_rate": 80.0
+          },
+          "QCOM": {
+            "trades": 5,
+            "wins": 4,
+            "pnl": -5.77,
+            "win_rate": 80.0
+          },
+          "CRM": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 15.57,
+            "win_rate": 100.0
+          },
+          "GOOGL": {
+            "trades": 4,
+            "wins": 2,
+            "pnl": -64.17,
+            "win_rate": 50.0
+          },
+          "MRK.DE": {
+            "trades": 4,
+            "wins": 2,
+            "pnl": -92.35,
+            "win_rate": 50.0
+          },
+          "COST": {
+            "trades": 4,
+            "wins": 2,
+            "pnl": -104.65,
+            "win_rate": 50.0
+          },
+          "RMS.PA": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 24.65,
+            "win_rate": 75.0
+          },
+          "OR.PA": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -87.05,
+            "win_rate": 0.0
+          },
+          "TSM": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 19.53,
+            "win_rate": 100.0
+          },
+          "SAN.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -51.22,
+            "win_rate": 50.0
+          }
+        }
+      },
+      "v5_mean_reversion_poc": {
+        "total_trades": 262,
+        "winning_trades": 151,
+        "losing_trades": 110,
+        "win_rate_pct": 57.6,
+        "profit_factor": 1.47,
+        "total_net_pnl": 2203.51,
+        "total_return_pct": 22.04,
+        "max_drawdown_pct": 4.06,
+        "sharpe_ratio": 2.05,
+        "sortino_ratio": 1.88,
+        "avg_holding_days": 1.1,
+        "avg_win_pct": 1.77,
+        "avg_loss_pct": -1.64,
+        "payoff_ratio": 1.08,
+        "expectancy_pct": 0.33,
+        "exit_reasons": {
+          "TP2 (+2.25%)": 44,
+          "TP1 (+1.25%)": 107,
+          "STOP_LOSS": 110,
+          "FIN_SIMULATION": 1
+        },
+        "ticker_stats": {
+          "AMZN": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 107.54,
+            "win_rate": 100.0
+          },
+          "DELL": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 80.1,
+            "win_rate": 75.0
+          },
+          "TSLA": {
+            "trades": 21,
+            "wins": 11,
+            "pnl": 12.77,
+            "win_rate": 52.4
+          },
+          "GTT.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": 1.27,
+            "win_rate": 50.0
+          },
+          "ESTC": {
+            "trades": 4,
+            "wins": 3,
+            "pnl": 132.66,
+            "win_rate": 75.0
+          },
+          "GOLD": {
+            "trades": 20,
+            "wins": 11,
+            "pnl": 179.61,
+            "win_rate": 55.0
+          },
+          "LR.PA": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 31.07,
+            "win_rate": 100.0
+          },
+          "ASAN": {
+            "trades": 11,
+            "wins": 9,
+            "pnl": 439.22,
+            "win_rate": 81.8
+          },
+          "MRK": {
+            "trades": 7,
+            "wins": 3,
+            "pnl": -53.51,
+            "win_rate": 42.9
+          },
+          "RYAAY": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": 65.12,
+            "win_rate": 66.7
+          },
+          "LLY": {
+            "trades": 13,
+            "wins": 7,
+            "pnl": 105.99,
+            "win_rate": 53.8
+          },
+          "META": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 77.91,
+            "win_rate": 100.0
+          },
+          "AMD": {
+            "trades": 15,
+            "wins": 4,
+            "pnl": -307.63,
+            "win_rate": 26.7
+          },
+          "KER.PA": {
+            "trades": 2,
+            "wins": 2,
+            "pnl": 92.1,
+            "win_rate": 100.0
+          },
+          "BKNG": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -26.53,
+            "win_rate": 0.0
+          },
+          "TSM": {
+            "trades": 3,
+            "wins": 3,
+            "pnl": 133.77,
+            "win_rate": 100.0
+          },
+          "CSCO": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": 50.08,
+            "win_rate": 60.0
+          },
+          "SAP": {
+            "trades": 3,
+            "wins": 0,
+            "pnl": -168.12,
+            "win_rate": 0.0
+          },
+          "XOM": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 150.64,
+            "win_rate": 85.7
+          },
+          "TTE.PA": {
+            "trades": 7,
+            "wins": 6,
+            "pnl": 194.77,
+            "win_rate": 85.7
+          },
+          "ASML": {
+            "trades": 7,
+            "wins": 3,
+            "pnl": 15.28,
+            "win_rate": 42.9
+          },
+          "ENGI.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -12.24,
+            "win_rate": 50.0
+          },
+          "ASML.AS": {
+            "trades": 11,
+            "wins": 9,
+            "pnl": 349.08,
+            "win_rate": 81.8
+          },
+          "CRM": {
+            "trades": 6,
+            "wins": 2,
+            "pnl": -68.18,
+            "win_rate": 33.3
+          },
+          "SU.PA": {
+            "trades": 6,
+            "wins": 5,
+            "pnl": 160.89,
+            "win_rate": 83.3
+          },
+          "AI.PA": {
+            "trades": 4,
+            "wins": 2,
+            "pnl": -32.28,
+            "win_rate": 50.0
+          },
+          "EL.PA": {
+            "trades": 5,
+            "wins": 3,
+            "pnl": 46.83,
+            "win_rate": 60.0
+          },
+          "MRK.DE": {
+            "trades": 12,
+            "wins": 5,
+            "pnl": -68.67,
+            "win_rate": 41.7
+          },
+          "STMPA.PA": {
+            "trades": 13,
+            "wins": 8,
+            "pnl": 163.15,
+            "win_rate": 61.5
+          },
+          "COST": {
+            "trades": 7,
+            "wins": 5,
+            "pnl": 93.42,
+            "win_rate": 71.4
+          },
+          "BYDDY": {
+            "trades": 9,
+            "wins": 6,
+            "pnl": 116.21,
+            "win_rate": 66.7
+          },
+          "NVDA": {
+            "trades": 10,
+            "wins": 6,
+            "pnl": 26.08,
+            "win_rate": 60.0
+          },
+          "QCOM": {
+            "trades": 6,
+            "wins": 3,
+            "pnl": 32.75,
+            "win_rate": 50.0
+          },
+          "MSFT": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -2.45,
+            "win_rate": 50.0
+          },
+          "GOOGL": {
+            "trades": 6,
+            "wins": 2,
+            "pnl": -24.86,
+            "win_rate": 33.3
+          },
+          "RMS.PA": {
+            "trades": 8,
+            "wins": 5,
+            "pnl": 138.23,
+            "win_rate": 62.5
+          },
+          "OR.PA": {
+            "trades": 2,
+            "wins": 0,
+            "pnl": -81.96,
+            "win_rate": 0.0
+          },
+          "AVGO": {
+            "trades": 6,
+            "wins": 2,
+            "pnl": -50.69,
+            "win_rate": 33.3
+          },
+          "SAN.PA": {
+            "trades": 2,
+            "wins": 1,
+            "pnl": -4.95,
+            "win_rate": 50.0
+          },
+          "AAPL": {
+            "trades": 3,
+            "wins": 2,
+            "pnl": 61.46,
+            "win_rate": 66.7
+          },
+          "UBER": {
+            "trades": 1,
+            "wins": 1,
+            "pnl": 89.64,
+            "win_rate": 100.0
+          },
+          "BABA": {
+            "trades": 1,
+            "wins": 0,
+            "pnl": -42.06,
+            "win_rate": 0.0
+          }
+        }
+      }
+    }
+  },
+  "global_ranking": [
+    {
+      "strategy": "v2_standard",
+      "avg_return_pct": 1242.3525,
+      "avg_sharpe": 2.8874999999999997
+    },
+    {
+      "strategy": "v1_classic",
+      "avg_return_pct": 745.8050000000001,
+      "avg_sharpe": 2.2825
+    },
+    {
+      "strategy": "v5_mean_reversion_poc",
+      "avg_return_pct": 102.82249999999999,
+      "avg_sharpe": 2.2175000000000002
+    },
+    {
+      "strategy": "v3_institutional",
+      "avg_return_pct": 14.967500000000001,
+      "avg_sharpe": 0.7049999999999998
+    }
+  ]
+}

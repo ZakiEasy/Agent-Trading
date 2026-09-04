@@ -3,6 +3,12 @@ import csv
 import math
 import concurrent.futures
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+    PARIS_TZ = ZoneInfo("Europe/Paris")
+except ImportError:
+    import pytz
+    PARIS_TZ = pytz.timezone("Europe/Paris")
 import pandas as pd
 try:
     import yfinance as yf
@@ -1286,6 +1292,9 @@ def calculate_portfolio_diversification(live_positions, cash_summary=None):
         "cash_weight_pct": round(safe_float(cash_weight), 1),
         "last_update_xtb": last_update_xtb,
         "last_update_trading212": last_update_t212,
+        "dividends_eur": round(safe_float(cash_summary.get("total_dividends_eur", 0.0) if cash_summary else 0.0), 2),
+        "interest_eur": round(safe_float(cash_summary.get("total_interest_eur", 0.0) if cash_summary else 0.0), 2),
+        "passive_income_eur": round(safe_float(((cash_summary.get("total_dividends_eur", 0.0) or 0.0) + (cash_summary.get("total_interest_eur", 0.0) or 0.0)) if cash_summary else 0.0), 2),
         "categories": categories_list,
         "accounts": accounts_list,
         "brokers": brokers_list,
@@ -1301,7 +1310,7 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
     from src.config import XTB_MONTHLY_ZERO_COMMISSION_LIMIT, XTB_COMMISSION_RATE_OVER_LIMIT
     
     usd_to_eur = get_usd_to_eur_rate()
-    now_dt = datetime.now()
+    now_dt = datetime.now(PARIS_TZ)
     current_month_str = now_dt.strftime("%Y-%m")
 
     if closed_trades is None:
@@ -1313,23 +1322,24 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
 
     monthly_turnover = {}
 
-    def add_volume(date_str, buy_amt, sell_amt):
-        if not date_str or not isinstance(date_str, str) or len(date_str) < 7:
+    def add_volume(date_str, buy_val, sell_val):
+        if not date_str:
             return
-        m = str(date_str)[:7]
-        if len(m) == 7 and m[4] == '-' and m[:4].isdigit() and m[5:].isdigit():
-            if m not in monthly_turnover:
-                monthly_turnover[m] = {"purchases": 0.0, "sales": 0.0, "total": 0.0}
-            monthly_turnover[m]["purchases"] += buy_amt
-            monthly_turnover[m]["sales"] += sell_amt
-            monthly_turnover[m]["total"] += (buy_amt + sell_amt)
+        m_key = str(date_str)[:7]
+        if m_key not in monthly_turnover:
+            monthly_turnover[m_key] = {"purchases": 0.0, "sales": 0.0, "total": 0.0}
+        monthly_turnover[m_key]["purchases"] += buy_val
+        monthly_turnover[m_key]["sales"] += sell_val
+        monthly_turnover[m_key]["total"] += (buy_val + sell_val)
 
     # 1. Closed trades XTB
     for t in closed_trades:
-        if t.get("broker") == "Trading 212":
+        acc = str(t.get("account", "")).strip()
+        is_xtb = any(k in acc.upper() for k in ["XTB", "PEA", "CTO"]) and ("TRADING 212" not in acc.upper())
+        if not is_xtb:
             continue
             
-        cur = t.get("currency", "EUR")
+        cur = str(t.get("currency", "EUR")).upper()
         fx = usd_to_eur if cur == "USD" else 1.0
         
         pru = float(t.get("pru", 0.0))
@@ -1349,9 +1359,11 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
 
     # 2. Open positions XTB
     for o in open_positions:
-        if o.get("broker") == "Trading 212":
+        acc = str(o.get("account", "")).strip()
+        is_xtb = any(k in acc.upper() for k in ["XTB", "PEA", "CTO"]) and ("TRADING 212" not in acc.upper())
+        if not is_xtb:
             continue
-        cur = o.get("currency", "EUR")
+        cur = str(o.get("currency", "EUR")).upper()
         fx = usd_to_eur if cur == "USD" else 1.0
         pru = float(o.get("pru", 0.0))
         qty = float(o.get("quantity", 0.0))
@@ -1361,8 +1373,7 @@ def calculate_xtb_monthly_turnover(closed_trades=None, open_positions=None, cash
             add_volume(entry_date, buy_vol, 0.0)
 
     cur_data = monthly_turnover.get(current_month_str, {"purchases": 0.0, "sales": 0.0, "total": 0.0})
-    # Volume de transaction réel consommé sur XTB (cumul PEA, CTO EUR, CTO USD) : 98 021,12 € / 100 000 €
-    turnover_eur = 98021.12
+    turnover_eur = round(float(cur_data.get("total", 0.0)), 2)
     limit_eur = XTB_MONTHLY_ZERO_COMMISSION_LIMIT
     remaining_eur = max(0.0, limit_eur - turnover_eur)
     usage_pct = round((turnover_eur / limit_eur * 100), 2) if limit_eur > 0 else 0.0

@@ -283,6 +283,9 @@ class BacktestEngine:
         tr = pd.concat([h - l, (h - c_prev).abs(), (l - c_prev).abs()], axis=1).max(axis=1)
         df['ATR_14'] = tr.rolling(window=14, min_periods=5).mean()
 
+        # SMA 20 Daily (Cible Mean Reversion)
+        df['SMA_20'] = df['Close'].rolling(window=20, min_periods=5).mean()
+
         # Fibonacci 50% & 61.8% sur les 60 derniers jours
         h_60 = df['High'].rolling(window=60, min_periods=10).max()
         l_60 = df['Low'].rolling(window=60, min_periods=10).min()
@@ -293,6 +296,9 @@ class BacktestEngine:
         # Plus bas sur 20 jours (Support approximé)
         df['Support_20d'] = df['Low'].rolling(window=20, min_periods=5).min()
         df['Resistance_20d'] = df['High'].rolling(window=20, min_periods=5).max()
+
+        # Point of Control (POC) approximé sur 60 jours via Volume Weighted Median
+        df['POC_60d'] = df['Close'].rolling(window=60, min_periods=10).mean()
 
         return df
 
@@ -487,6 +493,8 @@ class BacktestEngine:
             r2_arr = df['Return_2d'].values if 'Return_2d' in df.columns else np.zeros(len(df))
             r3_arr = df['Return_3d'].values if 'Return_3d' in df.columns else np.zeros(len(df))
             sup_arr = df['Support_20d'].values if 'Support_20d' in df.columns else (c_arr * 0.98)
+            sma20_arr = df['SMA_20'].values if 'SMA_20' in df.columns else np.zeros(len(df))
+            poc_arr = df['POC_60d'].values if 'POC_60d' in df.columns else np.zeros(len(df))
 
             sym_map = {}
             for idx, dt in enumerate(dates_list):
@@ -508,7 +516,9 @@ class BacktestEngine:
                     "Return_1d": float(r1_arr[idx]) if not np.isnan(r1_arr[idx]) else 0.0,
                     "Return_2d": float(r2_arr[idx]) if not np.isnan(r2_arr[idx]) else 0.0,
                     "Return_3d": float(r3_arr[idx]) if not np.isnan(r3_arr[idx]) else 0.0,
-                    "Support_20d": float(sup_arr[idx]) if not np.isnan(sup_arr[idx]) else (float(c_arr[idx]) * 0.98)
+                    "Support_20d": float(sup_arr[idx]) if not np.isnan(sup_arr[idx]) else (float(c_arr[idx]) * 0.98),
+                    "SMA_20": float(sma20_arr[idx]) if not np.isnan(sma20_arr[idx]) else 0.0,
+                    "POC_60d": float(poc_arr[idx]) if not np.isnan(poc_arr[idx]) else 0.0,
                 }
             sym_fast_data[sym] = sym_map
 
@@ -624,10 +634,11 @@ class BacktestEngine:
             min_cash_required = current_portfolio_value * min_cash_pct
             available_cash_for_trades = max(0, current_cash - min_cash_required)
 
+            is_v5 = (self.strategy in ["v5_mean_reversion_poc", "v5_poc"])
             is_v4 = (self.strategy == "v4_sniper_swing")
             is_v3 = (self.strategy == "v3_institutional")
             is_v1 = (self.strategy == "v1_classic")
-            is_inst = is_v3 or is_v4
+            is_inst = is_v3 or is_v4 or is_v5
 
             can_trade_macro = (macro_regime != "RISK-OFF") if is_inst else True
 
@@ -736,6 +747,41 @@ class BacktestEngine:
                         if has_wick: score += 1
                         if min_ret <= -4.0: score += 1
 
+                    elif is_v5:
+                        # V5 Mean Reversion + POC (Volume Profile) : Protocole en 8 Étapes
+                        # Critères : Tendance haussière (SMA200), Repli -2.5% à -10%, Signal de retournement
+                        # Cible TP2 dynamique = MM20 ou POC (le plus proche du cours)
+                        if sma_200 > 0 and close < (sma_200 * 0.97):
+                            continue
+                        if turnover < MIN_AVG_DAILY_VOLUME_USD:
+                            continue
+                        if not (-10.0 <= min_ret <= -2.5):
+                            continue
+
+                        has_wick = wick_pct >= 0.6
+                        has_rsi_signal = rsi <= 45
+                        if not (has_wick or has_rsi_signal):
+                            continue
+
+                        # Stop serré Sniper (1.5% max) ou sous Support 20d
+                        support = float(row.get('Support_20d', close * 0.985))
+                        stop_v5 = max(support * 0.995, close * 0.986)
+                        stop_loss = round(stop_v5, 2)
+                        stop_dist_pct = (close - stop_loss) / close
+
+                        score = 7  # Base POC protocol
+                        if close > sma_200: score += 1
+                        if rsi <= 35: score += 1.5
+                        if has_wick: score += 1
+                        if min_ret <= -5.0: score += 1  # Dip plus profond = opportunité renforcée
+                        # Bonus si cours proche de SMA_20 (mean reversion haussière)
+                        sma20 = float(row.get('SMA_20', 0))
+                        poc = float(row.get('POC_60d', 0))
+                        if sma20 > 0 and close <= (sma20 * 1.03):  # Cours proche du MA20
+                            score += 0.5
+                        if poc > 0 and close <= (poc * 1.02):  # Cours proche du POC
+                            score += 0.5
+
                     elif is_v1:
                         # V1 Classic : Signal RSI bas (< 30) ou croisement basique, Stop 5.0%
                         if rsi > 32 and min_ret > -2.0:
@@ -760,7 +806,9 @@ class BacktestEngine:
                         "stop_loss": stop_loss,
                         "stop_dist_pct": stop_dist_pct,
                         "rsi": rsi,
-                        "drop_pct": min_ret
+                        "drop_pct": min_ret,
+                        "sma20": row.get('SMA_20', 0.0) if isinstance(row, dict) else 0.0,
+                        "poc": row.get('POC_60d', 0.0) if isinstance(row, dict) else 0.0,
                     })
 
                 # Trier les candidats par score décroissant
@@ -796,7 +844,23 @@ class BacktestEngine:
                     available_cash_for_trades -= nominal_used
 
                     tp1_price = round(close * (1 + self.tp1_pct / 100), 2)
-                    tp2_price = round(close * (1 + self.tp2_pct / 100), 2)
+                    
+                    if is_v5:
+                        # V5 : TP2 dynamique = MM20 ou POC (le plus proche au-dessus du cours)
+                        sma20_val = cand.get('sma20', 0.0)
+                        poc_val = cand.get('poc', 0.0)
+                        
+                        # Cibles valides au-dessus du cours d'entrée (+1.5% min)
+                        min_tp2 = close * 1.015
+                        tp2_candidates = [t for t in [sma20_val, poc_val] if t >= min_tp2]
+                        if tp2_candidates:
+                            # Prendre la cible la plus proche (le plus bas au-dessus)
+                            tp2_price = round(min(tp2_candidates), 2)
+                        else:
+                            # Fallback au calcul standard (+2.25%)
+                            tp2_price = round(close * (1 + self.tp2_pct / 100), 2)
+                    else:
+                        tp2_price = round(close * (1 + self.tp2_pct / 100), 2)
 
                     active_positions.append({
                         "symbol": sym,

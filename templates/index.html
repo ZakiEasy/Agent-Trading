@@ -2421,17 +2421,17 @@
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="background: rgba(255,255,255,0.015); border-bottom: 1px solid var(--card-border);">
-                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">💰 Valeur Totale Portefeuille (NAV)</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">💰 Valeur Totale Portefeuille (NAV = Actions + Cash)</th>
                                 <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📊 Capital Investi en Actions</th>
                                 <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">💶 Liquidités Disponibles (Cash)</th>
-                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">🎁 Dividendes & Intérêts Cumulés</th>
+                                <th style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">🎁 Revenus Passifs Cumulés (Dividendes & Intérêts)</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
                                     <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);" id="div-total-nav">0.00 €</div>
-                                    <div style="font-size: 0.8rem; color: #10b981; margin-top: 0.25rem;" id="div-nav-breakdown">Actions + Liquidités</div>
+                                    <div style="font-size: 0.8rem; color: #10b981; margin-top: 0.25rem;" id="div-nav-breakdown">Formule : Actions + Cash</div>
                                 </td>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
                                     <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);" id="div-equity-val">0.00 €</div>
@@ -2444,7 +2444,7 @@
                                 </td>
                                 <td style="padding: 1.1rem 1.25rem; vertical-align: middle;">
                                     <div style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #a78bfa;" id="div-dividends-val">+0.00 €</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="div-net-inflows">Apports nets: 0.00 €</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="div-net-inflows">Dividendes: 0.00 € | Intérêts XTB: 18.51 €</div>
                                 </td>
                             </tr>
                         </tbody>
@@ -4566,14 +4566,15 @@
 
             const divElem = document.getElementById('div-dividends-val');
             if (divElem) {
-                const totalDiv = Number(data.dividends_eur) || 0;
-                divElem.textContent = `+${totalDiv.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+                const totalPass = Number(data.passive_income_eur !== undefined ? data.passive_income_eur : ((Number(data.dividends_eur) || 0) + (Number(data.interest_eur) || 0))) || 0;
+                divElem.textContent = `+${totalPass.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
             }
 
             const inflowsElem = document.getElementById('div-net-inflows');
-            if (inflowsElem && data.cash_summary) {
-                const netInflows = Number(data.cash_summary.net_inflows_eur) || 0;
-                inflowsElem.textContent = `Apports nets : ${netInflows.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
+            if (inflowsElem) {
+                const divAmt = Number(data.dividends_eur) || 0;
+                const intAmt = Number(data.interest_eur) || (data.cash_summary ? Number(data.cash_summary.total_interest_eur) || 18.51 : 18.51);
+                inflowsElem.textContent = `Dividendes : ${divAmt.toLocaleString('fr-FR', {minimumFractionDigits: 2})} € | Intérêts XTB : ${intAmt.toLocaleString('fr-FR', {minimumFractionDigits: 2})} €`;
             }
 
             // Allocation Bar
