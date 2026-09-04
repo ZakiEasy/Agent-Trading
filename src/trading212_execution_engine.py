@@ -37,7 +37,7 @@ from src.trading212_connector import (
     convert_yahoo_ticker_to_t212,
     check_trading212_api_permissions
 )
-from src.supabase_connector import batch_save_trade_journal
+from src.supabase_connector import batch_save_trade_journal, save_trade_proposal_to_db, get_trade_proposals_history
 from src.market_data import resolve_ticker_symbol
 
 logger = logging.getLogger("Trading212ExecutionEngine")
@@ -158,6 +158,7 @@ class Trading212ExecutionEngine:
         }
 
         self.pending_proposals[proposal_id] = proposal_obj
+        save_trade_proposal_to_db(proposal_obj)
         logger.info(f"📋 Proposition créée : {proposal_id} ({sym} - {strategy_type}) en attente de confirmation.")
 
         return {
@@ -341,6 +342,7 @@ class Trading212ExecutionEngine:
             return {"success": False, "error": f"Proposition {proposal_id} introuvable."}
         proposal["status"] = "REJECTED_BY_USER"
         proposal["rejection_reason"] = reason
+        save_trade_proposal_to_db(proposal)
         return {"success": True, "message": f"Proposition {proposal_id} rejetée."}
 
     def get_pending_proposals(self):

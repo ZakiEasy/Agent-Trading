@@ -43,6 +43,7 @@ from src.supabase_connector import (
     get_supabase_trade_journal,
     batch_save_trade_journal,
     get_supabase_treasury_operations,
+    get_trade_proposals_history,
     batch_save_treasury_operations,
     log_trading_signal,
     get_recent_signals,
@@ -2461,6 +2462,22 @@ def get_trading212_pending_proposals():
         "count": len(proposals),
         "proposals": proposals
     })
+
+
+@app.route("/api/trading212/execution/proposals_history")
+def get_trading212_proposals_history():
+    """Retourne l'historique complet des propositions de trades (approuvées, rejetées, expirées, en échec) stockées en BDD."""
+    try:
+        limit = request.args.get("limit", 100)
+        status_filter = request.args.get("status")
+        history = get_trade_proposals_history(limit=limit, status_filter=status_filter)
+        return safe_jsonify({
+            "success": True,
+            "count": len(history),
+            "proposals_history": history
+        })
+    except Exception as e:
+        return safe_jsonify({"success": False, "error": str(e), "proposals_history": []}, 500)
 
 
 @app.route("/api/trading212/execution/active_positions")

@@ -729,6 +729,87 @@ def get_recent_signals(limit=50):
         return []
 
 
+def save_trade_proposal_to_db(proposal_data):
+    """Enregistre ou met à jour une proposition de trade dans public.trade_proposals_history."""
+    try:
+        pid = str(proposal_data.get("proposal_id", ""))
+        if not pid:
+            return None
+        plan = proposal_data.get("trade_plan") or {}
+        sym = str(proposal_data.get("symbol") or plan.get("symbol", "")).upper()
+        strat = proposal_data.get("strategy_type", "Mean Reversion")
+        ep = float(plan.get("entry_price") or proposal_data.get("entry_price") or 0.0)
+        qty = float(plan.get("quantity") or proposal_data.get("quantity") or 0.0)
+        nom = float(plan.get("nominal_invested") or proposal_data.get("nominal_invested") or (ep * qty))
+        curr = plan.get("currency") or proposal_data.get("currency", "EUR")
+        sl_p = float(plan.get("stop_loss_price") or 0.0)
+        tp1_p = float(plan.get("tp1_price") or 0.0)
+        tp2_p = float(plan.get("tp2_price") or 0.0)
+        st = proposal_data.get("status", "PENDING_APPROVAL")
+        rej_reason = proposal_data.get("rejection_reason")
+        err_msg = proposal_data.get("last_execution_error") or proposal_data.get("execution_error")
+
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO public.trade_proposals_history (
+                        proposal_id, symbol, strategy_type, entry_price, quantity, nominal_invested,
+                        currency, stop_loss_price, tp1_price, tp2_price, status, rejection_reason,
+                        last_execution_error, trade_plan, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, NOW())
+                    ON CONFLICT (proposal_id) DO UPDATE SET
+                        status = EXCLUDED.status,
+                        entry_price = EXCLUDED.entry_price,
+                        quantity = EXCLUDED.quantity,
+                        nominal_invested = EXCLUDED.nominal_invested,
+                        stop_loss_price = EXCLUDED.stop_loss_price,
+                        tp1_price = EXCLUDED.tp1_price,
+                        tp2_price = EXCLUDED.tp2_price,
+                        rejection_reason = COALESCE(EXCLUDED.rejection_reason, public.trade_proposals_history.rejection_reason),
+                        last_execution_error = EXCLUDED.last_execution_error,
+                        trade_plan = EXCLUDED.trade_plan,
+                        updated_at = NOW()
+                    RETURNING id;
+                """, (
+                    pid, sym, strat, ep, qty, nom, curr, sl_p, tp1_p, tp2_p, st, rej_reason, err_msg, json.dumps(plan)
+                ))
+                conn.commit()
+                return cur.fetchone()
+    except Exception as e:
+        print(f"⚠️ Erreur save_trade_proposal_to_db ({proposal_data.get('proposal_id')}): {e}")
+        return None
+
+
+def get_trade_proposals_history(limit=100, status_filter=None):
+    """Récupère l'historique complet des propositions depuis Supabase Postgres."""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                query = "SELECT * FROM public.trade_proposals_history"
+                params = []
+                if status_filter:
+                    query += " WHERE status = %s"
+                    params.append(status_filter)
+                query += " ORDER BY created_at DESC LIMIT %s;"
+                params.append(int(limit))
+                cur.execute(query, params)
+                rows = cur.fetchall() or []
+                for r in rows:
+                    if r.get("id"):
+                        r["id"] = str(r["id"])
+                    if r.get("entry_price"):
+                        r["entry_price"] = float(r["entry_price"])
+                    if r.get("quantity"):
+                        r["quantity"] = float(r["quantity"])
+                    if r.get("nominal_invested"):
+                        r["nominal_invested"] = float(r["nominal_invested"])
+                return rows
+    except Exception as e:
+        print(f"⚠️ Erreur get_trade_proposals_history: {e}")
+        return []
+
+
+
 # ==============================================================================
 # --- 6. GESTION DU BAROMÈTRE MACRO & PARAMÈTRES ---
 # ==============================================================================
