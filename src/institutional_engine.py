@@ -1851,12 +1851,13 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         },
         {
             "step": 5,
-            "title": "5. Timing, Volume Profile & Entrée",
+            "title": "5. Timing, Volume Profile & Order Flow",
             "status": f"{selected_method} | POC {mr_targets['poc']:.2f} {sym_currency}",
             "badge": "badge-success" if (has_sniper_signal or has_sneaky_signal or has_breakout) else "badge-warning",
             "items": [
                 f"**Méthode Sélectionnée :** `[{selected_method}]`",
-                f"**Volume Profile (VP) :** POC : **{mr_targets['poc']:.2f} {sym_currency}** ({'+' if mr_targets['dist_poc_pct'] >= 0 else ''}{mr_targets['dist_poc_pct']}%) | VAH : {mr_targets.get('volume_profile', {}).get('vah', 0.0):.2f} {sym_currency} | VAL : {mr_targets.get('volume_profile', {}).get('val', 0.0):.2f} {sym_currency} — {mr_targets.get('volume_profile', {}).get('zone_desc', '')}",
+                f"**Niveaux Clés & Volume Profile (VP) :** POC : **{mr_targets['poc']:.2f} {sym_currency}** ({'+' if mr_targets['dist_poc_pct'] >= 0 else ''}{mr_targets['dist_poc_pct']}%) | VAH (HVA) : {mr_targets.get('volume_profile', {}).get('vah', 0.0):.2f} {sym_currency} | VAL (LVA) : {mr_targets.get('volume_profile', {}).get('val', 0.0):.2f} {sym_currency} — Market Generated Levels (PDH, PDL, ONH, ONL)",
+                f"**Analyse Delta & Order Flow (H1/H4) :** Détection d'Absorption sur Delta Profile / Épuisement Vendeur via Divergence Cumulative Delta (`[{'Absorption / Divergence Validée' if (has_sniper_signal or has_rsi_div) else 'Flux Vendeur sous contrôle'}]`)",
                 f"**Analyse de l'Action des Prix :** {method_desc} | RSI(14) : {rsi_val:.1f} ({rsi_desc}) | Support tactique : {support_lvl:.2f} {sym_currency}"
             ]
         },
