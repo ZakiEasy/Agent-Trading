@@ -1,8 +1,8 @@
 {
-  "allocated_automate_capital_ceiling_eur": 3000.0,
-  "allocated_automate_capital_ceiling_usd": 3000.0,
-  "us_trading_enabled": false,
+  "allocated_automate_capital_ceiling_eur": 5000.0,
+  "allocated_automate_capital_ceiling_usd": 5000.0,
+  "us_trading_enabled": true,
   "max_risk_per_trade_pct": 1.0,
-  "max_position_allocation_pct": 20.0,
-  "updated_at": "2026-09-03T07:47:00.000000"
+  "max_position_allocation_pct": 25.0,
+  "updated_at": "2026-09-04T23:32:00.000000"
 }
