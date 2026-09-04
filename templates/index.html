@@ -5192,12 +5192,12 @@
             try { localCache = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}'); } catch(e){}
 
             // Affichage Enveloppe EUR
-            const ceilEur = Number(g.allocated_automate_capital_ceiling_eur) || Number(localCache.allocated_automate_capital_ceiling_eur) || 3000;
+            const ceilEur = Number(g.allocated_automate_capital_ceiling_eur) || Number(localCache.allocated_automate_capital_ceiling_eur) || 5000;
             const depEur = Number(g.deployed_automate_capital_eur) || 0;
             const availEur = Number(g.available_automate_capital_eur) || ceilEur;
             const depPctEur = ceilEur > 0 ? (depEur / ceilEur * 100).toFixed(1) : '0.0';
 
-            const ceilUsd = Number(g.allocated_automate_capital_ceiling_usd) || Number(localCache.allocated_automate_capital_ceiling_usd) || 3000;
+            const ceilUsd = Number(g.allocated_automate_capital_ceiling_usd) || Number(localCache.allocated_automate_capital_ceiling_usd) || 5000;
             const depUsd = Number(g.deployed_automate_capital_usd) || 0;
             const availUsd = Number(g.available_automate_capital_usd) || ceilUsd;
             const depPctUsd = ceilUsd > 0 ? (depUsd / ceilUsd * 100).toFixed(1) : '0.0';
@@ -8364,7 +8364,7 @@
                     showModalFeedback(`✅ ${payload.message}`, "var(--success)");
                     setTimeout(() => {
                         closeAddStockModal();
-                        runWatchlistScan(); // Rafraîchit la watchlist
+                        runWatchlistScan(true); // Force le rafraîchissement depuis Supabase/BDD
                         if (payload.data) {
                             showTickerDetail(ticker);
                         }
