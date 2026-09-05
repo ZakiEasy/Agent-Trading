@@ -4304,6 +4304,28 @@
         let sortAsc = false;
         let currentMacroData = null;
 
+        // Fonction globale de notifications Toast
+        function showToast(message, type = 'success', duration = 3500) {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-item toast-${type}`;
+            const icon = type === 'success' ? '✅' : type === 'danger' ? '⚠️' : 'ℹ️';
+            toast.innerHTML = `<span>${icon}</span><span style="flex:1;">${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOutToast 0.4s ease forward';
+                setTimeout(() => toast.remove(), 400);
+            }, duration);
+        }
+        window.showToast = showToast;
+
         // Fonction utilitaire pour parser les réponses JSON de manière sécurisée sans crash
         async function fetchJsonSafely(url, options = {}) {
             const res = await fetch(url, options);
