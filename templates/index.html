@@ -5633,12 +5633,15 @@
         async function saveRobotSettings() {
             let localG = {};
             try { localG = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}'); } catch(e){}
-            const inputEur = document.getElementById('robot-ceiling-eur-input')?.value;
-            const inputUsd = document.getElementById('robot-ceiling-usd-input')?.value;
-            const ceilEur = parseFloat(inputEur || localG.allocated_automate_capital_ceiling_eur || localG.automate_ceiling_eur || 5000);
-            const ceilUsd = parseFloat(inputUsd || localG.allocated_automate_capital_ceiling_usd || localG.automate_ceiling_usd || 5000);
-            const rmax = parseFloat(document.getElementById('robot-rmax-input')?.value || 1.0);
-            const alloc = parseFloat(document.getElementById('robot-alloc-input')?.value || 20.0);
+            const rawEur = document.getElementById('robot-ceiling-eur-input')?.value;
+            const rawUsd = document.getElementById('robot-ceiling-usd-input')?.value;
+            const rawRmax = document.getElementById('robot-rmax-input')?.value;
+            const rawAlloc = document.getElementById('robot-alloc-input')?.value;
+
+            const ceilEur = parseFloat(rawEur !== "" && rawEur !== undefined ? rawEur : (localG.allocated_automate_capital_ceiling_eur || 5000));
+            const ceilUsd = parseFloat(rawUsd !== "" && rawUsd !== undefined ? rawUsd : (localG.allocated_automate_capital_ceiling_usd || 5000));
+            const rmax = parseFloat(rawRmax !== "" && rawRmax !== undefined ? rawRmax : (localG.max_risk_per_trade_pct || 1.0));
+            const alloc = parseFloat(rawAlloc !== "" && rawAlloc !== undefined ? rawAlloc : (localG.max_position_allocation_pct || 20.0));
             const usEnabled = Boolean(document.getElementById('robot-us-enabled-checkbox')?.checked);
             const fb = document.getElementById('robot-settings-feedback');
 
@@ -5679,9 +5682,11 @@
                 });
                 const payload = await res.json();
                 if (payload.success) {
+                    const updatedG = payload.settings || optPayload;
                     try {
-                        localStorage.setItem('t212_robot_guardrails', JSON.stringify(payload.settings || optPayload));
+                        localStorage.setItem('t212_robot_guardrails', JSON.stringify(updatedG));
                     } catch(e){}
+                    renderRobotStatus({ guardrails: updatedG });
                     if (fb) {
                         fb.style.display = 'block';
                         fb.style.background = 'rgba(16, 185, 129, 0.15)';
