@@ -19,6 +19,10 @@ except ImportError:
     psycopg2 = None
     RealDictCursor = None
 from dotenv import load_dotenv
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("agent_trading.supabase")
 
 load_dotenv()
 
@@ -89,9 +93,11 @@ def get_supabase_watchlist(only_active=True):
                     query += " WHERE is_active = TRUE"
                 query += " ORDER BY symbol ASC;"
                 cur.execute(query)
-                return cur.fetchall() or []
+                res = cur.fetchall() or []
+                logger.info(f"📊 get_supabase_watchlist: {len(res)} actions récupérées depuis Supabase (only_active={only_active}).")
+                return res
     except Exception as e:
-        print(f"⚠️ Erreur get_supabase_watchlist: {e}")
+        logger.error(f"⚠️ Erreur get_supabase_watchlist: {e}", exc_info=True)
         return []
 
 

@@ -344,45 +344,27 @@ def get_watchlist():
             sheet_tickers = read_watchlist_from_sheets(force_refresh=force) or []
             sharia_map = read_sharia_statuses_from_sheets(force_refresh=force) or {}
             
-            if sheet_tickers:
-                sb_wl = []
-                for sym in sheet_tickers:
-                    s = str(sym).strip().upper()
-                    if not s or s.startswith("TOTAL") or s.startswith("TABLEAU"):
-                        continue
-                    cat_info = categorize_ticker(s)
-                    is_pea = cat_info.get("is_pea", s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS"))
-                    sb_wl.append({
-                        "symbol": s,
-                        "name": get_company_name(s),
-                        "category": cat_info.get("category", "Autres"),
-                        "category_icon": cat_info.get("category_icon", "📦"),
-                        "is_pea": is_pea,
-                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
-                        "sharia_status": sharia_map.get(s, "CONFORME"),
-                        "currency": "EUR" if is_pea else "USD",
-                        "is_active": True
-                    })
-            elif local_items:
-                sb_wl = local_items
-            else:
-                sb_wl = []
-                for sym in list(dict.fromkeys(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL)):
-                    cat_info = categorize_ticker(sym)
-                    is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE") or sym.endswith(".AS"))
-                    sb_wl.append({
-                        "symbol": sym,
-                        "name": get_company_name(sym),
-                        "category": cat_info.get("category", "Autres"),
-                        "category_icon": cat_info.get("category_icon", "📦"),
-                        "is_pea": is_pea,
-                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
-                        "sharia_status": "CONFORME",
-                        "currency": "EUR" if is_pea else "USD",
-                        "is_active": True
-                    })
-        elif local_items:
-            # Fusionner les ajouts récents du snapshot local non encore synchronisés dans Supabase
+            merged_tickers = list(dict.fromkeys(sheet_tickers + DEFAULT_WATCHLIST)) if sheet_tickers else DEFAULT_WATCHLIST
+            sb_wl = []
+            for sym in merged_tickers:
+                s = str(sym).strip().upper()
+                if not s or s.startswith("TOTAL") or s.startswith("TABLEAU"):
+                    continue
+                cat_info = categorize_ticker(s)
+                is_pea = cat_info.get("is_pea", s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS"))
+                sb_wl.append({
+                    "symbol": s,
+                    "name": get_company_name(s),
+                    "category": cat_info.get("category", "Autres"),
+                    "category_icon": cat_info.get("category_icon", "📦"),
+                    "is_pea": is_pea,
+                    "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                    "sharia_status": sharia_map.get(s, "CONFORME"),
+                    "currency": "EUR" if is_pea else "USD",
+                    "is_active": True
+                })
+        
+        if local_items:
             existing_syms = set(str(item.get("symbol", "")).upper() for item in sb_wl)
             for l_item in local_items:
                 l_sym = str(l_item.get("symbol", "")).upper()
@@ -1184,43 +1166,33 @@ def get_watchlist_tickers():
             sheet_tickers = read_watchlist_from_sheets(force_refresh=force) or []
             sharia_map = read_sharia_statuses_from_sheets(force_refresh=force) or {}
             
-            if sheet_tickers:
-                sb_wl = []
-                for sym in sheet_tickers:
-                    s = str(sym).strip().upper()
-                    if not s or s.startswith("TOTAL") or s.startswith("TABLEAU"):
-                        continue
-                    cat_info = categorize_ticker(s)
-                    is_pea = cat_info.get("is_pea", s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS"))
-                    sb_wl.append({
-                        "symbol": s,
-                        "name": get_company_name(s),
-                        "category": cat_info.get("category", "Autres"),
-                        "category_icon": cat_info.get("category_icon", "📦"),
-                        "is_pea": is_pea,
-                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
-                        "sharia_status": sharia_map.get(s, "CONFORME"),
-                        "currency": "EUR" if is_pea else "USD",
-                        "is_active": True
-                    })
-            elif local_items:
-                sb_wl = local_items
-            else:
-                sb_wl = []
-                for sym in list(dict.fromkeys(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL)):
-                    cat_info = categorize_ticker(sym)
-                    is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE") or sym.endswith(".AS"))
-                    sb_wl.append({
-                        "symbol": sym,
-                        "name": get_company_name(sym),
-                        "category": cat_info.get("category", "Autres"),
-                        "category_icon": cat_info.get("category_icon", "📦"),
-                        "is_pea": is_pea,
-                        "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
-                        "sharia_status": "CONFORME",
-                        "currency": "EUR" if is_pea else "USD",
-                        "is_active": True
-                    })
+            merged_tickers = list(dict.fromkeys(sheet_tickers + DEFAULT_WATCHLIST)) if sheet_tickers else DEFAULT_WATCHLIST
+            sb_wl = []
+            for sym in merged_tickers:
+                s = str(sym).strip().upper()
+                if not s or s.startswith("TOTAL") or s.startswith("TABLEAU"):
+                    continue
+                cat_info = categorize_ticker(s)
+                is_pea = cat_info.get("is_pea", s.endswith(".PA") or s.endswith(".DE") or s.endswith(".AS"))
+                sb_wl.append({
+                    "symbol": s,
+                    "name": get_company_name(s),
+                    "category": cat_info.get("category", "Autres"),
+                    "category_icon": cat_info.get("category_icon", "📦"),
+                    "is_pea": is_pea,
+                    "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                    "sharia_status": sharia_map.get(s, "CONFORME"),
+                    "currency": "EUR" if is_pea else "USD",
+                    "is_active": True
+                })
+        
+        if local_items:
+            existing_syms = set(str(item.get("symbol", "")).upper() for item in sb_wl)
+            for l_item in local_items:
+                l_sym = str(l_item.get("symbol", "")).upper()
+                if l_sym and l_sym not in existing_syms:
+                    sb_wl.append(l_item)
+                    existing_syms.add(l_sym)
         tickers_data = []
         for item in sb_wl:
             s = str(item.get("symbol", "")).strip().upper()
