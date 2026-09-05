@@ -51,6 +51,7 @@ from src.supabase_connector import (
     get_latest_macro_regime
 )
 from src.config import (
+    BASE_DIR,
     DEFAULT_WATCHLIST,
     DEFAULT_MARKET_POOL,
     CAPITAL_REFERENCE_DEFAULT,
