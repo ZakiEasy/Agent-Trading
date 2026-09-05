@@ -67,8 +67,8 @@ class OrderGuardrailsEngine:
 
     def __init__(self):
         # 1. Double Enveloppe de Capital Dédiée EXCLUSIVEMENT à l'automate (Valeurs par défaut)
-        self.allocated_automate_capital_ceiling_eur = float(os.getenv("AUTOMATE_CAPITAL_CEILING_EUR", 5000.0))
-        self.allocated_automate_capital_ceiling_usd = float(os.getenv("AUTOMATE_CAPITAL_CEILING_USD", 5000.0))
+        self.allocated_automate_capital_ceiling_eur = float(os.getenv("AUTOMATE_CAPITAL_CEILING_EUR", 0.0))
+        self.allocated_automate_capital_ceiling_usd = float(os.getenv("AUTOMATE_CAPITAL_CEILING_USD", 0.0))
         
         # 2. Toggle Activation Marché US (Actif par défaut)
         self.us_trading_enabled = os.getenv("AUTOMATE_US_TRADING_ENABLED", "true").lower() in ["true", "1", "yes"]

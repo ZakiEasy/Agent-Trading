@@ -2086,9 +2086,9 @@
                                 <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700;">💶 ENVELOPPE EURO (PEA / UE)</span>
                                 <span class="badge" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #34d399;">🟢 Actif</span>
                             </div>
-                            <div style="font-size: 1.35rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-eur">5 000,00 €</div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #38bdf8; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-eur">0,00 €</div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-eur">0,00 €</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-eur">5 000,00 €</strong>
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-eur">0,00 €</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-eur">0,00 €</strong>
                             </div>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 1rem;">
@@ -2096,9 +2096,9 @@
                                 <span style="font-size: 0.75rem; color: #c084fc; font-weight: 700;">💵 ENVELOPPE US DOLLAR (US)</span>
                                 <span class="badge" id="badge-us-market-status" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #34d399;">🟢 Actif</span>
                             </div>
-                            <div style="font-size: 1.35rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-usd">5 000,00 $</div>
+                            <div style="font-size: 1.35rem; font-weight: 700; color: #c084fc; font-family: 'Outfit', sans-serif; margin-top: 0.25rem;" id="stat-robot-ceiling-usd">0,00 $</div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-usd">0,00 $</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-usd">5 000,00 $</strong>
+                                Déployé : <strong style="color:#f59e0b;" id="stat-robot-deployed-usd">0,00 $</strong> | Dispo : <strong style="color:#34d399;" id="stat-robot-avail-usd">0,00 $</strong>
                             </div>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
@@ -5197,12 +5197,12 @@
             try { localCache = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}'); } catch(e){}
 
             // Affichage Enveloppe EUR
-            const ceilEur = Number(g.allocated_automate_capital_ceiling_eur) || Number(localCache.allocated_automate_capital_ceiling_eur) || 5000;
+            const ceilEur = Number(typeof g.allocated_automate_capital_ceiling_eur !== 'undefined' ? g.allocated_automate_capital_ceiling_eur : localCache.allocated_automate_capital_ceiling_eur) || 0;
             const depEur = Number(g.deployed_automate_capital_eur) || 0;
             const availEur = Number(g.available_automate_capital_eur) || ceilEur;
             const depPctEur = ceilEur > 0 ? (depEur / ceilEur * 100).toFixed(1) : '0.0';
 
-            const ceilUsd = Number(g.allocated_automate_capital_ceiling_usd) || Number(localCache.allocated_automate_capital_ceiling_usd) || 5000;
+            const ceilUsd = Number(typeof g.allocated_automate_capital_ceiling_usd !== 'undefined' ? g.allocated_automate_capital_ceiling_usd : localCache.allocated_automate_capital_ceiling_usd) || 0;
             const depUsd = Number(g.deployed_automate_capital_usd) || 0;
             const availUsd = Number(g.available_automate_capital_usd) || ceilUsd;
             const depPctUsd = ceilUsd > 0 ? (depUsd / ceilUsd * 100).toFixed(1) : '0.0';
@@ -5613,11 +5613,11 @@
                     const g = d.guardrails;
                     let localG = {};
                     try { localG = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}'); } catch(e){}
-                    const fallbackEur = g.allocated_automate_capital_ceiling_eur || localG.allocated_automate_capital_ceiling_eur || localG.automate_ceiling_eur || 5000;
-                    const fallbackUsd = g.allocated_automate_capital_ceiling_usd || localG.allocated_automate_capital_ceiling_usd || localG.automate_ceiling_usd || 5000;
+                    const fallbackEur = typeof g.allocated_automate_capital_ceiling_eur !== 'undefined' ? g.allocated_automate_capital_ceiling_eur : (localG.allocated_automate_capital_ceiling_eur || 0);
+                    const fallbackUsd = typeof g.allocated_automate_capital_ceiling_usd !== 'undefined' ? g.allocated_automate_capital_ceiling_usd : (localG.allocated_automate_capital_ceiling_usd || 0);
 
-                    if (document.getElementById('robot-ceiling-eur-input')) document.getElementById('robot-ceiling-eur-input').value = g.allocated_automate_capital_ceiling_eur || fallbackEur;
-                    if (document.getElementById('robot-ceiling-usd-input')) document.getElementById('robot-ceiling-usd-input').value = g.allocated_automate_capital_ceiling_usd || fallbackUsd;
+                    if (document.getElementById('robot-ceiling-eur-input')) document.getElementById('robot-ceiling-eur-input').value = g.allocated_automate_capital_ceiling_eur ?? fallbackEur;
+                    if (document.getElementById('robot-ceiling-usd-input')) document.getElementById('robot-ceiling-usd-input').value = g.allocated_automate_capital_ceiling_usd ?? fallbackUsd;
                     if (document.getElementById('robot-rmax-input')) document.getElementById('robot-rmax-input').value = g.max_risk_per_trade_pct || localG.max_risk_per_trade_pct || 1.0;
                     if (document.getElementById('robot-alloc-input')) document.getElementById('robot-alloc-input').value = g.max_position_allocation_pct || localG.max_position_allocation_pct || 20.0;
                     if (document.getElementById('robot-us-enabled-checkbox')) document.getElementById('robot-us-enabled-checkbox').checked = Boolean(typeof g.us_trading_enabled !== 'undefined' ? g.us_trading_enabled : localG.us_trading_enabled);
@@ -5638,19 +5638,19 @@
             const rawRmax = document.getElementById('robot-rmax-input')?.value;
             const rawAlloc = document.getElementById('robot-alloc-input')?.value;
 
-            const ceilEur = parseFloat(rawEur !== "" && rawEur !== undefined ? rawEur : (localG.allocated_automate_capital_ceiling_eur || 5000));
-            const ceilUsd = parseFloat(rawUsd !== "" && rawUsd !== undefined ? rawUsd : (localG.allocated_automate_capital_ceiling_usd || 5000));
+            const ceilEur = parseFloat(rawEur !== "" && rawEur !== undefined ? rawEur : (localG.allocated_automate_capital_ceiling_eur || 0));
+            const ceilUsd = parseFloat(rawUsd !== "" && rawUsd !== undefined ? rawUsd : (localG.allocated_automate_capital_ceiling_usd || 0));
             const rmax = parseFloat(rawRmax !== "" && rawRmax !== undefined ? rawRmax : (localG.max_risk_per_trade_pct || 1.0));
             const alloc = parseFloat(rawAlloc !== "" && rawAlloc !== undefined ? rawAlloc : (localG.max_position_allocation_pct || 20.0));
             const usEnabled = Boolean(document.getElementById('robot-us-enabled-checkbox')?.checked);
             const fb = document.getElementById('robot-settings-feedback');
 
-            if (isNaN(ceilEur) || ceilEur < 100 || isNaN(ceilUsd) || ceilUsd < 100) {
+            if (isNaN(ceilEur) || ceilEur < 0 || isNaN(ceilUsd) || ceilUsd < 0) {
                 if (fb) {
                     fb.style.display = 'block';
                     fb.style.background = 'rgba(239, 68, 68, 0.15)';
                     fb.style.color = '#f87171';
-                    fb.textContent = 'Veuillez renseigner des plafonds valides pour EUR et USD (min 100).';
+                    fb.textContent = 'Veuillez renseigner des plafonds valides pour EUR et USD (nombre positif ou 0).';
                 }
                 return;
             }
