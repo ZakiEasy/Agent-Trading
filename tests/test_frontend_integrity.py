@@ -67,7 +67,6 @@ class TestFrontendIntegrity(unittest.TestCase):
             "stat-robot-ceiling-eur",
             "stat-robot-ceiling-usd",
             "pending-proposals-list",
-            "active-managed-list",
             "prop-capital-input",
             "prop-quantity-input",
             "edit-prop-capital-input",

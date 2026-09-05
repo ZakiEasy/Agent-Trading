@@ -5591,8 +5591,8 @@
                     const g = d.guardrails;
                     let localG = {};
                     try { localG = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}'); } catch(e){}
-                    const fallbackEur = localG.allocated_automate_capital_ceiling_eur || 3000;
-                    const fallbackUsd = localG.allocated_automate_capital_ceiling_usd || 3000;
+                    const fallbackEur = g.allocated_automate_capital_ceiling_eur || localG.allocated_automate_capital_ceiling_eur || localG.automate_ceiling_eur || 5000;
+                    const fallbackUsd = g.allocated_automate_capital_ceiling_usd || localG.allocated_automate_capital_ceiling_usd || localG.automate_ceiling_usd || 5000;
 
                     if (document.getElementById('robot-ceiling-eur-input')) document.getElementById('robot-ceiling-eur-input').value = g.allocated_automate_capital_ceiling_eur || fallbackEur;
                     if (document.getElementById('robot-ceiling-usd-input')) document.getElementById('robot-ceiling-usd-input').value = g.allocated_automate_capital_ceiling_usd || fallbackUsd;
@@ -5611,8 +5611,10 @@
         async function saveRobotSettings() {
             let localG = {};
             try { localG = JSON.parse(localStorage.getItem('t212_robot_guardrails') || '{}'); } catch(e){}
-            const ceilEur = parseFloat(document.getElementById('robot-ceiling-eur-input')?.value || localG.allocated_automate_capital_ceiling_eur || 3000);
-            const ceilUsd = parseFloat(document.getElementById('robot-ceiling-usd-input')?.value || localG.allocated_automate_capital_ceiling_usd || 3000);
+            const inputEur = document.getElementById('robot-ceiling-eur-input')?.value;
+            const inputUsd = document.getElementById('robot-ceiling-usd-input')?.value;
+            const ceilEur = parseFloat(inputEur || localG.allocated_automate_capital_ceiling_eur || localG.automate_ceiling_eur || 5000);
+            const ceilUsd = parseFloat(inputUsd || localG.allocated_automate_capital_ceiling_usd || localG.automate_ceiling_usd || 5000);
             const rmax = parseFloat(document.getElementById('robot-rmax-input')?.value || 1.0);
             const alloc = parseFloat(document.getElementById('robot-alloc-input')?.value || 20.0);
             const usEnabled = Boolean(document.getElementById('robot-us-enabled-checkbox')?.checked);

@@ -1161,12 +1161,23 @@ def close_portfolio_position():
 def get_watchlist_tickers():
     """
     Retourne la liste des tickers de la Watchlist avec leurs métadonnées depuis Supabase
-    (avec fallback automatique sur Google Sheets et DEFAULT_WATCHLIST)
+    (avec fallback automatique sur le snapshot local et Google Sheets/DEFAULT_WATCHLIST)
     pour initialiser l'affichage instantanément avant le scan par lots.
     """
     try:
         force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
         sb_wl = get_supabase_watchlist(only_active=True)
+        
+        # Charger le snapshot local persistant si existant
+        local_snapshot_file = BASE_DIR / "data" / "watchlist_snapshot.json"
+        local_items = []
+        if local_snapshot_file.exists():
+            try:
+                with open(local_snapshot_file, "r", encoding="utf-8") as f:
+                    local_items = json.load(f)
+            except Exception:
+                local_items = []
+
         if not sb_wl:
             from src.sheets_connector import read_watchlist_from_sheets, read_sharia_statuses_from_sheets
             sheet_tickers = read_watchlist_from_sheets(force_refresh=force) or []
@@ -1191,9 +1202,11 @@ def get_watchlist_tickers():
                         "currency": "EUR" if is_pea else "USD",
                         "is_active": True
                     })
+            elif local_items:
+                sb_wl = local_items
             else:
                 sb_wl = []
-                for sym in DEFAULT_WATCHLIST:
+                for sym in list(dict.fromkeys(DEFAULT_WATCHLIST + DEFAULT_MARKET_POOL)):
                     cat_info = categorize_ticker(sym)
                     is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE") or sym.endswith(".AS"))
                     sb_wl.append({
@@ -1207,7 +1220,6 @@ def get_watchlist_tickers():
                         "currency": "EUR" if is_pea else "USD",
                         "is_active": True
                     })
-            
         tickers_data = []
         for item in sb_wl:
             s = str(item.get("symbol", "")).strip().upper()
