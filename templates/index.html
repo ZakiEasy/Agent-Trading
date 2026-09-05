@@ -5664,12 +5664,13 @@
                         fb.style.display = 'block';
                         fb.style.background = 'rgba(16, 185, 129, 0.15)';
                         fb.style.color = '#34d399';
-                        fb.textContent = `✅ Enveloppes enregistrées et persistées ! (EUR ${ceilEur}€ | USD ${ceilUsd}$)`;
+                        fb.textContent = `✅ Enveloppes enregistrées et persistées en Base de Données Cloud (Supabase) ! (EUR ${ceilEur}€ | USD ${ceilUsd}$)`;
                     }
+                    alert(`✅ Enveloppes et garde-fous enregistrés avec succès dans Supabase ! \n• Enveloppe EUR : ${ceilEur} €\n• Enveloppe USD : ${ceilUsd} $\n• Risque max (R-Max) : ${rmax}%\n• Allocation max / ligne : ${alloc}%`);
                     setTimeout(() => {
                         closeRobotSettingsModal();
                         loadRobotStatusAndData();
-                    }, 800);
+                    }, 400);
                 }
             } catch (e) {
                 if (fb) {
