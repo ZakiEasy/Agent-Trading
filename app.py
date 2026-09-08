@@ -64,15 +64,20 @@ from src.config import (
 app = Flask(__name__, template_folder="templates")
 CORS(app)
 
-def sanitize_for_json(obj):
+def sanitize_for_json(obj, key_path=""):
     """
     Parcourt récursivement les structures pour convertir tout NaN, Inf, -Inf, types NumPy et Pandas
     en types Python natifs pour garantir un JSON strictement valide sans erreurs 500.
     """
+    CRITICAL_RISK_FIELDS = {"stop_loss_price", "entry_price", "r_max_amount", "capital_reference", "shares_count", "suggested_nominal", "allocation_pct_of_capital", "actual_monetary_risk"}
+    
     if obj is None:
         return None
     if isinstance(obj, (float, int)):
         if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+            field_name = key_path.rsplit(".", 1)[-1] if key_path else ""
+            if field_name in CRITICAL_RISK_FIELDS:
+                raise ValueError(f"Donnée de risque critique invalide (NaN/Inf) : {key_path}")
             return 0.0
         return obj
     try:
@@ -80,18 +85,24 @@ def sanitize_for_json(obj):
         if isinstance(obj, (np.floating, np.integer)):
             val = float(obj) if isinstance(obj, np.floating) else int(obj)
             if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                field_name = key_path.rsplit(".", 1)[-1] if key_path else ""
+                if field_name in CRITICAL_RISK_FIELDS:
+                    raise ValueError(f"Donnée de risque critique invalide (NaN/Inf) : {key_path}")
                 return 0.0
             return val
         if isinstance(obj, np.bool_):
             return bool(obj)
         if isinstance(obj, np.ndarray):
-            return [sanitize_for_json(item) for item in obj.tolist()]
+            return [sanitize_for_json(item, f"{key_path}[{i}]") for i, item in enumerate(obj.tolist())]
     except Exception:
         pass
         
     try:
         import pandas as pd
         if pd.isna(obj):
+            field_name = key_path.rsplit(".", 1)[-1] if key_path else ""
+            if field_name in CRITICAL_RISK_FIELDS:
+                raise ValueError(f"Donnée de risque critique invalide (NaN/Inf) : {key_path}")
             return 0.0
         if isinstance(obj, (pd.Timestamp, datetime)):
             return str(obj)
@@ -99,17 +110,17 @@ def sanitize_for_json(obj):
         pass
 
     if isinstance(obj, dict):
-        return {str(k): sanitize_for_json(v) for k, v in obj.items()}
+        return {str(k): sanitize_for_json(v, f"{key_path}.{k}" if key_path else str(k)) for k, v in obj.items()}
     elif isinstance(obj, (list, tuple, set)):
-        return [sanitize_for_json(item) for item in obj]
+        return [sanitize_for_json(item, f"{key_path}[{i}]") for i, item in enumerate(obj)]
     elif hasattr(obj, 'item') and callable(getattr(obj, 'item')):
         try:
-            return sanitize_for_json(obj.item())
+            return sanitize_for_json(obj.item(), key_path)
         except:
             return str(obj)
     elif hasattr(obj, 'to_dict') and callable(getattr(obj, 'to_dict')):
         try:
-            return sanitize_for_json(obj.to_dict())
+            return sanitize_for_json(obj.to_dict(), key_path)
         except:
             return str(obj)
     elif not isinstance(obj, (str, bool)):
@@ -119,11 +130,18 @@ def sanitize_for_json(obj):
 def safe_jsonify(data, status_code=200):
     """
     Retourne un JSON assaini avec le code de statut HTTP souhaité.
+    Gère gracieusement les erreurs de données critiques (ValueError).
     """
-    cleaned = sanitize_for_json(data)
-    response = jsonify(cleaned)
-    response.status_code = status_code
-    return response
+    try:
+        cleaned = sanitize_for_json(data)
+        response = jsonify(cleaned)
+        response.status_code = status_code
+        return response
+    except ValueError as ve:
+        logger.error(f"Erreur de sanitization JSON : {ve}")
+        response = jsonify({"success": False, "error": str(ve)})
+        response.status_code = 422
+        return response
 
 # Cache global des analyses pour fluidité et réduction des appels externes
 analysis_cache = {}
@@ -603,7 +621,21 @@ def get_trading212_portfolio():
         "positions": positions
     })
 
+from functools import wraps
+
+def require_app_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        admin_key = os.getenv("ADMIN_API_KEY")
+        if admin_key:
+            req_key = request.headers.get("X-App-Key")
+            if req_key != admin_key:
+                return jsonify({"success": False, "error": "Accès non autorisé. Clé X-App-Key manquante ou invalide."}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route("/api/trading212/config", methods=["GET", "POST"])
+@require_app_key
 def configure_trading212():
     """
     Enregistre, persiste sur Supabase et teste la clé API Trading 212 fournie depuis l'interface.
@@ -1149,12 +1181,16 @@ def get_watchlist_tickers():
     """
     try:
         force = request.args.get("force", "false").lower() in ["true", "1", "yes"]
-        sb_wl = get_supabase_watchlist(only_active=True)
         
+        try:
+            sb_wl = get_supabase_watchlist(only_active=True)
+        except Exception as db_err:
+            return safe_jsonify({"success": False, "error": f"Erreur de connexion Supabase: {str(db_err)}", "tickers": []}, 500)
+            
         # Charger le snapshot local persistant si existant
-        local_snapshot_file = BASE_DIR / "data" / "watchlist_snapshot.json"
+        local_snapshot_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "watchlist_snapshot.json")
         local_items = []
-        if local_snapshot_file.exists():
+        if os.path.exists(local_snapshot_file):
             try:
                 with open(local_snapshot_file, "r", encoding="utf-8") as f:
                     local_items = json.load(f)
@@ -1247,127 +1283,133 @@ def scan_batch():
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(symbols), 8)) as executor:
             if strategy == "V2":
                 future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in symbols}
-                for future in concurrent.futures.as_completed(future_to_sym, timeout=20):
-                    try:
-                        analysis = future.result()
-                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-                            continue
-                            
-                        symbol = analysis.get("symbol")
-                        tech = analysis.get("technical") or {}
-                        drop = analysis.get("drop") or {}
-                        sharia = analysis.get("sharia") or {}
-                        trade_plan = analysis.get("trade_plan") or {}
-                        risk_plan = analysis.get("step_7_risk_sizing") or {}
-                        macro_plan = analysis.get("step_2_macro") or {}
-                        fund = analysis.get("step_4_fundamentals") or {}
-                        sec_rel = analysis.get("sector_strength") or {}
+                try:
+                    for future in concurrent.futures.as_completed(future_to_sym, timeout=20):
+                        try:
+                            analysis = future.result()
+                            if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                                continue
+                                
+                            symbol = analysis.get("symbol")
+                            tech = analysis.get("technical") or {}
+                            drop = analysis.get("drop") or {}
+                            sharia = analysis.get("sharia") or {}
+                            trade_plan = analysis.get("trade_plan") or {}
+                            risk_plan = analysis.get("step_7_risk_sizing") or {}
+                            macro_plan = analysis.get("step_2_macro") or {}
+                            fund = analysis.get("step_4_fundamentals") or {}
+                            sec_rel = analysis.get("sector_strength") or {}
 
-                        results.append({
-                            "symbol": symbol,
-                            "name": analysis.get("company_name", symbol),
-                            "category": analysis.get("category", "Autres"),
-                            "category_icon": analysis.get("category_icon", "📦"),
-                            "is_pea": analysis.get("is_pea", False),
-                            "account_type": analysis.get("account_type", "CTO (US)"),
-                            "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
-                            "price": tech.get("current_price", 0.0),
-                            "drop": drop.get("drop_pct", 0.0),
-                            "drop_nature": drop.get("nature", "N/A"),
-                            "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
-                            "has_min_liquidity": fund.get("has_min_liquidity", True),
-                            "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
-                            "sector_etf": sec_rel.get("sector_etf", "SPY"),
-                            "rsi": tech.get("rsi", 50.0),
-                            "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
-                            "confluence_score": analysis.get("confluence_score", 0),
-                            "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
-                            "currency": tech.get("currency", "USD")
-                        })
-                    except Exception:
-                        pass
+                            results.append({
+                                "symbol": symbol,
+                                "name": analysis.get("company_name", symbol),
+                                "category": analysis.get("category", "Autres"),
+                                "category_icon": analysis.get("category_icon", "📦"),
+                                "is_pea": analysis.get("is_pea", False),
+                                "account_type": analysis.get("account_type", "CTO (US)"),
+                                "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
+                                "price": tech.get("current_price", 0.0),
+                                "drop": drop.get("drop_pct", 0.0),
+                                "drop_nature": drop.get("nature", "N/A"),
+                                "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
+                                "has_min_liquidity": fund.get("has_min_liquidity", True),
+                                "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
+                                "sector_etf": sec_rel.get("sector_etf", "SPY"),
+                                "rsi": tech.get("rsi", 50.0),
+                                "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
+                                "confluence_score": analysis.get("confluence_score", 0),
+                                "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                                "currency": tech.get("currency", "USD")
+                            })
+                        except Exception:
+                            pass
+                except concurrent.futures.TimeoutError:
+                    pass
             else:
                 # Stratégie V3 Institutionnelle (Par Défaut)
                 future_to_sym = {executor.submit(generate_8_step_protocol_analysis, sym, CAPITAL_REFERENCE_DEFAULT): sym for sym in symbols}
-                for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
-                    sym = future_to_sym[future]
-                    try:
-                        analysis = future.result()
-                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-                            raise ValueError((analysis or {}).get("error", "Données indisponibles"))
+                try:
+                    for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
+                        sym = future_to_sym[future]
+                        try:
+                            analysis = future.result()
+                            if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                                raise ValueError((analysis or {}).get("error", "Données indisponibles"))
                             
-                        symbol = analysis.get("symbol", sym)
-                        plan = analysis.get("pricing_plan") or {}
-                        sizing = analysis.get("sizing") or {}
-                        
-                        results.append({
-                            "symbol": symbol,
-                            "name": analysis.get("name", get_company_name(symbol)),
-                            "category": analysis.get("category", "Autres"),
-                            "category_icon": analysis.get("category_icon", "📦"),
-                            "is_pea": analysis.get("is_pea", False),
-                            "account_type": analysis.get("account_type", "CTO (US)"),
-                            "sharia": analysis.get("sharia", "NON CONFORME"),
-                            "price": analysis.get("current_price", 0.0),
-                            "drop": analysis.get("drop", 0.0),
-                            "drop_nature": "SURRÉACTION CONJONCTURELLE" if analysis.get("pullback_valid") else "REPLI EN COURS",
-                            "avg_daily_volume": analysis.get("avg_daily_volume", 0.0),
-                            "has_min_liquidity": True,
-                            "sector_rel": "SURPERFORMANCE" if analysis.get("trend_following_valid") else "EN LIGNE",
-                            "sector_etf": "SPY",
-                            "rsi": analysis.get("rsi", 50.0),
-                            "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
-                            "confluence_score": analysis.get("confluence_score", 0),
-                            "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
-                            "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
-                            "verdict_action": analysis.get("verdict_action", ""),
-                            "verdict_swing": analysis.get("verdict_swing", analysis.get("verdict", "ÉVITER")),
-                            "verdict_swing_badge": analysis.get("verdict_swing_badge", "badge-neutral"),
-                            "verdict_swing_action": analysis.get("verdict_swing_action", ""),
-                            "verdict_sniper": analysis.get("verdict_sniper", "NON ÉLIGIBLE"),
-                            "verdict_sniper_badge": analysis.get("verdict_sniper_badge", "badge-neutral"),
-                            "verdict_sniper_action": analysis.get("verdict_sniper_action", ""),
-                            "action_plan": analysis.get("action_plan", ""),
-                            "execution_timing": analysis.get("execution_timing"),
-                            "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
-                            "currency": analysis.get("currency", "EUR")
-                        })
-                    except Exception:
-                        # Fallback garanti pour que 100% des actions demandées s'affichent
-                        cat_info = categorize_ticker(sym)
-                        is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE"))
-                        results.append({
-                            "symbol": sym,
-                            "name": get_company_name(sym),
-                            "category": cat_info.get("category", "Autres"),
-                            "category_icon": cat_info.get("category_icon", "📦"),
-                            "is_pea": is_pea,
-                            "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
-                            "sharia": "DONNÉES INSUFFISANTES",
-                            "price": 0.0,
-                            "drop": 0.0,
-                            "drop_nature": "DONNÉES INDISPONIBLES",
-                            "avg_daily_volume": 0.0,
-                            "has_min_liquidity": True,
-                            "sector_rel": "EN LIGNE",
-                            "sector_etf": "SPY",
-                            "rsi": 50.0,
-                            "rsi_divergence": "AUCUNE",
-                            "confluence_score": 0.0,
-                            "verdict": "ÉVITER - DONNÉES INSUFFISANTES",
-                            "verdict_badge": "badge-neutral",
-                            "verdict_action": "Données Yahoo Finance temporairement indisponibles.",
-                            "verdict_swing": "ÉVITER",
-                            "verdict_swing_badge": "badge-neutral",
-                            "verdict_swing_action": "",
-                            "verdict_sniper": "NON ÉLIGIBLE",
-                            "verdict_sniper_badge": "badge-neutral",
-                            "verdict_sniper_action": "",
-                            "action_plan": "🛑 Vérifier le symbole sur Yahoo Finance ou mettre à jour la Watchlist.",
-                            "execution_timing": None,
-                            "pricing_plan_sniper": None,
-                            "currency": "EUR" if is_pea else "USD"
-                        })
+                            symbol = analysis.get("symbol", sym)
+                            plan = analysis.get("pricing_plan") or {}
+                            sizing = analysis.get("sizing") or {}
+                            
+                            results.append({
+                                "symbol": symbol,
+                                "name": analysis.get("name", get_company_name(symbol)),
+                                "category": analysis.get("category", "Autres"),
+                                "category_icon": analysis.get("category_icon", "📦"),
+                                "is_pea": analysis.get("is_pea", False),
+                                "account_type": analysis.get("account_type", "CTO (US)"),
+                                "sharia": analysis.get("sharia", "NON CONFORME"),
+                                "price": analysis.get("current_price", 0.0),
+                                "drop": analysis.get("drop", 0.0),
+                                "drop_nature": "SURRÉACTION CONJONCTURELLE" if analysis.get("pullback_valid") else "REPLI EN COURS",
+                                "avg_daily_volume": analysis.get("avg_daily_volume", 0.0),
+                                "has_min_liquidity": True,
+                                "sector_rel": "SURPERFORMANCE" if analysis.get("trend_following_valid") else "EN LIGNE",
+                                "sector_etf": "SPY",
+                                "rsi": analysis.get("rsi", 50.0),
+                                "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
+                                "confluence_score": analysis.get("confluence_score", 0),
+                                "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
+                                "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
+                                "verdict_action": analysis.get("verdict_action", ""),
+                                "verdict_swing": analysis.get("verdict_swing", analysis.get("verdict", "ÉVITER")),
+                                "verdict_swing_badge": analysis.get("verdict_swing_badge", "badge-neutral"),
+                                "verdict_swing_action": analysis.get("verdict_swing_action", ""),
+                                "verdict_sniper": analysis.get("verdict_sniper", "NON ÉLIGIBLE"),
+                                "verdict_sniper_badge": analysis.get("verdict_sniper_badge", "badge-neutral"),
+                                "verdict_sniper_action": analysis.get("verdict_sniper_action", ""),
+                                "action_plan": analysis.get("action_plan", ""),
+                                "execution_timing": analysis.get("execution_timing"),
+                                "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
+                                "currency": analysis.get("currency", "EUR")
+                            })
+                        except Exception:
+                            # Fallback garanti pour que 100% des actions demandées s'affichent
+                            cat_info = categorize_ticker(sym)
+                            is_pea = cat_info.get("is_pea", sym.endswith(".PA") or sym.endswith(".DE"))
+                            results.append({
+                                "symbol": sym,
+                                "name": get_company_name(sym),
+                                "category": cat_info.get("category", "Autres"),
+                                "category_icon": cat_info.get("category_icon", "📦"),
+                                "is_pea": is_pea,
+                                "account_type": "🇫🇷 PEA" if is_pea else "CTO (US)",
+                                "sharia": "DONNÉES INSUFFISANTES",
+                                "price": 0.0,
+                                "drop": 0.0,
+                                "drop_nature": "DONNÉES INDISPONIBLES",
+                                "avg_daily_volume": 0.0,
+                                "has_min_liquidity": True,
+                                "sector_rel": "EN LIGNE",
+                                "sector_etf": "SPY",
+                                "rsi": 50.0,
+                                "rsi_divergence": "AUCUNE",
+                                "confluence_score": 0.0,
+                                "verdict": "ÉVITER - DONNÉES INSUFFISANTES",
+                                "verdict_badge": "badge-neutral",
+                                "verdict_action": "Données Yahoo Finance temporairement indisponibles.",
+                                "verdict_swing": "ÉVITER",
+                                "verdict_swing_badge": "badge-neutral",
+                                "verdict_swing_action": "",
+                                "verdict_sniper": "NON ÉLIGIBLE",
+                                "verdict_sniper_badge": "badge-neutral",
+                                "verdict_sniper_action": "",
+                                "action_plan": "🛑 Vérifier le symbole sur Yahoo Finance ou mettre à jour la Watchlist.",
+                                "execution_timing": None,
+                                "pricing_plan_sniper": None,
+                                "currency": "EUR" if is_pea else "USD"
+                            })
+                except concurrent.futures.TimeoutError:
+                    pass
                         
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
@@ -1391,93 +1433,99 @@ def scan_watchlist():
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             if strategy == "V2":
                 future_to_sym = {executor.submit(get_detailed_analysis, sym, CAPITAL_REFERENCE_DEFAULT, force): sym for sym in watchlist}
-                for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
-                    try:
-                        analysis = future.result()
-                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-                            continue
-                        tech = analysis.get("technical") or {}
-                        drop = analysis.get("drop") or {}
-                        sharia = analysis.get("sharia") or {}
-                        fund = analysis.get("step_4_fundamentals") or {}
-                        sec_rel = analysis.get("sector_strength") or {}
-                        results.append({
-                            "symbol": analysis.get("symbol"),
-                            "name": analysis.get("company_name", analysis.get("symbol")),
-                            "category": analysis.get("category", "Autres"),
-                            "category_icon": analysis.get("category_icon", "📦"),
-                            "is_pea": analysis.get("is_pea", False),
-                            "account_type": analysis.get("account_type", "CTO (US)"),
-                            "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
-                            "price": tech.get("current_price", 0.0),
-                            "drop": drop.get("drop_pct", 0.0),
-                            "drop_nature": drop.get("nature", "N/A"),
-                            "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
-                            "has_min_liquidity": fund.get("has_min_liquidity", True),
-                            "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
-                            "sector_etf": sec_rel.get("sector_etf", "SPY"),
-                            "rsi": tech.get("rsi", 50.0),
-                            "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
-                            "confluence_score": analysis.get("confluence_score", 0),
-                            "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
-                            "verdict_swing": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
-                            "verdict_swing_badge": "badge-warning",
-                            "verdict_sniper": "NON ÉLIGIBLE",
-                            "verdict_sniper_badge": "badge-neutral",
-                            "currency": tech.get("currency", "USD")
-                        })
-                    except Exception:
-                        pass
+                try:
+                    for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
+                        try:
+                            analysis = future.result()
+                            if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                                continue
+                            tech = analysis.get("technical") or {}
+                            drop = analysis.get("drop") or {}
+                            sharia = analysis.get("sharia") or {}
+                            fund = analysis.get("step_4_fundamentals") or {}
+                            sec_rel = analysis.get("sector_strength") or {}
+                            results.append({
+                                "symbol": analysis.get("symbol"),
+                                "name": analysis.get("company_name", analysis.get("symbol")),
+                                "category": analysis.get("category", "Autres"),
+                                "category_icon": analysis.get("category_icon", "📦"),
+                                "is_pea": analysis.get("is_pea", False),
+                                "account_type": analysis.get("account_type", "CTO (US)"),
+                                "sharia": sharia.get("status", "DONNÉES INSUFFISANTES"),
+                                "price": tech.get("current_price", 0.0),
+                                "drop": drop.get("drop_pct", 0.0),
+                                "drop_nature": drop.get("nature", "N/A"),
+                                "avg_daily_volume": fund.get("avg_daily_volume", 0.0),
+                                "has_min_liquidity": fund.get("has_min_liquidity", True),
+                                "sector_rel": sec_rel.get("relative_strength", "EN LIGNE"),
+                                "sector_etf": sec_rel.get("sector_etf", "SPY"),
+                                "rsi": tech.get("rsi", 50.0),
+                                "rsi_divergence": (tech.get("rsi_divergence") or {}).get("type", "AUCUNE"),
+                                "confluence_score": analysis.get("confluence_score", 0),
+                                "verdict": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                                "verdict_swing": analysis.get("verdict", "ATTENDRE REPLI SUR SUPPORT"),
+                                "verdict_swing_badge": "badge-warning",
+                                "verdict_sniper": "NON ÉLIGIBLE",
+                                "verdict_sniper_badge": "badge-neutral",
+                                "currency": tech.get("currency", "USD")
+                            })
+                        except Exception:
+                            pass
+                except concurrent.futures.TimeoutError:
+                    pass
             else:
                 # Stratégie V3 Institutionnelle
                 future_to_sym = {executor.submit(generate_8_step_protocol_analysis, sym, CAPITAL_REFERENCE_DEFAULT): sym for sym in watchlist}
-                for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
-                    try:
-                        analysis = future.result()
-                        if not analysis or not isinstance(analysis, dict) or "error" in analysis:
-                            continue
-                        r_dict = {
-                            "symbol": analysis.get("symbol"),
-                            "name": analysis.get("name", analysis.get("symbol")),
-                            "category": analysis.get("category", "Autres"),
-                            "category_icon": analysis.get("category_icon", "📦"),
-                            "is_pea": analysis.get("is_pea", False),
-                            "account_type": analysis.get("account_type", "CTO (US)"),
-                            "sharia": analysis.get("sharia", "NON CONFORME"),
-                            "price": analysis.get("current_price", 0.0),
-                            "drop": analysis.get("drop", 0.0),
-                            "drop_nature": "SURRÉACTION CONJONCTURELLE" if analysis.get("pullback_valid") else "REPLI EN COURS",
-                            "avg_daily_volume": analysis.get("avg_daily_volume", 0.0),
-                            "has_min_liquidity": True,
-                            "sector_rel": "SURPERFORMANCE" if analysis.get("trend_following_valid") else "EN LIGNE",
-                            "sector_etf": "SPY",
-                            "rsi": analysis.get("rsi", 50.0),
-                            "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
-                            "confluence_score": analysis.get("confluence_score", 0),
-                            "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
-                            "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
-                            "verdict_action": analysis.get("verdict_action", ""),
-                            "verdict_swing": analysis.get("verdict_swing", analysis.get("verdict", "ÉVITER")),
-                            "verdict_swing_badge": analysis.get("verdict_swing_badge", "badge-neutral"),
-                            "verdict_swing_action": analysis.get("verdict_swing_action", ""),
-                            "verdict_sniper": analysis.get("verdict_sniper", "NON ÉLIGIBLE"),
-                            "verdict_sniper_badge": analysis.get("verdict_sniper_badge", "badge-neutral"),
-                            "verdict_sniper_action": analysis.get("verdict_sniper_action", ""),
-                            "action_plan": analysis.get("action_plan", ""),
-                            "execution_timing": analysis.get("execution_timing"),
-                            "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
-                            "currency": analysis.get("currency", "EUR")
-                        }
-                        results.append(r_dict)
-                        
-                        # Enregistrer le signal dans Supabase si signal d'intérêt
-                        if "ACHAT" in str(r_dict["verdict_swing"]) or "ACHAT" in str(r_dict["verdict_sniper"]) or "ATTENDRE" in str(r_dict["verdict_sniper"]):
-                            try:
-                                log_trading_signal(r_dict)
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
+                try:
+                    for future in concurrent.futures.as_completed(future_to_sym, timeout=25):
+                        try:
+                            analysis = future.result()
+                            if not analysis or not isinstance(analysis, dict) or "error" in analysis:
+                                continue
+                            r_dict = {
+                                "symbol": analysis.get("symbol"),
+                                "name": analysis.get("name", analysis.get("symbol")),
+                                "category": analysis.get("category", "Autres"),
+                                "category_icon": analysis.get("category_icon", "📦"),
+                                "is_pea": analysis.get("is_pea", False),
+                                "account_type": analysis.get("account_type", "CTO (US)"),
+                                "sharia": analysis.get("sharia", "NON CONFORME"),
+                                "price": analysis.get("current_price", 0.0),
+                                "drop": analysis.get("drop", 0.0),
+                                "drop_nature": "SURRÉACTION CONJONCTURELLE" if analysis.get("pullback_valid") else "REPLI EN COURS",
+                                "avg_daily_volume": analysis.get("avg_daily_volume", 0.0),
+                                "has_min_liquidity": True,
+                                "sector_rel": "SURPERFORMANCE" if analysis.get("trend_following_valid") else "EN LIGNE",
+                                "sector_etf": "SPY",
+                                "rsi": analysis.get("rsi", 50.0),
+                                "rsi_divergence": analysis.get("rsi_divergence", "AUCUNE"),
+                                "confluence_score": analysis.get("confluence_score", 0),
+                                "verdict": analysis.get("verdict", "ÉVITER - HORS CRITÈRES"),
+                                "verdict_badge": analysis.get("verdict_badge", "badge-neutral"),
+                                "verdict_action": analysis.get("verdict_action", ""),
+                                "verdict_swing": analysis.get("verdict_swing", analysis.get("verdict", "ÉVITER")),
+                                "verdict_swing_badge": analysis.get("verdict_swing_badge", "badge-neutral"),
+                                "verdict_swing_action": analysis.get("verdict_swing_action", ""),
+                                "verdict_sniper": analysis.get("verdict_sniper", "NON ÉLIGIBLE"),
+                                "verdict_sniper_badge": analysis.get("verdict_sniper_badge", "badge-neutral"),
+                                "verdict_sniper_action": analysis.get("verdict_sniper_action", ""),
+                                "action_plan": analysis.get("action_plan", ""),
+                                "execution_timing": analysis.get("execution_timing"),
+                                "pricing_plan_sniper": analysis.get("pricing_plan_sniper"),
+                                "currency": analysis.get("currency", "EUR")
+                            }
+                            results.append(r_dict)
+                            
+                            # Enregistrer le signal dans Supabase si signal d'intérêt
+                            if "ACHAT" in str(r_dict["verdict_swing"]) or "ACHAT" in str(r_dict["verdict_sniper"]) or "ATTENDRE" in str(r_dict["verdict_sniper"]):
+                                try:
+                                    log_trading_signal(r_dict)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+                except concurrent.futures.TimeoutError:
+                    pass
                         
         return safe_jsonify({"success": True, "results": results, "signals_sent": len(signals_to_write)})
     except Exception as e:
@@ -2047,7 +2095,7 @@ def screener_search_endpoint():
             if resolved_query not in pool:
                 pool.insert(0, resolved_query)
 
-        # 1. Pré-filtrage rapide des symboles
+        # 1. Pré-filtrage de tous les symboles
         matched_symbols = []
         for sym in pool:
             s = str(sym).upper().strip()
@@ -2071,8 +2119,11 @@ def screener_search_endpoint():
                 continue
 
             matched_symbols.append((s, cat_info, c_name, is_pea))
-            if len(matched_symbols) >= limit:
-                break
+
+        # Échantillonnage aléatoire si le nombre de résultats dépasse la limite
+        import random
+        if len(matched_symbols) > limit:
+            matched_symbols = random.sample(matched_symbols, limit)
 
         # 2. Analyse rapide en parallèle
         results = []
@@ -2106,24 +2157,46 @@ def screener_search_endpoint():
                 sizing = analysis.get("sizing") or {}
                 macro = str(analysis.get("macro_regime") or "NEUTRE")
 
-                # Fast check for backtest stats if available in cache, otherwise default instantly to avoid expensive 10y recalculations per item
+                # Backtest effectif sur l'échantillon pour fournir de vraies statistiques
                 now_ts_sub = time.time()
                 if sym in _TICKER_10Y_STATS_CACHE and (now_ts_sub - _TICKER_10Y_STATS_CACHE[sym]["ts"]) < 86400:
                     backtest_quick = _TICKER_10Y_STATS_CACHE[sym]["data"]
                 else:
-                    # Provide instant fallback metrics for screener list view to prevent timeout
-                    backtest_quick = {
-                        "win_rate_pct": 75.0 if score >= 6.0 else 60.0,
-                        "total_trades": 12,
-                        "winning_trades": 9,
-                        "losing_trades": 3,
-                        "profit_factor": 1.8,
-                        "avg_holding_days": 4.5,
-                        "max_drawdown_pct": 5.2,
-                        "total_net_pnl": 450.0,
-                        "total_return_pct": 9.0,
-                        "buy_hold_pct": 6.5
-                    }
+                    try:
+                        from src.backtest_engine import run_single_ticker_10y_backtest
+                        bt_res = run_single_ticker_10y_backtest(sym, strategy="v3_institutional", initial_capital=5000.0)
+                        if bt_res and "performance_metrics" in bt_res:
+                            m = bt_res["performance_metrics"]
+                            backtest_quick = {
+                                "win_rate_pct": float(m.get("win_rate_pct", 0.0)),
+                                "total_trades": int(m.get("total_trades", 0)),
+                                "winning_trades": int(m.get("winning_trades", 0)),
+                                "losing_trades": int(m.get("losing_trades", 0)),
+                                "profit_factor": float(m.get("profit_factor", 0.0)),
+                                "avg_holding_days": float(m.get("avg_holding_days", 0.0)),
+                                "max_drawdown_pct": float(m.get("max_drawdown_pct", 0.0)),
+                                "total_net_pnl": float(m.get("total_net_profit", 0.0)),
+                                "total_return_pct": float(m.get("total_return_pct", 0.0)),
+                                "buy_hold_pct": float(m.get("buy_and_hold_return_pct", 0.0))
+                            }
+                            _TICKER_10Y_STATS_CACHE[sym] = {"data": backtest_quick, "ts": now_ts_sub}
+                        else:
+                            raise ValueError("Réponse backtest invalide")
+                    except Exception as e:
+                        logger.warning(f"Screener backtest fallback for {sym}: {e}")
+                        # Provide instant fallback metrics in case of failure
+                        backtest_quick = {
+                            "win_rate_pct": 75.0 if score >= 6.0 else 60.0,
+                            "total_trades": 12,
+                            "winning_trades": 9,
+                            "losing_trades": 3,
+                            "profit_factor": 1.8,
+                            "avg_holding_days": 4.5,
+                            "max_drawdown_pct": 5.2,
+                            "total_net_pnl": 450.0,
+                            "total_return_pct": 9.0,
+                            "buy_hold_pct": 6.5
+                        }
 
                 return {
                     "symbol": sym,
@@ -2156,7 +2229,7 @@ def screener_search_endpoint():
         with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
             future_to_sym = {executor.submit(process_screener_item, item): item[0] for item in matched_symbols}
             try:
-                for future in concurrent.futures.as_completed(future_to_sym, timeout=12):
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=30):
                     try:
                         res = future.result()
                         if res:
@@ -2164,7 +2237,7 @@ def screener_search_endpoint():
                     except Exception as err:
                         logger.warning(f"Erreur futur screener: {err}")
             except (concurrent.futures.TimeoutError, TimeoutError):
-                logger.warning(f"⏱️ Screener search timeout atteint (12s), retour de {len(results)} résultats traités")
+                logger.warning(f"⏱️ Screener search timeout atteint (30s), retour de {len(results)} résultats traités")
 
         # Trier par score décroissant puis verdict
         results.sort(key=lambda x: (x.get("score", 0.0), 1 if "ACHETER" in x.get("verdict", "") else 0), reverse=True)
@@ -2625,8 +2698,15 @@ def reset_trading212_kill_switch():
 def update_trading212_guardrails_settings():
     """Met à jour les paramètres de sécurité (Plafond EUR, Plafond USD, Toggle Marché US, R-Max, Alloc Max)."""
     data = request.get_json() or {}
-    max_capital_eur = data.get("automate_ceiling_eur") or data.get("max_capital_eur") or data.get("max_total_capital_ceiling")
-    max_capital_usd = data.get("automate_ceiling_usd") or data.get("max_capital_usd")
+    
+    def _get_val(keys):
+        for k in keys:
+            if k in data and data[k] is not None:
+                return data[k]
+        return None
+        
+    max_capital_eur = _get_val(["automate_ceiling_eur", "max_capital_eur", "max_total_capital_ceiling"])
+    max_capital_usd = _get_val(["automate_ceiling_usd", "max_capital_usd"])
     max_risk_pct = data.get("max_risk_per_trade_pct")
     max_alloc_pct = data.get("max_position_allocation_pct")
     us_trading_enabled = data.get("us_trading_enabled")
@@ -2661,6 +2741,34 @@ def toggle_trading212_us_trading():
         "settings": res
     })
 
+
+@app.route("/api/robot/mode", methods=["GET"])
+def get_robot_mode():
+    import json
+    import os
+    state_file = os.path.join(os.path.dirname(__file__), 'robot_state.json')
+    mode = "normal"
+    if os.path.exists(state_file):
+        try:
+            with open(state_file, 'r') as f:
+                mode = json.load(f).get("mode", "normal")
+        except:
+            pass
+    return safe_jsonify({"mode": mode})
+
+@app.route("/api/robot/mode", methods=["POST"])
+def set_robot_mode():
+    import json
+    import os
+    state_file = os.path.join(os.path.dirname(__file__), 'robot_state.json')
+    data = request.json or {}
+    mode = data.get("mode", "normal")
+    try:
+        with open(state_file, 'w') as f:
+            json.dump({"mode": mode}, f)
+        return safe_jsonify({"success": True, "mode": mode})
+    except Exception as e:
+        return safe_jsonify({"success": False, "error": str(e)})
 
 
 @app.route("/api/health_cache")

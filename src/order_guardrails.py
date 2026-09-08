@@ -196,12 +196,12 @@ class OrderGuardrailsEngine:
         us_trading_enabled=None
     ):
         """Met à jour les plafonds de capital EUR/USD, le toggle Marché US et les paramètres de risque avec persistance automatique."""
-        if automate_ceiling_eur is not None and float(automate_ceiling_eur) > 0:
+        if automate_ceiling_eur is not None and float(automate_ceiling_eur) >= 0:
             self.allocated_automate_capital_ceiling_eur = float(automate_ceiling_eur)
-        elif max_total_capital_ceiling is not None and float(max_total_capital_ceiling) > 0 and automate_ceiling_eur is None:
+        elif max_total_capital_ceiling is not None and float(max_total_capital_ceiling) >= 0 and automate_ceiling_eur is None:
             self.allocated_automate_capital_ceiling_eur = float(max_total_capital_ceiling)
 
-        if automate_ceiling_usd is not None and float(automate_ceiling_usd) > 0:
+        if automate_ceiling_usd is not None and float(automate_ceiling_usd) >= 0:
             self.allocated_automate_capital_ceiling_usd = float(automate_ceiling_usd)
 
         if max_risk_pct is not None and 0.1 <= float(max_risk_pct) <= 2.5:
@@ -438,6 +438,15 @@ class OrderGuardrailsEngine:
         pnl_tp2 = (tp2_price - entry_price) * (quantity * 0.5)
         total_gain = pnl_tp1 + pnl_tp2
         rr_ratio = round(total_gain / risk_monetary, 2) if risk_monetary > 0 else 0.0
+
+        if rr_ratio < 1.2:
+            return False, f"⚠️ Rejet R:R : Le ratio Risque/Rendement global calculé ({rr_ratio}) est inférieur au minimum tolérable (1.2). Le LLM a probablement halluciné les cibles.", None
+
+        # 11. Vérification de la réserve de liquidités (min 25%)
+        cash_reserve_required = ceiling * 0.25
+        avail = max(0.0, ceiling - deployed_cap)
+        if (avail - nominal_trade) < cash_reserve_required:
+            return False, f"⚠️ Rejet Trésorerie : L'exécution de ce trade entamerait la réserve de cash minimale obligatoire de {cash_reserve_required:.2f}{curr_sign}.", None
 
         trade_plan = {
             "symbol": symbol.upper(),

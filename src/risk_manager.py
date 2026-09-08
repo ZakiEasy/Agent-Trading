@@ -80,16 +80,17 @@ def calculate_trade_sizing(
     tp1_price = entry_price * (1 + tp1_pct / 100)
     tp2_price = entry_price * (1 + tp2_pct / 100)
     
-    potential_gain_tp1_pct = tp1_pct
-    potential_gain_tp2_pct = tp2_pct
+    potential_gain_tp1_pct = ((tp1_price - entry_price) / entry_price * 100) if entry_price > 0 else tp1_pct
+    potential_gain_tp2_pct = ((tp2_price - entry_price) / entry_price * 100) if entry_price > 0 else tp2_pct
     potential_loss_pct = stop_distance_pct * 100
 
     potential_gain_tp1_amount = shares_count * (tp1_price - entry_price)
     potential_gain_tp2_amount = shares_count * (tp2_price - entry_price)
+    potential_loss_amount_per_share = entry_price - stop_loss_price
 
     # 6. Ratios Rendement / Risque (R:R)
-    rr_tp1 = potential_gain_tp1_pct / potential_loss_pct if potential_loss_pct > 0 else 0.0
-    rr_tp2 = potential_gain_tp2_pct / potential_loss_pct if potential_loss_pct > 0 else 0.0
+    rr_tp1 = (tp1_price - entry_price) / potential_loss_amount_per_share if potential_loss_amount_per_share > 0 else 0.0
+    rr_tp2 = (tp2_price - entry_price) / potential_loss_amount_per_share if potential_loss_amount_per_share > 0 else 0.0
 
     # 7. Règle Breakeven (+0.80%) & Trailing Stop vers TP2
     breakeven_trigger_price = entry_price * 1.008
