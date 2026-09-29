@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Trading Agent v2.0 - Swing Trading, Filtres Sectoriels/PEA & Conformité Sharia</title>
+    <title>Trading Agent v2.2.0 - Swing Trading, Filtres Sectoriels/PEA & Monitoring</title>
     
     <!-- PWA & Mobile Web App Manifest -->
     <link rel="manifest" href="/static/manifest.json">
@@ -1345,7 +1345,8 @@
                 gap: 1rem !important;
             }
 
-            .table-container {
+            #dashboard-tab .table-container,
+            #screener-tab .table-container {
                 display: none !important;
             }
 
@@ -1448,19 +1449,28 @@
         <div class="logo-container">
             <div class="logo-icon">🪂</div>
             <div class="logo-text">
-                <h1>Trading Agent <span class="version-badge">v2.0</span></h1>
-                <p>Top-Down Macro, Filtres Sectoriels/PEA & Conformité Sharia</p>
+                <h1>Trading Agent <span class="version-badge">v2.2.0</span></h1>
+                <p>Top-Down Macro, Achat par Valeur, Monitoring VPS & Audit</p>
             </div>
         </div>
         <nav>
             <a href="?tab=dashboard" class="nav-btn active" data-tab="dashboard" onclick="handleNavClick(event, 'dashboard')" title="Scanner & Marché (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>📊</span> Scanner & Marché
             </a>
+            <a href="?tab=paper" class="nav-btn" data-tab="paper" onclick="handleNavClick(event, 'paper')" title="Paper Trading (Simulation 24/7)">
+                <span>🪂</span> Paper Trading
+            </a>
             <a href="?tab=screener" class="nav-btn" data-tab="screener" onclick="handleNavClick(event, 'screener')" title="Recherche & Screener 10Y (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>🔍</span> Recherche & Screener 10Y
             </a>
             <a href="?tab=robot" class="nav-btn" data-tab="robot" onclick="handleNavClick(event, 'robot')" title="Robot Trading 212 (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>🤖</span> Robot Trading 212 <span id="nav-robot-badge" class="badge badge-success" style="font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">🟢 Prêt</span>
+            </a>
+            <a href="?tab=robot-logs" class="nav-btn" data-tab="robot-logs" onclick="handleNavClick(event, 'robot-logs')" title="Journal d'Audit du Robot (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
+                <span class="nav-icon">📜</span> Logs
+            </a>
+            <a href="?tab=monitoring" class="nav-btn" data-tab="monitoring" onclick="handleNavClick(event, 'monitoring')" title="Système de Monitoring & Audit">
+                <span class="nav-icon">🖥️</span> Monitoring
             </a>
             <a href="?tab=portfolio" class="nav-btn" data-tab="portfolio" onclick="handleNavClick(event, 'portfolio')" title="Positions en Cours (Clic droit ou milieu pour ouvrir dans un nouvel onglet)">
                 <span>💼</span> Positions en Cours (Live) <span id="nav-alerts-badge" class="badge badge-warning" style="display:none; font-size:0.7rem; padding:0.1rem 0.4rem; margin-left:0.3rem;">0</span>
@@ -1902,7 +1912,7 @@
                     <!-- Market Filter -->
                     <div>
                         <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Marché / Compte</label>
-                        <select id="screener-filter-market" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                        <select id="screener-filter-market" class="filter-select" style="width: 100%;">
                             <option value="ALL">🌐 Tous les Marchés</option>
                             <option value="PEA">🇫🇷 Éligibles PEA (Euronext, Xetra)</option>
                             <option value="CTO">🇺🇸 Compte-Titres CTO (US Large Caps)</option>
@@ -1912,7 +1922,7 @@
                     <!-- Category Filter -->
                     <div>
                         <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Catégorie & Secteur</label>
-                        <select id="screener-filter-category" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                        <select id="screener-filter-category" class="filter-select" style="width: 100%;">
                             <option value="ALL">📦 Toutes les Catégories</option>
                             <option value="Hyperscalers & Géants Cloud/IA">☁️ Hyperscalers & Cloud/IA</option>
                             <option value="Éditeurs de Logiciels & SaaS">💻 Éditeurs de Logiciels & SaaS</option>
@@ -1930,7 +1940,7 @@
                     <!-- Sharia Filter -->
                     <div>
                         <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Conformité Sharia</label>
-                        <select id="screener-filter-sharia" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                        <select id="screener-filter-sharia" class="filter-select" style="width: 100%;">
                             <option value="CONFORME">🟢 Conforme AAOIFI Uniquement</option>
                             <option value="ALL">⚪ Tous les Statuts Sharia</option>
                         </select>
@@ -1939,7 +1949,7 @@
                     <!-- Signal Only Filter -->
                     <div>
                         <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.3rem; display: block;">Filtre Opportunités</label>
-                        <select id="screener-filter-signal" class="filter-select" onchange="runScreenerSearch(false)" style="width: 100%;">
+                        <select id="screener-filter-signal" class="filter-select" style="width: 100%;">
                             <option value="false">📋 Toutes les actions</option>
                             <option value="true">🎯 Signaux d'Achat Actifs (Score ≥ 6/10)</option>
                         </select>
@@ -2049,6 +2059,9 @@
                         <button class="btn btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;" onclick="openRobotSettingsModal()">
                             ⚙️ Plafonds & Risque
                         </button>
+                        <button class="btn btn-primary" id="btn-robot-worker-mode" style="padding: 0.45rem 0.95rem; font-size: 0.85rem; background: #6366f1;" onclick="toggleRobotWorkerMode()" title="Basculer entre Scan Continu (10 min) et Actif (1 min)">
+                            ⚡ Mode: Normal (2m)
+                        </button>
                         <button class="btn btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;" onclick="loadRobotStatusAndData()">
                             🔄 Actualiser
                         </button>
@@ -2128,6 +2141,21 @@
                         </div>
                     </div>
 
+                    <!-- SUIVI DES POSITIONS ACTIVES DE L'AUTOMATE -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #10b981; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>🤖</span> Suivi des Positions (Automate)
+                            </h3>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Suivi en temps réel des actions de l'automate sur vos positions (TP, SL)</span>
+                        </div>
+                        <div id="active-managed-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div style="padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--card-border); border-radius: 8px;">
+                                Chargement du suivi de l'automate...
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- HISTORIQUE DES PROPOSITIONS DU ROBOT -->
                     <div style="margin-top: 1.5rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
@@ -2147,6 +2175,71 @@
         </div>
 
         <!-- ================================================================= -->
+        <!-- TAB : JOURNAL DU ROBOT -->
+        <div id="robot-logs-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">📜 Journal d'Audit du Robot</h2>
+                        <p class="card-subtitle">Historique complet des scans du robot (y compris les rejets). Purge auto chaque dimanche.</p>
+                    </div>
+                    <a href="?tab=robot-logs" target="_blank" class="popout-tab-btn" title="Ouvrir dans une fenêtre séparée">↗ Fenêtre Dédiée</a>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary" onclick="loadRobotLogs()" style="margin-bottom: 1rem;">Rafraîchir les logs</button>
+                    <div class="table-container" style="overflow-x: auto;">
+                        <table class="table" id="robot-logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Symbole</th>
+                                    <th>Société</th>
+                                    <th>Verdict</th>
+                                    <th>Score Confluence</th>
+                                    <th>Drop (%)</th>
+                                    <th>RSI</th>
+                                    <th>Justification (Action Plan)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Données chargées en JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="monitoring-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">🖥️ Monitoring & Audit Compliance</h2>
+                        <p class="card-subtitle">État de santé du système et vérification du respect des règles de l'audit.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary" onclick="loadMonitoringData()" style="margin-bottom: 1rem;">Rafraîchir les métriques</button>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="glass-card">
+                            <h3>Santé Système</h3>
+                            <pre id="monitoring-health" style="background: rgba(0,0,0,0.5); padding: 1rem; color: #10b981; min-height: 100px; overflow: auto; border-radius: 8px;">Chargement...</pre>
+                        </div>
+                        <div class="glass-card">
+                            <h3>Audit Compliance (/plan-eng-review)</h3>
+                            <div id="monitoring-compliance" style="min-height: 100px;">Chargement...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card">
+                        <h3>Derniers Logs Système</h3>
+                        <pre id="monitoring-logs" style="background: rgba(0,0,0,0.8); padding: 1rem; color: #a3e635; min-height: 300px; max-height: 400px; overflow-y: auto; font-family: monospace; border-radius: 8px; font-size: 0.85rem;">Chargement...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- TAB : POSITIONS EN COURS (LIVE TRACKING) -->
         <!-- ================================================================= -->
         <div id="portfolio-tab" class="tab-content">
@@ -2942,6 +3035,130 @@
         </div>
 
         <!-- ================================================================= -->
+        <!-- TAB : PAPER TRADING -->
+        <!-- ================================================================= -->
+        <div id="paper-tab" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h1 style="margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.8rem;">🪂</span> Simulateur Autonome 24/7
+                </h1>
+                <button class="btn btn-primary" onclick="loadPaperTradingData()" style="padding: 0.5rem 1rem;">
+                    🔄 Rafraîchir
+                </button>
+            </div>
+            
+            <!-- Statistiques du compte Paper -->
+            <div class="metrics-grid" style="margin-bottom: 2rem;">
+                <div class="glass-card stat-card" style="border-left: 4px solid var(--accent-primary);">
+                    <p class="stat-label">Capital Virtuel (EUR)</p>
+                    <h3 class="stat-value" id="paper-balance-eur">-- €</h3>
+                </div>
+                <div class="glass-card stat-card" style="border-left: 4px solid var(--success);">
+                    <p class="stat-label">Capital Virtuel (USD)</p>
+                    <h3 class="stat-value" id="paper-balance-usd">-- $</h3>
+                </div>
+                <div class="glass-card stat-card" style="border-left: 4px solid var(--warning);">
+                    <p class="stat-label">Positions Ouvertes</p>
+                    <h3 class="stat-value" id="paper-open-count">--</h3>
+                </div>
+                <div class="glass-card stat-card" style="border-left: 4px solid #8e44ad;" id="paper-health-card">
+                    <p class="stat-label">Statut du Moteur (Health)</p>
+                    <h3 class="stat-value" id="paper-health-status" style="font-size: 1.2rem;">--</h3>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">Dernière exécution : <span id="paper-health-time">--</span></p>
+                </div>
+            </div>
+
+            <!-- Tableaux -->
+            <div class="simulation-grid" style="grid-template-columns: 1fr; gap: 2rem;">
+                <!-- Positions Actives -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🟢 Positions Actives (Paper Trading)</h2>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Actif</th>
+                                    <th>Statut</th>
+                                    <th>Entrée</th>
+                                    <th>Qté</th>
+                                    <th>Investi</th>
+                                    <th>SL</th>
+                                    <th>TP1</th>
+                                    <th>TP2</th>
+                                    <th>PNL Réalisé</th>
+                                    <th>Date d'Entrée</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paper-active-table">
+                                <tr><td colspan="11" class="text-center">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Historique -->
+                <div class="glass-card">
+                    <div class="card-header" style="cursor: pointer;" onclick="let w = document.getElementById('paper-history-wrapper'); w.style.display = w.style.display === 'none' ? 'block' : 'none';">
+                        <h2 class="card-title">📜 Historique des Trades (Paper Trading) <span style="font-size: 0.8em;">▼</span></h2>
+                    </div>
+                    <div id="paper-history-wrapper" class="table-container" style="display: none;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Actif</th>
+                                    <th>Statut</th>
+                                    <th>Entrée</th>
+                                    <th>Qté</th>
+                                    <th>Investi</th>
+                                    <th>PNL Réalisé</th>
+                                    <th>Date Fermeture</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paper-history-table">
+                                <tr><td colspan="8" class="text-center">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Journal & Performance (Paper Trading) -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">📓 Journal de Trading & Évolution du Capital</h2>
+                    </div>
+                    <div class="card-body">
+                        <div style="position: relative; height: 250px; width: 100%; margin-bottom: 20px;">
+                            <canvas id="paperCapitalChart"></canvas>
+                        </div>
+                        
+                        <div class="stat-grid" style="margin-top: 15px;">
+                            <div class="stat-card">
+                                <span class="stat-label">Total PNL (€)</span>
+                                <h3 class="stat-value" id="paper-journal-pnl">--</h3>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Win Rate</span>
+                                <h3 class="stat-value" id="paper-journal-winrate">--%</h3>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Trades Gagnants</span>
+                                <h3 class="stat-value" id="paper-journal-wins">--</h3>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Trades Perdants</span>
+                                <h3 class="stat-value" id="paper-journal-losses">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================= -->
         <!-- TAB 3 : SIMULATION & R-MAX -->
         <!-- ================================================================= -->
         <div id="simulation-tab" class="tab-content">
@@ -3517,7 +3734,7 @@
                 </div>
             </div>
             <div class="modal-footer" style="justify-content: space-between;">
-                <span style="font-size: 0.8rem; color: var(--text-muted);">Stockage 100% Supabase PostgreSQL</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Stockage 100% PostgreSQL Local</span>
                 <button class="btn btn-secondary" onclick="closeManageWatchlistModal()">Fermer</button>
             </div>
         </div>
@@ -4378,11 +4595,15 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const tabParam = urlParams.get('tab');
                 const hashParam = window.location.hash.replace('#', '').trim();
-                const validTabs = ['dashboard', 'screener', 'robot', 'portfolio', 'diversification', 'journal', 'chat', 'simulation'];
+                const validTabs = ['dashboard', 'screener', 'robot', 'portfolio', 'diversification', 'journal', 'chat', 'simulation', 'paper'];
                 if (tabParam && validTabs.includes(tabParam.toLowerCase())) {
                     initialTab = tabParam.toLowerCase();
                 } else if (hashParam && validTabs.includes(hashParam.toLowerCase())) {
                     initialTab = hashParam.toLowerCase();
+                }
+                
+                if (initialTab === 'paper') {
+                    loadPaperTradingData();
                 }
             } catch (e) {}
 
@@ -4451,10 +4672,13 @@
                 if (tabId === 'robot') {
                     loadRobotStatusAndData();
                     checkApiPermissionsLive();
+                } else if (tabId === 'robot-logs') {
+                    loadRobotLogs();
+                } else if (tabId === 'monitoring') {
+                    loadMonitoringData();
                 } else if (tabId === 'screener') {
-                    if (!screenerLoadedOnce) {
-                        runScreenerSearch(false);
-                    }
+                    // Le chargement du screener a été désactivé à l'ouverture de l'onglet selon la demande de l'utilisateur.
+                    // Il faut cliquer sur "Scanner l'univers" pour l'exécuter.
                 } else if (tabId === 'portfolio') {
                     loadLivePortfolio(false);
                 } else if (tabId === 'diversification') {
@@ -5111,6 +5335,61 @@
         // ROBOT TRADING 212 & VALIDATION GO HUMAIN JAVASCRIPT LOGIC
         // =====================================================================
 
+        async function checkRobotWorkerMode() {
+            try {
+                const res = await fetchJsonSafely(`${API_URL}/robot/mode`, { method: 'GET' });
+                const btn = document.getElementById('btn-robot-worker-mode');
+                if (!btn) return;
+                
+                if (res.mode === 'active') {
+                    btn.innerHTML = '⚡ Mode: Actif (1m)';
+                    btn.style.background = '#ef4444'; // Red-ish for active/aggressive
+                    btn.dataset.currentMode = 'active';
+                } else {
+                    btn.innerHTML = '⚡ Mode: Normal (10m)';
+                    btn.style.background = '#6366f1'; // Indigo for normal
+                    btn.dataset.currentMode = 'normal';
+                }
+            } catch (e) {
+                console.error("Erreur checkRobotWorkerMode:", e);
+            }
+        }
+
+        async function toggleRobotWorkerMode() {
+            const btn = document.getElementById('btn-robot-worker-mode');
+            const currentMode = btn.dataset.currentMode || 'normal';
+            const newMode = currentMode === 'normal' ? 'active' : 'normal';
+            
+            btn.innerHTML = '⏳...';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetchJsonSafely(`${API_URL}/robot/mode`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: newMode })
+                });
+                
+                if (res.success) {
+                    checkRobotWorkerMode();
+                } else {
+                    alert("Erreur lors du changement de mode du robot.");
+                    checkRobotWorkerMode();
+                }
+            } catch (e) {
+                console.error("Erreur toggleRobotWorkerMode:", e);
+                checkRobotWorkerMode();
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Call checkRobotWorkerMode initially
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(checkRobotWorkerMode, 1000);
+        });
+
+
         async function loadRobotStatusAndData() {
             // Affichage instantané depuis le cache local (0ms latence)
             let cachedG = null;
@@ -5321,7 +5600,8 @@
                                 <span class="badge" style="${stratBadge} font-size: 0.7rem; font-weight: 700;">${p.strategy_type}</span>
                                 <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.7rem;">🕋 Sharia Conforme</span>
                                 <span style="font-size: 0.75rem; color: var(--text-muted);">${p.t212_ticker} (${p.currency})</span>
-                                ${hasError ? '<span class="badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; font-size: 0.7rem;">⚠️ Échec envoi</span>' : ''}
+                                <span style="font-size: 0.75rem; color: #94a3b8; display: flex; align-items: center; gap: 0.3rem;">🕒 ${p.created_at ? new Date(p.created_at).toLocaleString('fr-FR', {timeZone: 'Europe/Paris', hour12: false}) + ' (Paris)' : ''}</span>
+                                ${hasError ? '<span class="badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; font-size: 0.7rem;">⚠️ Échec envoi</span>' : '<span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-size: 0.7rem;">⏳ En attente de validation</span>'}
                             </div>
                             <div style="font-size: 0.85rem; color: #cbd5e1; background: rgba(255,255,255,0.04); padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">
                                 Capital : <strong style="color:#38bdf8;">${Number(plan.nominal_invested || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})} ${currSymbol}</strong> (<strong style="color:#facc15;">${plan.quantity || 0}</strong> actions)
@@ -5334,6 +5614,12 @@
                             <div style="margin-top: 0.25rem; color: #cbd5e1; font-size: 0.73rem;">
                                 💡 <em>Le plan est maintenu. Cliquez sur <strong>✏️ Ajuster Capital / Actions</strong> pour corriger la quantité (ex: nombre entier d'actions comme 6 ou 7) puis relancez le GO HUMAIN.</em>
                             </div>
+                        </div>
+                        ` : ''}
+
+                        ${p.notes ? `
+                        <div style="background: rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 0.6rem 0.85rem; font-size: 0.75rem; color: #cbd5e1;">
+                            <strong>📝 Résultat de l'algorithme :</strong> ${p.notes}
                         </div>
                         ` : ''}
 
@@ -5407,22 +5693,28 @@
                 const statusBadge = pos.step_stop_be_active 
                     ? '<span class="badge" style="background: rgba(96, 165, 250, 0.2); color: #60a5fa; border: 1px solid #3b82f6;">🛡️ TP1 Encaissé (Step Stop BE Actif)</span>'
                     : '<span class="badge" style="background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308;">🎯 En attente TP1</span>';
+                const t212Badge = pos.t212_status ? `<span class="badge ${pos.t212_color}" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">Trading 212: ${pos.t212_status}</span>` : '';
 
                 html += `
-                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
                         <div>
                             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
                                 <strong style="font-size: 1.05rem; color: #fff;">${pos.symbol}</strong>
+                                <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid #8b5cf6;">🤖 Automate</span>
                                 <span class="badge" style="background: rgba(255,255,255,0.05); font-size: 0.7rem;">${pos.strategy_type}</span>
                                 ${statusBadge}
+                                ${t212Badge}
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);">
                                 PRU : <strong>${pos.entry_price} ${currSymbol}</strong> | Qty : <strong>${pos.quantity}</strong> | SL Actuel : <strong>${pos.stop_loss_price} ${currSymbol}</strong> | TP2 : <strong>${pos.tp2_price} ${currSymbol}</strong>
                             </div>
                         </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">P&L Réalisé Partiel (TP1)</div>
-                            <div style="font-size: 0.95rem; font-weight: 700; color: #34d399;">+${Number(pos.realized_pnl_tp1 || 0).toFixed(2)} ${currSymbol}</div>
+                        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                            <div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">P&L Réalisé Partiel (TP1)</div>
+                                <div style="font-size: 0.95rem; font-weight: 700; color: #34d399;">+${Number(pos.realized_pnl_tp1 || 0).toFixed(2)} ${currSymbol}</div>
+                            </div>
+                            <button class="btn btn-sm btn-secondary" onclick="openTradeReviewModal('${pos.id}', 'ROBOT', '${pos.symbol}')" style="padding:4px 8px; font-size:12px; margin-bottom:4px;">📝 A-to-C Game</button>
                         </div>
                     </div>
                 `;
@@ -5456,24 +5748,32 @@
                     statusBadge = '<span class="badge badge-danger">🔴 Rejeté</span>';
                 } else if (p.status === 'CANCELLED_BY_KILL_SWITCH') {
                     statusBadge = '<span class="badge badge-warning">🛑 Annulé (Kill-Switch)</span>';
+                } else if (p.status === 'EXPIRED') {
+                    statusBadge = '<span class="badge" style="background: rgba(100,116,139,0.2); color: #94a3b8; font-size: 0.7rem;">⏳ Expiré / Nettoyé</span>';
+                } else if (p.status === 'EXECUTION_FAILED') {
+                    statusBadge = '<span class="badge badge-danger">⚠️ Échec d\'exécution</span>';
                 }
 
-                const dateStr = p.updated_at || p.created_at || '';
+                const dateStrRaw = p.updated_at || p.created_at || '';
+                const dateStr = dateStrRaw ? new Date(dateStrRaw).toLocaleString('fr-FR', {timeZone: 'Europe/Paris', hour12: false}) + ' (Paris)' : '';
 
                 html += `
                     <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
                         <div>
                             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
                                 <strong style="font-size: 1rem; color: #60a5fa;">${p.symbol}</strong>
-                                <span class="badge" style="background: rgba(255,255,255,0.05); font-size: 0.7rem;">${p.strategy_type || 'Mean Reversion'}</span>
+                                <span class="badge" style="background: rgba(255,255,255,0.05); font-size: 0.7rem;">Algo: ${p.strategy_type || 'Mean Reversion'}</span>
                                 ${statusBadge}
-                                <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 0.5rem;">${dateStr}</span>
+                                <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 0.5rem;">🕒 ${dateStr}</span>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);">
                                 Entrée : <strong>${p.entry_price} ${currSymbol}</strong> | Qty : <strong>${p.quantity}</strong> | Nomine : <strong>${Number(p.nominal_invested || 0).toFixed(2)} ${currSymbol}</strong> | SL : <strong>${p.stop_loss_price} ${currSymbol}</strong> | TP1 : <strong>${p.tp1_price} ${currSymbol}</strong> | TP2 : <strong>${p.tp2_price} ${currSymbol}</strong>
                             </div>
                             ${p.rejection_reason ? `<div style="font-size: 0.72rem; color: #f87171; margin-top: 0.25rem;">Motif : ${p.rejection_reason}</div>` : ''}
                             ${p.last_execution_error ? `<div style="font-size: 0.72rem; color: #f87171; margin-top: 0.25rem;">Erreur : ${p.last_execution_error}</div>` : ''}
+                        </div>
+                        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                            <button class="btn btn-sm btn-secondary" onclick="openTradeReviewModal('${p.id}', 'ROBOT', '${p.symbol}')" style="padding:4px 8px; font-size:12px;">📝 A-to-C Game</button>
                         </div>
                     </div>
                 `;
@@ -5691,7 +5991,7 @@
                         fb.style.display = 'block';
                         fb.style.background = 'rgba(16, 185, 129, 0.15)';
                         fb.style.color = '#34d399';
-                        fb.textContent = `✅ Enveloppes enregistrées et persistées en Base de Données Cloud (Supabase) ! (EUR ${ceilEur}€ | USD ${ceilUsd}$)`;
+                        fb.textContent = `✅ Enveloppes enregistrées et persistées en Base de Données ! (EUR ${ceilEur}€ | USD ${ceilUsd}$)`;
                     }
                     alert(`✅ Enveloppes et garde-fous enregistrés avec succès dans Supabase ! \n• Enveloppe EUR : ${ceilEur} €\n• Enveloppe USD : ${ceilUsd} $\n• Risque max (R-Max) : ${rmax}%\n• Allocation max / ligne : ${alloc}%`);
                     setTimeout(() => {
@@ -6476,7 +6776,8 @@
                         ${durDays} j
                     </td>
                     <td>${auditBadge}</td>
-                    <td style="text-align: right; white-space: nowrap;">
+                    <td style="text-align: right; white-space: nowrap; display: flex; gap: 0.3rem;">
+                        <button class="btn btn-secondary" style="font-size:0.72rem; padding:0.22rem 0.5rem;" onclick="openTradeReviewModal('${t.id}', 'JOURNAL', '${t.symbol}')" title="A-to-C Game Review">📝</button>
                         <button class="btn btn-secondary" style="font-size:0.72rem; padding:0.22rem 0.5rem;" onclick="openTradeAuditModal('${t.id || ''}')" title="Voir l'audit protocole détaillé">🔬 Audit</button>
                     </td>
                 `;
@@ -7243,6 +7544,9 @@
                     </td>
                     <td style="text-align: right;">
                         <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                            <button class="btn btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="openTradeReviewModal('${p.id}', 'PORTFOLIO', '${p.symbol}')" title="A-to-C Game Review">
+                                📝
+                            </button>
                             <button class="btn btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="showTickerDetail('${p.symbol}')" title="Voir le rapport en 8 étapes">
                                 🔍
                             </button>
@@ -8428,7 +8732,7 @@
                     showModalFeedback(`✅ ${payload.message}`, "var(--success)");
                     setTimeout(() => {
                         closeAddStockModal();
-                        runWatchlistScan(true); // Force le rafraîchissement depuis Supabase/BDD
+                        runWatchlistScan(true); // Force le rafraîchissement depuis la BDD
                         if (payload.data) {
                             showTickerDetail(ticker);
                         }
@@ -9809,7 +10113,7 @@
                     category: category,
                     sharia: sharia,
                     signal_only: signalOnly ? 'true' : 'false',
-                    limit: '50'
+                    limit: '10'
                 });
                 if (force) params.append('force', 'true');
 
@@ -10262,7 +10566,7 @@
             }
 
             try {
-                const res = await fetchJsonSafely(`${API_URL}/watchlist`, {
+                const res = await fetchJsonSafely(`${API_URL}/watchlist/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ticker: symbol, is_active: true })
@@ -10272,7 +10576,7 @@
                     btn.className = 'btn btn-secondary';
                     btn.innerHTML = '✅ Ajoutée';
                 }
-                alert(`✅ L'action ${symbol} a été ajoutée avec succès à votre Watchlist (Base de données Supabase) !`);
+                alert(`✅ L'action ${symbol} a été ajoutée avec succès à votre Watchlist (Base de données locale) !`);
             } catch (err) {
                 console.error("Erreur quickAddFromScreenerToWatchlist:", err);
                 if (btn) {
@@ -10299,13 +10603,501 @@
                     .catch(err => console.log('⚠️ PWA Service Worker non enregistré:', err));
             });
         }
+        // --- ROBOT LOGS FETCH ---
+        
+        async function askJEV(symbol) {
+            try {
+                // Find button and show loading state
+                const btns = document.querySelectorAll(`button[onclick="askJEV('${symbol}')"]`);
+                btns.forEach(b => { b.disabled = true; b.innerHTML = "⏳ Analyse..."; });
+                
+                const res = await fetch(`/api/jev/analyze/${symbol}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`[🤖 Avis JEV pour ${symbol}]
+Régime : ${data.jev.regime} (${data.jev.regime_conf}%)
+Setup : ${data.jev.setup_label} (${data.jev.setup_score}/3)
+Swing : ${data.jev.swing_prob}% favorable`);
+                } else {
+                    alert(`Erreur JEV : ${data.error}`);
+                }
+            } catch (e) {
+                alert(`Erreur connexion JEV : ${e}`);
+            } finally {
+                const btns = document.querySelectorAll(`button[onclick="askJEV('${symbol}')"]`);
+                btns.forEach(b => { b.disabled = false; b.innerHTML = "🤖 Avis JEV"; });
+            }
+        }
+
+        async function loadRobotLogs() {
+            const tbody = document.querySelector('#robot-logs-table tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Chargement...</td></tr>';
+            try {
+                const response = await fetch('/api/robot/logs');
+                const result = await response.json();
+                if (result.status === 'success') {
+                    tbody.innerHTML = '';
+                    if (result.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Aucun log trouvé (ou la dernière exécution n\'a rien généré).</td></tr>';
+                        return;
+                    }
+                    result.data.forEach(log => {
+                        const tr = document.createElement('tr');
+                        const dateObj = new Date(log.created_at);
+                        const date = dateObj.toLocaleString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        }) + ' (Paris)';
+                        let badgeClass = 'badge-neutral';
+                        if (log.verdict && log.verdict.includes('ACHAT')) badgeClass = 'badge-success';
+                        else if (log.verdict && log.verdict.includes('ATTENDRE')) badgeClass = 'badge-warning';
+                        else if (log.verdict && log.verdict.includes('ÉVITER')) badgeClass = 'badge-danger';
+                        
+                        let actionPlanHTML = (log.action_plan || '-').replace(/\n/g, '<br>');
+                        
+                        tr.innerHTML = `
+                            <td>${date}</td>
+                            <td><span class="symbol-badge">${log.symbol || ''}</span></td>
+                            <td>${log.company_name || '-'}</td>
+                            <td><span class="badge ${badgeClass}">${log.verdict || '-'}</span></td>
+                            <td>${log.confluence_score || 0}/10</td>
+                            <td class="${log.drop_pct < -3 ? 'text-danger' : ''}">${log.drop_pct ? parseFloat(log.drop_pct).toFixed(2) + '%' : '-'}</td>
+                            <td>${log.rsi ? parseFloat(log.rsi).toFixed(2) : '-'}</td>
+                            <td style="max-width: 300px; white-space: normal; font-size: 0.85em; opacity: 0.8;">${actionPlanHTML}</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" onclick="openTradeReviewModal('${log.id}', 'SCANNER', '${log.symbol}')" style="padding:4px 8px; font-size:12px; margin-bottom:4px; display:block;">📝 A-to-C Game</button>
+                                ${!log.executed_at ? `<button class="btn btn-sm" onclick="markSignalExecuted('${log.id}')" style="background:#10b981; color:white; padding:4px 8px; font-size:12px; border:none; display:block;">Pris !</button>` : `<span class="badge badge-success" style="font-size:10px;">Exécuté</span>`}
+                                ${log.verdict !== 'ACHAT VALIDÉ' ? `<button class="btn btn-sm" onclick="askJEV('${log.symbol}')" style="background:#6366f1; color:white; padding:4px 8px; font-size:12px; border:none; display:block; margin-top:4px;">🤖 Avis JEV</button>` : ''}
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--danger);">Erreur : ${result.message}</td></tr>`;
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--danger);">Erreur de connexion : ${err.message}</td></tr>`;
+            }
+        }
+        async function loadMonitoringData() {
+            try {
+                // Fetch Health
+                document.getElementById('monitoring-health').innerText = "Chargement...";
+                const healthRes = await fetch('/api/monitoring/health');
+                const healthData = await healthRes.json();
+                document.getElementById('monitoring-health').innerText = JSON.stringify(healthData.db, null, 2) + "\n" + JSON.stringify(healthData.metrics, null, 2);
+
+                // Fetch Compliance
+                document.getElementById('monitoring-compliance').innerHTML = "Chargement...";
+                const compRes = await fetch('/api/monitoring/compliance');
+                const compData = await compRes.json();
+                if(compData.status === 'success') {
+                    let html = '<ul style="list-style:none; padding:0; margin:0;">';
+                    compData.data.forEach(item => {
+                        const color = item.status === 'pass' ? '#10b981' : (item.status === 'error' ? '#f59e0b' : '#ef4444');
+                        const icon = item.status === 'pass' ? '✅' : '❌';
+                        html += `<li style="margin-bottom:0.5rem; padding: 0.5rem; background: rgba(255,255,255,0.02); border-left: 4px solid ${color};">
+                                    <strong>${icon} ${item.rule}</strong><br>
+                                    <span style="font-size:0.85em; color:var(--text-muted);">${item.details}</span>
+                                 </li>`;
+                    });
+                    html += '</ul>';
+                    document.getElementById('monitoring-compliance').innerHTML = html;
+                } else {
+                    document.getElementById('monitoring-compliance').innerText = "Erreur: " + compData.message;
+                }
+
+                // Fetch Logs
+                document.getElementById('monitoring-logs').innerText = "Chargement...";
+                const logsRes = await fetch('/api/monitoring/logs');
+                const logsData = await logsRes.json();
+                document.getElementById('monitoring-logs').innerText = logsData.data || "Aucun log reçu.";
+            } catch (e) {
+                document.getElementById('monitoring-health').innerText = "Erreur de connexion";
+                document.getElementById('monitoring-compliance').innerText = "Erreur de connexion";
+                document.getElementById('monitoring-logs').innerText = "Erreur de connexion : " + e.message;
+            }
+        }
+
+        // ==========================================
+        // TRADE REVIEWS LOGIC
+        // ==========================================
+        async function openTradeReviewModal(refId, refType, symbol) {
+            document.getElementById('review-ref-id').value = refId;
+            document.getElementById('review-ref-type').value = refType;
+            document.getElementById('review-symbol').value = symbol || '';
+            
+            document.getElementById('trade-review-form').reset();
+            document.getElementById('trade-review-modal').classList.add('active');
+            
+            try {
+                const res = await fetch(`/api/reviews/${refType}/${refId}`);
+                const data = await res.json();
+                if (data.success && data.review) {
+                    const rev = data.review;
+                    document.getElementById('review-focus').value = rev.focus_level || '';
+                    document.getElementById('review-fomo').value = rev.fomo_level || '';
+                    document.getElementById('review-fear').value = rev.execution_fear_level || '';
+                    document.getElementById('review-pnl-focus').value = rev.pnl_focus_level || '';
+                    document.getElementById('review-trigger').value = rev.trigger_note || '';
+                    document.getElementById('review-thoughts').value = rev.thoughts || '';
+                    document.getElementById('review-emotions').value = rev.emotions || '';
+                    document.getElementById('review-behaviors').value = rev.behaviors || '';
+                    document.getElementById('review-actions').value = rev.actions_note || '';
+                    document.getElementById('review-mistakes').value = rev.mistakes || '';
+                }
+            } catch (err) {
+                console.error("Error loading review:", err);
+            }
+        }
+        
+        function closeTradeReviewModal() {
+            document.getElementById('trade-review-modal').classList.remove('active');
+        }
+        
+        async function submitTradeReview(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            const btn = document.getElementById('btn-save-review');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> Sauvegarde...';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/reviews/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast("success", "Revue enregistrée avec succès");
+                    closeTradeReviewModal();
+                } else {
+                    showToast("error", "Erreur: " + result.error);
+                }
+            } catch (err) {
+                showToast("error", "Erreur de connexion");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+        
+        async function markSignalExecuted(signalId) {
+            if(!confirm("Marquer ce signal comme pris (Exécuté) ?")) return;
+            
+            try {
+                const res = await fetch(`/api/scanner/${signalId}/execute`, { method: 'POST' });
+                const result = await res.json();
+                if (result.success) {
+                    showToast("success", "Signal marqué comme exécuté !");
+                    if (typeof loadRobotLogs === "function") loadRobotLogs();
+                } else {
+                    showToast("error", "Erreur: " + result.error);
+                }
+            } catch (err) {
+                showToast("error", "Erreur de connexion");
+            }
+        }
+
+
+        async function loadPaperTradingData() {
+            try {
+                const response = await fetch('/api/paper/data');
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error("Paper Trading API error:", data.error);
+                    return;
+                }
+
+                // Stats
+                document.getElementById('paper-balance-eur').textContent = parseFloat(data.account.balance_eur || 0).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'});
+                document.getElementById('paper-balance-usd').textContent = parseFloat(data.account.balance_usd || 0).toLocaleString('en-US', {style: 'currency', currency: 'USD'});
+                document.getElementById('paper-open-count').textContent = data.active_positions ? data.active_positions.length : 0;
+                
+                // Helper pour formater les dates
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return "-";
+                    return new Date(dateStr).toLocaleString('fr-FR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                };
+                
+                // Health Check
+                if (data.health) {
+                    const healthStatusEl = document.getElementById('paper-health-status');
+                    const healthTimeEl = document.getElementById('paper-health-time');
+                    const healthCard = document.getElementById('paper-health-card');
+                    
+                    if (data.health.last_execution) {
+                        const lastExecDate = new Date(data.health.last_execution);
+                        const now = new Date();
+                        const diffMs = now - lastExecDate;
+                        const diffMins = Math.floor(diffMs / 60000);
+                        const diffHours = Math.floor(diffMins / 60);
+                        
+                        let timeStr = "";
+                        if (diffMins < 60) {
+                            timeStr = `Il y a ${diffMins} min`;
+                        } else if (diffHours < 24) {
+                            timeStr = `Il y a ${diffHours} h et ${diffMins % 60} min`;
+                        } else {
+                            const diffDays = Math.floor(diffHours / 24);
+                            timeStr = `Il y a ${diffDays} j`;
+                        }
+                        
+                        healthTimeEl.textContent = timeStr;
+                        
+                        // Si l'exécution date de plus de 4 heures, c'est peut être en erreur (ou marchés fermés)
+                        if (diffHours > 4) {
+                            healthStatusEl.innerHTML = '⚠️ En pause (ou marché fermé)';
+                            healthStatusEl.style.color = 'var(--warning)';
+                            healthCard.style.borderLeftColor = 'var(--warning)';
+                        } else {
+                            healthStatusEl.innerHTML = '✅ Opérationnel';
+                            healthStatusEl.style.color = 'var(--success)';
+                            healthCard.style.borderLeftColor = 'var(--success)';
+                        }
+                    } else {
+                        healthStatusEl.innerHTML = '⏳ En attente du 1er scan';
+                        healthTimeEl.textContent = '-';
+                    }
+                }
+                
+                const formatStatus = (status) => {
+                    if (status === 'OPEN') return '<span class="badge badge-primary">OUVERT</span>';
+                    if (status === 'TP1_HIT') return '<span class="badge badge-success">TP1 TOUCHÉ</span>';
+                    if (status === 'CLOSED') return '<span class="badge badge-success">CLÔTURÉ (TP)</span>';
+                    if (status === 'STOPPED') return '<span class="badge badge-danger">STOP-LOSS</span>';
+                    return `<span class="badge badge-neutral">${status}</span>`;
+                };
+
+                // Table Active
+                const activeTbody = document.getElementById('paper-active-table');
+                if (!data.active_positions || data.active_positions.length === 0) {
+                    activeTbody.innerHTML = '<tr><td colspan="11" class="text-center" style="padding: 2rem; color: var(--text-muted);">Aucune position paper trading active</td></tr>';
+                } else {
+                    activeTbody.innerHTML = data.active_positions.map(p => `
+                        <tr>
+                            <td><a href="/stock/${p.symbol}" target="_blank" style="color: var(--accent-primary); font-weight: 600;">${p.symbol}</a></td>
+                            <td>${formatStatus(p.status)}</td>
+                            <td>${parseFloat(p.entry_price).toFixed(2)} ${p.currency}</td>
+                            <td>${parseFloat(p.quantity).toFixed(4)}</td>
+                            <td>${parseFloat(p.nominal_invested).toFixed(2)} ${p.currency}</td>
+                            <td style="color: var(--danger);">${p.stop_loss_price ? parseFloat(p.stop_loss_price).toFixed(2) : '-'}</td>
+                            <td style="color: var(--success);">${p.tp1_price ? parseFloat(p.tp1_price).toFixed(2) : '-'}</td>
+                            <td style="color: var(--success);">${p.tp2_price ? parseFloat(p.tp2_price).toFixed(2) : '-'}</td>
+                            <td class="${parseFloat(p.realized_pnl) >= 0 ? 'text-success' : 'text-danger'}">${parseFloat(p.realized_pnl || 0).toFixed(2)} ${p.currency}</td>
+                            <td>${formatDate(p.created_at)}</td>
+                            <td>
+                                <a href="/proposal/${p.proposal_id}" target="_blank" class="btn btn-primary" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">Détails</a>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Table History
+                const historyTbody = document.getElementById('paper-history-table');
+                if (!data.history || data.history.length === 0) {
+                    historyTbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding: 2rem; color: var(--text-muted);">Aucun historique de paper trading</td></tr>';
+                } else {
+                    historyTbody.innerHTML = data.history.map(p => `
+                        <tr>
+                            <td><a href="/stock/${p.symbol}" target="_blank" style="color: var(--text-main); font-weight: 600;">${p.symbol}</a></td>
+                            <td>${formatStatus(p.status)}</td>
+                            <td>${parseFloat(p.entry_price).toFixed(2)} ${p.currency}</td>
+                            <td>${parseFloat(p.quantity).toFixed(4)}</td>
+                            <td>${parseFloat(p.nominal_invested).toFixed(2)} ${p.currency}</td>
+                            <td class="${parseFloat(p.realized_pnl) >= 0 ? 'text-success' : 'text-danger'}" style="font-weight: bold;">
+                                ${parseFloat(p.realized_pnl) > 0 ? '+' : ''}${parseFloat(p.realized_pnl || 0).toFixed(2)} ${p.currency}
+                            </td>
+                            <td>${formatDate(p.closed_at)}</td>
+                            <td>
+                                <a href="/proposal/${p.proposal_id}" target="_blank" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">Plan</a>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                // --- JOURNAL & STATS ---
+                let totalPnl = 0;
+                let wins = 0;
+                let losses = 0;
+                
+                const chronHistory = data.history ? [...data.history].reverse() : [];
+                
+                let capital = 16000;
+                const chartLabels = ["Départ"];
+                const chartData = [capital];
+                
+                chronHistory.forEach((p) => {
+                    const pnl = parseFloat(p.realized_pnl || 0);
+                    // Conversion simple si c'est en USD pour la courbe (approx. pour le graphique)
+                    let pnl_eur = pnl;
+                    if (p.currency === 'USD') pnl_eur = pnl * 0.92;
+                    
+                    totalPnl += pnl_eur;
+                    if (pnl > 0) wins++;
+                    else if (pnl < 0) losses++;
+                    
+                    capital += pnl_eur;
+                    chartLabels.push(new Date(p.closed_at).toLocaleDateString('fr-FR'));
+                    chartData.push(capital.toFixed(2));
+                });
+                
+                const winrate = (wins + losses) > 0 ? (wins / (wins + losses) * 100).toFixed(1) : 0;
+                
+                const pnlEl = document.getElementById('paper-journal-pnl');
+                pnlEl.textContent = (totalPnl > 0 ? '+' : '') + totalPnl.toFixed(2) + " €";
+                pnlEl.style.color = totalPnl >= 0 ? 'var(--success)' : 'var(--danger)';
+                document.getElementById('paper-journal-winrate').textContent = winrate + "%";
+                document.getElementById('paper-journal-wins').textContent = wins;
+                document.getElementById('paper-journal-losses').textContent = losses;
+                
+                if (window.paperChartInstance) {
+                    window.paperChartInstance.destroy();
+                }
+                
+                const ctx = document.getElementById('paperCapitalChart').getContext('2d');
+                window.paperChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'Évolution du Capital (€)',
+                            data: chartData,
+                            borderColor: totalPnl >= 0 ? '#10b981' : '#ef4444',
+                            backgroundColor: totalPnl >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: { display: true, ticks: { color: '#94a3b8' }, grid: { display: false } },
+                            y: { display: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error("Erreur de chargement Paper Trading:", e);
+            }
+        }
     </script>
+
+
+    <!-- ===================================================================== -->
+    <!-- MODAL : TRADE REVIEW (A to C Game) -->
+    <!-- ===================================================================== -->
+    <div class="modal-overlay" id="trade-review-modal">
+        <div class="modal-box" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <h3 style="font-size: 1.15rem; font-weight: 700; font-family: 'Outfit', sans-serif; margin: 0;">📝 Journal de Trade (A to C Game)</h3>
+                </div>
+                <button class="modal-close" onclick="closeTradeReviewModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1.25rem;">
+                <form id="trade-review-form" onsubmit="submitTradeReview(event)">
+                    <input type="hidden" id="review-ref-id" name="reference_id">
+                    <input type="hidden" id="review-ref-type" name="reference_type">
+                    <input type="hidden" id="review-symbol" name="symbol">
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Focus (A-B-C)</label>
+                            <select class="input" id="review-focus" name="focus_level" style="width: 100%;">
+                                <option value=""></option>
+                                <option value="A-Game">A-Game (Optimal)</option>
+                                <option value="B-Game">B-Game (Moyen)</option>
+                                <option value="C-Game">C-Game (Mauvais)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">FOMO (A-B-C)</label>
+                            <select class="input" id="review-fomo" name="fomo_level" style="width: 100%;">
+                                <option value=""></option>
+                                <option value="A-Game">A-Game (Aucun)</option>
+                                <option value="B-Game">B-Game (Léger)</option>
+                                <option value="C-Game">C-Game (Fort)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Peur d'Exécution (A-B-C)</label>
+                            <select class="input" id="review-fear" name="execution_fear_level" style="width: 100%;">
+                                <option value=""></option>
+                                <option value="A-Game">A-Game (Aucune)</option>
+                                <option value="B-Game">B-Game (Légère)</option>
+                                <option value="C-Game">C-Game (Forte)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Focus sur PnL (A-B-C)</label>
+                            <select class="input" id="review-pnl-focus" name="pnl_focus_level" style="width: 100%;">
+                                <option value=""></option>
+                                <option value="A-Game">A-Game (Détaché)</option>
+                                <option value="B-Game">B-Game (Distrait)</option>
+                                <option value="C-Game">C-Game (Obsédé)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Déclencheur (Trigger)</label>
+                        <textarea class="input" id="review-trigger" name="trigger_note" rows="2" style="width: 100%; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Pensées (Thoughts)</label>
+                        <textarea class="input" id="review-thoughts" name="thoughts" rows="2" style="width: 100%; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Émotions (Emotions)</label>
+                        <textarea class="input" id="review-emotions" name="emotions" rows="2" style="width: 100%; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Comportements (Behaviors)</label>
+                        <textarea class="input" id="review-behaviors" name="behaviors" rows="2" style="width: 100%; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Actions à prendre</label>
+                        <textarea class="input" id="review-actions" name="actions_note" rows="2" style="width: 100%; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;">Erreurs identifiées</label>
+                        <textarea class="input" id="review-mistakes" name="mistakes" rows="2" style="width: 100%; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="closeTradeReviewModal()">Annuler</button>
+                        <button type="submit" class="btn btn-primary" id="btn-save-review">Enregistrer la revue</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- BOTTOM NAVIGATION BAR (AFFICHAGE MOBILE / SMARTPHONE UNIQUE) -->
     <nav class="mobile-bottom-nav">
         <button class="mobile-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
             <span class="mobile-nav-icon">📊</span>
             <span class="mobile-nav-label">Scanner</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="paper" onclick="switchTab('paper')">
+            <span class="mobile-nav-icon">🪂</span>
+            <span class="mobile-nav-label">Paper</span>
         </button>
         <button class="mobile-nav-item" data-tab="screener" onclick="switchTab('screener')">
             <span class="mobile-nav-icon">🔍</span>
@@ -10314,6 +11106,14 @@
         <button class="mobile-nav-item" data-tab="robot" onclick="switchTab('robot')">
             <span class="mobile-nav-icon">🤖</span>
             <span class="mobile-nav-label">Robot</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="robot-logs" onclick="switchTab('robot-logs')">
+            <span class="mobile-nav-icon">📜</span>
+            <span class="mobile-nav-label">Logs</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="monitoring" onclick="switchTab('monitoring')">
+            <span class="mobile-nav-icon">🖥️</span>
+            <span class="mobile-nav-label">Monitoring</span>
         </button>
         <button class="mobile-nav-item" data-tab="portfolio" onclick="switchTab('portfolio')">
             <span class="mobile-nav-icon">💼</span>
