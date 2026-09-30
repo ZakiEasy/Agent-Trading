@@ -26,12 +26,12 @@ NUM_BARS = 200
 SEED = 42
 
 # Strategy parameters
-FIXED_STOP_PCT = 0.10          # 10% fixed stop loss
-ATR_TRAIL_MULT = 2.5           # ATR multiplier for trailing
-ATR_PERIOD = 14                # ATR lookback
-EMA_PERIOD = 20                # EMA trailing period
-EMA_CONSEC = 2                 # Consecutive closes below EMA
-TIME_STOP_BARS = 50            # Max bars before time stop
+FIXED_STOP_PCT = 0.10  # 10% fixed stop loss
+ATR_TRAIL_MULT = 2.5  # ATR multiplier for trailing
+ATR_PERIOD = 14  # ATR lookback
+EMA_PERIOD = 20  # EMA trailing period
+EMA_CONSEC = 2  # Consecutive closes below EMA
+TIME_STOP_BARS = 50  # Max bars before time stop
 SCALED_TARGETS_RR = [2.0, 3.0, 5.0]  # R:R for scaled exits
 SCALED_SELL_PCTS = [0.25, 0.25, 0.25]  # 25% at each target, 25% trails
 
@@ -66,12 +66,14 @@ def generate_price_series(
     opens = np.roll(closes, 1)
     opens[0] = entry
 
-    df = pd.DataFrame({
-        "open": opens,
-        "high": highs,
-        "low": lows,
-        "close": closes,
-    })
+    df = pd.DataFrame(
+        {
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": closes,
+        }
+    )
 
     # Calculate ATR
     tr1 = df["high"] - df["low"]
@@ -391,8 +393,11 @@ def run_scenario(
         fixed_stop_loss(df, ENTRY_PRICE, FIXED_STOP_PCT),
         atr_trailing_stop(df, ENTRY_PRICE, ATR_TRAIL_MULT),
         scaled_exits(
-            df, ENTRY_PRICE, stop_for_scaled,
-            SCALED_TARGETS_RR, SCALED_SELL_PCTS,
+            df,
+            ENTRY_PRICE,
+            stop_for_scaled,
+            SCALED_TARGETS_RR,
+            SCALED_SELL_PCTS,
         ),
         ema_trailing(df, ENTRY_PRICE, EMA_CONSEC),
         time_stop(df, ENTRY_PRICE, TIME_STOP_BARS),

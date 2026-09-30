@@ -149,11 +149,13 @@ def calculate_rr_targets(
     for ratio in ratios:
         tp_price = entry_price + (risk_per_unit * ratio)
         gain_pct = (tp_price - entry_price) / entry_price * 100
-        targets.append({
-            "ratio": f"{ratio:.0f}:1",
-            "price": tp_price,
-            "gain_pct": round(gain_pct, 2),
-        })
+        targets.append(
+            {
+                "ratio": f"{ratio:.0f}:1",
+                "price": tp_price,
+                "gain_pct": round(gain_pct, 2),
+            }
+        )
     return targets
 
 
@@ -204,9 +206,7 @@ def print_sizing_table(stops: list[dict]) -> None:
     print(f"  {'-' * 72}")
 
     for s in stops:
-        sizing = calculate_position_size(
-            ACCOUNT_SIZE, RISK_PCT, s["risk_per_unit"]
-        )
+        sizing = calculate_position_size(ACCOUNT_SIZE, RISK_PCT, s["risk_per_unit"])
         print(
             f"  {s['method']:<14} "
             f"{sizing['risk_amount_sol']:>11.6f} "
@@ -232,9 +232,7 @@ def print_rr_table(stops: list[dict]) -> None:
     print(f"  {'-' * 72}")
 
     for s in stops:
-        targets = calculate_rr_targets(
-            ENTRY_PRICE, s["risk_per_unit"], RR_RATIOS
-        )
+        targets = calculate_rr_targets(ENTRY_PRICE, s["risk_per_unit"], RR_RATIOS)
         line = f"  {s['method']:<14}"
         for t in targets:
             line += f" {t['price']:>10.8f}  "
@@ -254,9 +252,15 @@ def print_quick_reference() -> None:
     print(f"\n  QUICK REFERENCE")
     print(f"  {'-' * 60}")
     print(f"  Rule of thumb for stop distance:")
-    print(f"    Scalp:     1.0-1.5× ATR = {ATR_VALUE * 1.0:.8f} - {ATR_VALUE * 1.5:.8f}")
-    print(f"    Day trade: 1.5-2.0× ATR = {ATR_VALUE * 1.5:.8f} - {ATR_VALUE * 2.0:.8f}")
-    print(f"    Swing:     2.0-3.0× ATR = {ATR_VALUE * 2.0:.8f} - {ATR_VALUE * 3.0:.8f}")
+    print(
+        f"    Scalp:     1.0-1.5× ATR = {ATR_VALUE * 1.0:.8f} - {ATR_VALUE * 1.5:.8f}"
+    )
+    print(
+        f"    Day trade: 1.5-2.0× ATR = {ATR_VALUE * 1.5:.8f} - {ATR_VALUE * 2.0:.8f}"
+    )
+    print(
+        f"    Swing:     2.0-3.0× ATR = {ATR_VALUE * 2.0:.8f} - {ATR_VALUE * 3.0:.8f}"
+    )
     print()
     print(f"  Maximum position size guidelines:")
     print(f"    Conservative: risk 1% = {ACCOUNT_SIZE * 0.01:.4f} SOL")
@@ -288,13 +292,9 @@ def main() -> None:
     print_header()
 
     # Calculate all stops
-    fixed_stops = [
-        calculate_fixed_stop(ENTRY_PRICE, pct)
-        for pct in FIXED_STOP_PCTS
-    ]
+    fixed_stops = [calculate_fixed_stop(ENTRY_PRICE, pct) for pct in FIXED_STOP_PCTS]
     atr_stops = [
-        calculate_atr_stop(ENTRY_PRICE, ATR_VALUE, mult)
-        for mult in ATR_MULTIPLIERS
+        calculate_atr_stop(ENTRY_PRICE, ATR_VALUE, mult) for mult in ATR_MULTIPLIERS
     ]
 
     all_stops = fixed_stops + atr_stops

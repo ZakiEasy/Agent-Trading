@@ -30,6 +30,7 @@ import pandas as pd
 
 # ── Configuration ───────────────────────────────────────────────────
 
+
 @dataclasses.dataclass
 class WalkForwardConfig:
     """Configuration for walk-forward validation.
@@ -93,6 +94,7 @@ class FoldResult:
 
 # ── Walk-Forward Splitter ───────────────────────────────────────────
 
+
 class WalkForwardValidator:
     """Walk-forward validation splitter with purging and embargo."""
 
@@ -130,11 +132,11 @@ class WalkForwardValidator:
             Fold objects with train and test indices.
         """
         cfg = self.config
-        min_required = cfg.train_size + cfg.purge_size + cfg.embargo_size + cfg.test_size
+        min_required = (
+            cfg.train_size + cfg.purge_size + cfg.embargo_size + cfg.test_size
+        )
         if n_samples < min_required:
-            raise ValueError(
-                f"Need at least {min_required} samples, got {n_samples}"
-            )
+            raise ValueError(f"Need at least {min_required} samples, got {n_samples}")
 
         fold_idx = 0
         offset = 0
@@ -182,6 +184,7 @@ class WalkForwardValidator:
 
 
 # ── Metrics ─────────────────────────────────────────────────────────
+
 
 def compute_sharpe(returns: np.ndarray, annualization: float = 365.0) -> float:
     """Compute annualized Sharpe ratio from a returns array.
@@ -231,6 +234,7 @@ def compute_hit_rate(predictions: np.ndarray, actuals: np.ndarray) -> float:
 
 # ── Demo Strategy ───────────────────────────────────────────────────
 
+
 def generate_synthetic_prices(
     n_bars: int = 500,
     seed: int = 42,
@@ -268,11 +272,13 @@ def generate_synthetic_prices(
     prices = base_price * np.cumprod(1.0 + returns)
     dates = pd.date_range("2024-01-01", periods=n_bars, freq="D")
 
-    return pd.DataFrame({
-        "date": dates,
-        "close": prices,
-        "returns": returns,
-    })
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "close": prices,
+            "returns": returns,
+        }
+    )
 
 
 def sma_crossover_signals(
@@ -335,7 +341,9 @@ def run_walk_forward(
         # We need lookback prices before test period for SMA computation
         lookback_start = max(0, fold.test_indices[0] - slow_period)
         extended_prices = prices[lookback_start : fold.test_indices[-1] + 1]
-        extended_signals = sma_crossover_signals(extended_prices, fast_period, slow_period)
+        extended_signals = sma_crossover_signals(
+            extended_prices, fast_period, slow_period
+        )
 
         # Extract only the test portion of signals
         test_offset = fold.test_indices[0] - lookback_start
@@ -355,7 +363,9 @@ def run_walk_forward(
             train_return=float(np.sum(train_strat_returns)),
             test_return=float(np.sum(test_strat_returns)),
             test_max_drawdown=compute_max_drawdown(test_strat_returns),
-            test_hit_rate=compute_hit_rate(test_signals[valid_test], test_returns[valid_test]),
+            test_hit_rate=compute_hit_rate(
+                test_signals[valid_test], test_returns[valid_test]
+            ),
             n_train=int(np.sum(valid_train)),
             n_test=int(np.sum(valid_test)),
         )
@@ -365,6 +375,7 @@ def run_walk_forward(
 
 
 # ── Display ─────────────────────────────────────────────────────────
+
 
 def print_results(results: list[FoldResult], config: WalkForwardConfig) -> None:
     """Print walk-forward validation results.
@@ -386,8 +397,10 @@ def print_results(results: list[FoldResult], config: WalkForwardConfig) -> None:
     print()
 
     # Per-fold table
-    print(f"{'Fold':>4} {'Train SR':>10} {'Test SR':>10} {'Test Ret':>10} "
-          f"{'Test MDD':>10} {'Hit Rate':>10}")
+    print(
+        f"{'Fold':>4} {'Train SR':>10} {'Test SR':>10} {'Test Ret':>10} "
+        f"{'Test MDD':>10} {'Hit Rate':>10}"
+    )
     print("-" * 60)
     for r in results:
         print(
@@ -432,6 +445,7 @@ def print_results(results: list[FoldResult], config: WalkForwardConfig) -> None:
 
 # ── Main ────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     """Entry point for walk-forward validation."""
     parser = argparse.ArgumentParser(
@@ -442,9 +456,15 @@ def main() -> None:
         action="store_true",
         help="Run demo with synthetic price data and SMA crossover strategy.",
     )
-    parser.add_argument("--train-size", type=int, default=90, help="Training window size (bars).")
-    parser.add_argument("--test-size", type=int, default=14, help="Test window size (bars).")
-    parser.add_argument("--step-size", type=int, default=14, help="Step size between folds (bars).")
+    parser.add_argument(
+        "--train-size", type=int, default=90, help="Training window size (bars)."
+    )
+    parser.add_argument(
+        "--test-size", type=int, default=14, help="Test window size (bars)."
+    )
+    parser.add_argument(
+        "--step-size", type=int, default=14, help="Step size between folds (bars)."
+    )
     parser.add_argument(
         "--window-type",
         choices=["rolling", "expanding"],
@@ -453,7 +473,9 @@ def main() -> None:
     )
     parser.add_argument("--purge", type=int, default=1, help="Purge size (bars).")
     parser.add_argument("--embargo", type=int, default=3, help="Embargo size (bars).")
-    parser.add_argument("--n-bars", type=int, default=500, help="Number of synthetic bars (demo).")
+    parser.add_argument(
+        "--n-bars", type=int, default=500, help="Number of synthetic bars (demo)."
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed (demo).")
 
     args = parser.parse_args()
@@ -468,7 +490,9 @@ def main() -> None:
 
     print("Generating synthetic price data...")
     df = generate_synthetic_prices(n_bars=args.n_bars, seed=args.seed)
-    print(f"  {len(df)} daily bars from {df['date'].iloc[0].date()} to {df['date'].iloc[-1].date()}")
+    print(
+        f"  {len(df)} daily bars from {df['date'].iloc[0].date()} to {df['date'].iloc[-1].date()}"
+    )
     print(f"  Price range: {df['close'].min():.2f} – {df['close'].max():.2f}")
     print()
 

@@ -40,9 +40,7 @@ def cagr(equity: pd.Series) -> float:
     return float((equity.iloc[-1] / equity.iloc[0]) ** (365.25 / days) - 1)
 
 
-def annualized_volatility(
-    returns: pd.Series, periods_per_year: int = 252
-) -> float:
+def annualized_volatility(returns: pd.Series, periods_per_year: int = 252) -> float:
     """Annualized standard deviation."""
     return float(returns.std() * np.sqrt(periods_per_year))
 
@@ -109,9 +107,7 @@ def win_rate(returns: pd.Series) -> float:
 # ── Strategy Metrics Computation ────────────────────────────────────
 
 
-def compute_all_metrics(
-    name: str, equity: pd.Series, rf: float = 0.0
-) -> dict:
+def compute_all_metrics(name: str, equity: pd.Series, rf: float = 0.0) -> dict:
     """Compute all metrics for a single strategy.
 
     Args:
@@ -465,9 +461,7 @@ def load_strategies_from_csv(
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Compare multiple trading strategies."
-    )
+    parser = argparse.ArgumentParser(description="Compare multiple trading strategies.")
     parser.add_argument(
         "--demo",
         action="store_true",
@@ -532,7 +526,9 @@ def main() -> None:
     else:
         print("Usage:")
         print("  python scripts/compare_strategies.py --demo")
-        print("  python scripts/compare_strategies.py --csv strat1.csv strat2.csv strat3.csv")
+        print(
+            "  python scripts/compare_strategies.py --csv strat1.csv strat2.csv strat3.csv"
+        )
         sys.exit(1)
 
 

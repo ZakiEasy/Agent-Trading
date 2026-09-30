@@ -10,14 +10,14 @@ from src.config import (
     TRADING212_API_KEY,
     TRADING212_API_SECRET,
     TRADING212_ENVIRONMENT,
-    TRADING212_BASE_URL
+    TRADING212_BASE_URL,
 )
 
 # Cache en mémoire avec TTL de 60s
 _T212_CACHE = {
     "cash": {"data": None, "ts": 0},
     "portfolio": {"data": None, "ts": 0},
-    "account": {"data": None, "ts": 0}
+    "account": {"data": None, "ts": 0},
 }
 T212_CACHE_TTL = 60  # secondes
 
@@ -29,14 +29,16 @@ _RUNTIME_CONFIG = {
     "exec_api_secret": TRADING212_EXEC_API_SECRET,
     "api_key": TRADING212_READ_API_KEY,
     "api_secret": TRADING212_READ_API_SECRET,
-    "environment": TRADING212_ENVIRONMENT
+    "environment": TRADING212_ENVIRONMENT,
 }
 
+
 def load_persisted_trading212_config():
-    """Charge la configuration et les clés API Trading 212 depuis Supabase (table app_settings)."""
+    """Charge la configuration et les clés API Trading 212 depuis la base de données (table app_settings)."""
     global _RUNTIME_CONFIG
     try:
-        from src.supabase_connector import get_app_setting
+        from src.db_connector import get_app_setting
+
         cfg = get_app_setting("trading212_api_config")
         if cfg and isinstance(cfg, dict):
             if cfg.get("read_api_key"):
@@ -56,10 +58,12 @@ def load_persisted_trading212_config():
     except Exception as e:
         pass
 
+
 def save_persisted_trading212_config():
     """Sauvegarde la configuration Trading 212 dans Supabase pour pérenniser la connexion."""
     try:
-        from src.supabase_connector import save_app_setting
+        from src.db_connector import save_app_setting
+
         payload = {
             "read_api_key": _RUNTIME_CONFIG.get("read_api_key"),
             "read_api_secret": _RUNTIME_CONFIG.get("read_api_secret"),
@@ -67,14 +71,18 @@ def save_persisted_trading212_config():
             "exec_api_secret": _RUNTIME_CONFIG.get("exec_api_secret"),
             "api_key": _RUNTIME_CONFIG.get("api_key"),
             "api_secret": _RUNTIME_CONFIG.get("api_secret"),
-            "environment": _RUNTIME_CONFIG.get("environment", "live")
+            "environment": _RUNTIME_CONFIG.get("environment", "live"),
         }
-        save_app_setting("trading212_api_config", payload, "Identifiants API Trading 212")
+        save_app_setting(
+            "trading212_api_config", payload, "Identifiants API Trading 212"
+        )
     except Exception as e:
         pass
 
-# Restaurer la configuration depuis Supabase si disponible
+
+# Restaurer la configuration depuis la base de données si disponible
 load_persisted_trading212_config()
+
 
 def set_runtime_trading212_config(
     read_api_key=None,
@@ -83,7 +91,7 @@ def set_runtime_trading212_config(
     exec_api_secret=None,
     api_key=None,
     api_secret=None,
-    environment=None
+    environment=None,
 ):
     """
     Met à jour la configuration Trading 212 à l'exécution avec clés séparées et persistance Supabase.
@@ -113,16 +121,17 @@ def set_runtime_trading212_config(
             _RUNTIME_CONFIG["exec_api_secret"] = clean_secret
     if environment is not None:
         _RUNTIME_CONFIG["environment"] = environment.lower().strip()
-    
+
     # Invalider le cache
     _T212_CACHE = {
         "cash": {"data": None, "ts": 0},
         "portfolio": {"data": None, "ts": 0},
-        "account": {"data": None, "ts": 0}
+        "account": {"data": None, "ts": 0},
     }
 
     # Sauvegarder immédiatement dans Supabase
     save_persisted_trading212_config()
+
 
 def get_trading212_base_url():
     env = _RUNTIME_CONFIG.get("environment") or "live"
@@ -130,14 +139,12 @@ def get_trading212_base_url():
         return "https://demo.trading212.com/api/v0"
     return "https://live.trading212.com/api/v0"
 
+
 def _build_auth_headers(key, secret=None):
     """Construit les headers d'authentification Bearer ou Basic Auth."""
     if not key:
         return None
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
     if secret:
         raw_creds = f"{key}:{secret}"
         encoded = base64.b64encode(raw_creds.encode("utf-8")).decode("utf-8")
@@ -146,17 +153,32 @@ def _build_auth_headers(key, secret=None):
         headers["Authorization"] = key
     return headers
 
+
 def get_trading212_read_headers(api_key=None, api_secret=None):
     """Headers pour les opérations de LECTURE SEULE (Portefeuille, Cash, Dividendes)."""
-    key = api_key or _RUNTIME_CONFIG.get("read_api_key") or _RUNTIME_CONFIG.get("api_key")
-    secret = api_secret or _RUNTIME_CONFIG.get("read_api_secret") or _RUNTIME_CONFIG.get("api_secret")
+    key = (
+        api_key or _RUNTIME_CONFIG.get("read_api_key") or _RUNTIME_CONFIG.get("api_key")
+    )
+    secret = (
+        api_secret
+        or _RUNTIME_CONFIG.get("read_api_secret")
+        or _RUNTIME_CONFIG.get("api_secret")
+    )
     return _build_auth_headers(key, secret)
+
 
 def get_trading212_exec_headers(api_key=None, api_secret=None):
     """Headers pour les opérations d'EXÉCUTION / ROBOT (Passation et annulation d'ordres)."""
-    key = api_key or _RUNTIME_CONFIG.get("exec_api_key") or _RUNTIME_CONFIG.get("api_key")
-    secret = api_secret or _RUNTIME_CONFIG.get("exec_api_secret") or _RUNTIME_CONFIG.get("api_secret")
+    key = (
+        api_key or _RUNTIME_CONFIG.get("exec_api_key") or _RUNTIME_CONFIG.get("api_key")
+    )
+    secret = (
+        api_secret
+        or _RUNTIME_CONFIG.get("exec_api_secret")
+        or _RUNTIME_CONFIG.get("api_secret")
+    )
     return _build_auth_headers(key, secret)
+
 
 def get_trading212_headers(api_key=None, api_secret=None, purpose="read"):
     """Fonction générique construisant les headers selon la finalité (read ou exec)."""
@@ -172,9 +194,9 @@ def normalize_t212_ticker(t212_ticker):
     """
     if not t212_ticker:
         return ""
-    
+
     sym = str(t212_ticker).strip()
-    
+
     # Cas particuliers de tickers Euronext sur Yahoo Finance
     if sym.startswith("STM") and ("_EQ" in sym or "pp_" in sym or "p_" in sym):
         return "STMPA.PA"
@@ -198,7 +220,7 @@ def normalize_t212_ticker(t212_ticker):
         return sym.replace("_BE_EQ", ".BR").upper()
     elif sym.endswith("_CH_EQ"):
         return sym.replace("_CH_EQ", ".SW").upper()
-    
+
     # 2. Suffixes compacts de places boursières Trading 212
     if sym.endswith("pp_EQ"):
         base = sym[:-5]
@@ -221,8 +243,9 @@ def normalize_t212_ticker(t212_ticker):
     elif sym.endswith("_EQ"):
         base = sym[:-3]
         return base.upper()
-        
+
     return sym.upper()
+
 
 def test_trading212_connection(api_key=None, api_secret=None, environment=None):
     """
@@ -233,16 +256,20 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
         return {
             "connected": False,
             "error": "Clé API Trading 212 non renseignée.",
-            "environment": environment or _RUNTIME_CONFIG.get("environment", "live")
+            "environment": environment or _RUNTIME_CONFIG.get("environment", "live"),
         }
 
     env = environment or _RUNTIME_CONFIG.get("environment", "live")
-    base_url = "https://demo.trading212.com/api/v0" if env == "demo" else "https://live.trading212.com/api/v0"
+    base_url = (
+        "https://demo.trading212.com/api/v0"
+        if env == "demo"
+        else "https://live.trading212.com/api/v0"
+    )
 
     try:
         url = f"{base_url}/equity/account/cash"
         res = requests.get(url, headers=headers, timeout=8)
-        
+
         if res.status_code == 200:
             cash_data = res.json()
             formatted = {
@@ -251,20 +278,20 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
                 "total": float(cash_data.get("total", 0.0)),
                 "invested": float(cash_data.get("invested", 0.0)),
                 "ppl": float(cash_data.get("ppl", 0.0)),
-                "currency": "EUR"
+                "currency": "EUR",
             }
             _T212_CACHE["cash"] = {"data": formatted, "ts": time.time()}
             return {
                 "connected": True,
                 "environment": env,
                 "message": "Connexion à Trading 212 réussie !",
-                "cash": cash_data
+                "cash": cash_data,
             }
         elif res.status_code in [401, 403]:
             return {
                 "connected": False,
                 "error": f"Authentification refusée par Trading 212 (Code HTTP {res.status_code}). Vérifiez votre clé API.",
-                "environment": env
+                "environment": env,
             }
         elif res.status_code == 429:
             if _T212_CACHE["cash"]["data"]:
@@ -272,28 +299,29 @@ def test_trading212_connection(api_key=None, api_secret=None, environment=None):
                     "connected": True,
                     "environment": env,
                     "message": "Connexion active (Rate limit 429 temporaire, données en cache)",
-                    "cash": _T212_CACHE["cash"]["data"]
+                    "cash": _T212_CACHE["cash"]["data"],
                 }
             return {
                 "connected": False,
                 "error": "Limite d'appels atteinte (HTTP 429). Réessayez dans quelques secondes.",
-                "environment": env
+                "environment": env,
             }
         else:
             return {
                 "connected": False,
                 "error": f"Erreur Trading 212 (Code HTTP {res.status_code}) : {res.text}",
-                "environment": env
+                "environment": env,
             }
     except requests.exceptions.RequestException as e:
         return {
             "connected": False,
             "error": f"Erreur de connexion réseau vers Trading 212 : {str(e)}",
-            "environment": env
+            "environment": env,
         }
 
 
 _T212_PERMS_CACHE = {"data": None, "ts": 0}
+
 
 def check_trading212_api_permissions(force_refresh=False):
     """
@@ -303,7 +331,11 @@ def check_trading212_api_permissions(force_refresh=False):
     """
     global _T212_PERMS_CACHE
     now = time.time()
-    if not force_refresh and _T212_PERMS_CACHE["data"] and (now - _T212_PERMS_CACHE["ts"]) < 30:
+    if (
+        not force_refresh
+        and _T212_PERMS_CACHE["data"]
+        and (now - _T212_PERMS_CACHE["ts"]) < 30
+    ):
         return _T212_PERMS_CACHE["data"]
 
     read_headers = get_trading212_read_headers()
@@ -318,13 +350,17 @@ def check_trading212_api_permissions(force_refresh=False):
         read_msg = "Clé LECTURE non configurée."
     else:
         try:
-            r_cash = requests.get(f"{base_url}/equity/account/cash", headers=read_headers, timeout=6)
+            r_cash = requests.get(
+                f"{base_url}/equity/account/cash", headers=read_headers, timeout=6
+            )
             if r_cash.status_code == 200:
                 read_ok = True
                 read_msg = "✅ Clé LECTURE valide et connectée."
             elif r_cash.status_code == 429:
                 read_ok = True
-                read_msg = "✅ Clé LECTURE connectée (Flux actif, limitation temporaire 429)."
+                read_msg = (
+                    "✅ Clé LECTURE connectée (Flux actif, limitation temporaire 429)."
+                )
             elif r_cash.status_code in [401, 403]:
                 read_ok = False
                 read_msg = f"❌ Clé LECTURE rejetée (HTTP {r_cash.status_code})"
@@ -340,7 +376,9 @@ def check_trading212_api_permissions(force_refresh=False):
         orders_msg = "Clé EXÉCUTION non configurée."
     else:
         try:
-            r_ord = requests.get(f"{base_url}/equity/orders", headers=exec_headers, timeout=6)
+            r_ord = requests.get(
+                f"{base_url}/equity/orders", headers=exec_headers, timeout=6
+            )
             if r_ord.status_code == 200:
                 orders_ok = True
                 orders_msg = "✅ Clé EXÉCUTION active : Permissions d'ordres et gestion des paliers validées."
@@ -373,12 +411,11 @@ def check_trading212_api_permissions(force_refresh=False):
         "read_message": read_msg,
         "orders_message": orders_msg,
         "message": msg,
-        "environment": env
+        "environment": env,
     }
 
     _T212_PERMS_CACHE = {"data": result, "ts": now}
     return result
-
 
 
 def get_trading212_cash(force_refresh=False):
@@ -387,7 +424,11 @@ def get_trading212_cash(force_refresh=False):
     """
     global _T212_CACHE
     now = time.time()
-    if not force_refresh and _T212_CACHE["cash"]["data"] and (now - _T212_CACHE["cash"]["ts"]) < T212_CACHE_TTL:
+    if (
+        not force_refresh
+        and _T212_CACHE["cash"]["data"]
+        and (now - _T212_CACHE["cash"]["ts"]) < T212_CACHE_TTL
+    ):
         return _T212_CACHE["cash"]["data"]
 
     headers = get_trading212_headers()
@@ -398,7 +439,7 @@ def get_trading212_cash(force_refresh=False):
             "total": 0.0,
             "invested": 0.0,
             "ppl": 0.0,
-            "currency": "EUR"
+            "currency": "EUR",
         }
 
     base_url = get_trading212_base_url()
@@ -413,7 +454,7 @@ def get_trading212_cash(force_refresh=False):
                 "total": float(data.get("total", 0.0)),
                 "invested": float(data.get("invested", 0.0)),
                 "ppl": float(data.get("ppl", 0.0)),
-                "currency": "EUR"
+                "currency": "EUR",
             }
             _T212_CACHE["cash"] = {"data": formatted, "ts": now}
             return formatted
@@ -427,7 +468,7 @@ def get_trading212_cash(force_refresh=False):
                 "total": 0.0,
                 "invested": 0.0,
                 "ppl": 0.0,
-                "currency": "EUR"
+                "currency": "EUR",
             }
     except Exception as e:
         print(f"⚠️ Erreur récupération Cash Trading 212: {e}")
@@ -440,8 +481,9 @@ def get_trading212_cash(force_refresh=False):
             "total": 0.0,
             "invested": 0.0,
             "ppl": 0.0,
-            "currency": "EUR"
+            "currency": "EUR",
         }
+
 
 def get_trading212_open_positions(force_refresh=False):
     """
@@ -450,7 +492,11 @@ def get_trading212_open_positions(force_refresh=False):
     """
     global _T212_CACHE
     now = time.time()
-    if not force_refresh and _T212_CACHE["portfolio"]["data"] and (now - _T212_CACHE["portfolio"]["ts"]) < T212_CACHE_TTL:
+    if (
+        not force_refresh
+        and _T212_CACHE["portfolio"]["data"]
+        and (now - _T212_CACHE["portfolio"]["ts"]) < T212_CACHE_TTL
+    ):
         return _T212_CACHE["portfolio"]["data"]
 
     headers = get_trading212_headers()
@@ -470,45 +516,53 @@ def get_trading212_open_positions(force_refresh=False):
             for item in raw_positions:
                 t212_ticker = item.get("ticker", "")
                 norm_symbol = normalize_t212_ticker(t212_ticker)
-                
+
                 qty = float(item.get("quantity", 0.0))
                 pru = float(item.get("averagePrice", 0.0))
                 current_price = float(item.get("currentPrice", pru))
                 ppl = float(item.get("ppl", 0.0))
-                
+
                 invested = pru * qty
                 current_val = current_price * qty
                 pnl_pct = (ppl / invested * 100) if invested > 0 else 0.0
-                
+
                 init_date = str(item.get("initialFillDate", ""))
                 if init_date:
                     init_date = init_date.split("T")[0]
 
-                is_eur = (".PA" in norm_symbol or ".DE" in norm_symbol or ".AS" in norm_symbol or "p_EQ" in t212_ticker or "pp_EQ" in t212_ticker)
+                is_eur = (
+                    ".PA" in norm_symbol
+                    or ".DE" in norm_symbol
+                    or ".AS" in norm_symbol
+                    or "p_EQ" in t212_ticker
+                    or "pp_EQ" in t212_ticker
+                )
                 currency = "EUR" if is_eur else "USD"
 
-                positions.append({
-                    "id": f"T212_{t212_ticker}",
-                    "symbol": norm_symbol,
-                    "raw_symbol": t212_ticker,
-                    "name": norm_symbol,
-                    "entry_date": init_date or time.strftime("%Y-%m-%d"),
-                    "pru": pru,
-                    "quantity": qty,
-                    "invested_amount": invested,
-                    "current_price": current_price,
-                    "current_value": current_val,
-                    "pnl_amount": ppl,
-                    "pnl_pct": pnl_pct,
-                    "stop_loss": pru * 0.97,
-                    "tp1": pru * 1.0125,
-                    "tp2": pru * 1.0225,
-                    "account": "Trading 212",
-                    "broker": "Trading 212",
-                    "currency": currency,
-                    "status": "OUVERT",
-                    "notes": "Synchronisé via API Trading 212"
-                })
+                positions.append(
+                    {
+                        "id": f"T212_{t212_ticker}",
+                        "symbol": norm_symbol,
+                        "raw_symbol": t212_ticker,
+                        "name": norm_symbol,
+                        "entry_date": init_date or time.strftime("%Y-%m-%d"),
+                        "pru": pru,
+                        "quantity": qty,
+                        "invested_amount": invested,
+                        "current_price": current_price,
+                        "current_value": current_val,
+                        "pnl_amount": ppl,
+                        "pnl_pct": pnl_pct,
+                        "stop_loss": pru * 0.97,
+                        "tp1": pru * 1.0125,
+                        "tp2": pru * 1.0225,
+                        "account": "Trading 212",
+                        "broker": "Trading 212",
+                        "currency": currency,
+                        "status": "OUVERT",
+                        "notes": "Synchronisé via API Trading 212",
+                    }
+                )
 
             _T212_CACHE["portfolio"] = {"data": positions, "ts": now}
             return positions
@@ -518,6 +572,7 @@ def get_trading212_open_positions(force_refresh=False):
     except Exception as e:
         print(f"⚠️ Erreur récupération positions Trading 212: {e}")
         return []
+
 
 def get_trading212_orders_history(limit=50, max_pages=3):
     """
@@ -537,11 +592,17 @@ def get_trading212_orders_history(limit=50, max_pages=3):
         while current_url and page_count < max_pages:
             res = requests.get(current_url, headers=headers, timeout=10)
             if res.status_code != 200:
-                print(f"⚠️ Erreur récupération historique ordres Trading 212 (HTTP {res.status_code}): {res.text}")
+                print(
+                    f"⚠️ Erreur récupération historique ordres Trading 212 (HTTP {res.status_code}): {res.text}"
+                )
                 break
 
             data = res.json()
-            items = data.get("items", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            items = (
+                data.get("items", [])
+                if isinstance(data, dict)
+                else (data if isinstance(data, list) else [])
+            )
             all_orders.extend(items)
 
             # Pagination
@@ -549,8 +610,16 @@ def get_trading212_orders_history(limit=50, max_pages=3):
             if next_path:
                 if next_path.startswith("http"):
                     current_url = next_path
+                elif next_path.startswith("/api/v0"):
+                    current_url = (
+                        f"https://live.trading212.com{next_path}"
+                        if "live" in base_url
+                        else f"https://demo.trading212.com{next_path}"
+                    )
+                elif next_path.startswith("/"):
+                    current_url = f"{base_url}{next_path}"
                 else:
-                    current_url = f"https://live.trading212.com/api/v0{next_path}" if "live" in base_url else f"https://demo.trading212.com/api/v0{next_path}"
+                    current_url = f"{base_url}/equity/history/orders?cursor={next_path}"
                 page_count += 1
             else:
                 current_url = None
@@ -559,6 +628,7 @@ def get_trading212_orders_history(limit=50, max_pages=3):
     except Exception as e:
         print(f"⚠️ Erreur récupération ordres Trading 212: {e}")
         return all_orders
+
 
 def get_trading212_dividends_history(limit=50):
     """
@@ -580,6 +650,7 @@ def get_trading212_dividends_history(limit=50):
     except Exception as e:
         print(f"⚠️ Erreur récupération dividendes Trading 212: {e}")
         return []
+
 
 def sync_trading212_history_to_journal():
     """
@@ -610,47 +681,72 @@ def sync_trading212_history_to_journal():
         order_id = str(order.get("id", fill.get("id", "")))
         raw_ticker = str(order.get("ticker", item.get("ticker", "")))
         ticker = normalize_t212_ticker(raw_ticker)
-        
+
         instrument = order.get("instrument", {})
         name = instrument.get("name") or ticker
 
-        qty = abs(float(fill.get("quantity", order.get("filledQuantity", order.get("quantity", 0.0)))))
-        fill_price = float(fill.get("price", order.get("fillPrice", order.get("limitPrice", 0.0))))
-        
+        qty = abs(
+            float(
+                fill.get(
+                    "quantity", order.get("filledQuantity", order.get("quantity", 0.0))
+                )
+            )
+        )
+        fill_price = float(
+            fill.get("price", order.get("fillPrice", order.get("limitPrice", 0.0)))
+        )
+
         wallet = fill.get("walletImpact", {})
-        currency = wallet.get("currency") or order.get("currency") or ("EUR" if (".PA" in ticker or ".DE" in ticker or ".AS" in ticker) else "USD")
-        
-        pnl = float(wallet.get("realisedProfitLoss", order.get("ppl", order.get("result", 0.0))))
+        currency = (
+            wallet.get("currency")
+            or order.get("currency")
+            or (
+                "EUR"
+                if (".PA" in ticker or ".DE" in ticker or ".AS" in ticker)
+                else "USD"
+            )
+        )
+
+        pnl = float(
+            wallet.get("realisedProfitLoss", order.get("ppl", order.get("result", 0.0)))
+        )
         net_val = float(wallet.get("netValue", fill_price * qty))
-        
+
         invested = (net_val - pnl) if (net_val > 0 and pnl != 0) else (fill_price * qty)
         pru = (invested / qty) if (qty > 0 and invested > 0) else fill_price
         pnl_pct = (pnl / invested * 100) if invested > 0 else 0.0
-        
-        exec_date = str(fill.get("filledAt", order.get("createdAt", time.strftime("%Y-%m-%d %H:%M:%S"))))
+
+        exec_date = str(
+            fill.get(
+                "filledAt", order.get("createdAt", time.strftime("%Y-%m-%d %H:%M:%S"))
+            )
+        )
         if "T" in exec_date:
             exec_date = exec_date.replace("T", " ").split(".")[0].replace("Z", "")
 
-        closed_trades.append({
-            "id": f"T212_{order_id}",
-            "symbol": ticker,
-            "name": name,
-            "open_time": exec_date,
-            "close_time": exec_date,
-            "pru": round(pru, 2),
-            "exit_price": round(fill_price, 2),
-            "quantity": qty,
-            "invested_amount": round(invested, 2),
-            "pnl_amount": round(pnl, 2),
-            "pnl_pct": round(pnl_pct, 2),
-            "days_held": 1,
-            "result": "GAIN 🟢" if pnl >= 0 else "PERTE 🔴",
-            "account": "Trading 212",
-            "currency": currency,
-            "comment": "Synchronisé via API Trading 212"
-        })
+        closed_trades.append(
+            {
+                "id": f"T212_{order_id}",
+                "symbol": ticker,
+                "name": name,
+                "open_time": exec_date,
+                "close_time": exec_date,
+                "pru": round(pru, 2),
+                "exit_price": round(fill_price, 2),
+                "quantity": qty,
+                "invested_amount": round(invested, 2),
+                "pnl_amount": round(pnl, 2),
+                "pnl_pct": round(pnl_pct, 2),
+                "days_held": 1,
+                "result": "GAIN 🟢" if pnl >= 0 else "PERTE 🔴",
+                "account": "Trading 212",
+                "currency": currency,
+                "comment": "Synchronisé via API Trading 212",
+            }
+        )
 
     return closed_trades
+
 
 def parse_trading212_csv(csv_text_or_bytes):
     """
@@ -665,9 +761,9 @@ def parse_trading212_csv(csv_text_or_bytes):
 
     if isinstance(csv_text_or_bytes, bytes):
         try:
-            text = csv_text_or_bytes.decode('utf-8')
+            text = csv_text_or_bytes.decode("utf-8")
         except UnicodeDecodeError:
-            text = csv_text_or_bytes.decode('latin-1', errors='replace')
+            text = csv_text_or_bytes.decode("latin-1", errors="replace")
     else:
         text = str(csv_text_or_bytes)
 
@@ -675,7 +771,7 @@ def parse_trading212_csv(csv_text_or_bytes):
     if not lines:
         return {"closed_positions": [], "open_positions": [], "cash_operations": []}
 
-    delimiter = ';' if lines[0].count(';') > lines[0].count(',') else ','
+    delimiter = ";" if lines[0].count(";") > lines[0].count(",") else ","
     reader = csv.reader(io.StringIO(text), delimiter=delimiter)
     all_rows = [r for r in reader if r]
 
@@ -686,7 +782,18 @@ def parse_trading212_csv(csv_text_or_bytes):
     header = []
     for idx, r in enumerate(all_rows[:5]):
         r_clean = [str(c).strip().lower() for c in r]
-        if any(k in r_clean for k in ["action", "ticker", "time", "date/heure", "result", "total", "isin"]):
+        if any(
+            k in r_clean
+            for k in [
+                "action",
+                "ticker",
+                "time",
+                "date/heure",
+                "result",
+                "total",
+                "isin",
+            ]
+        ):
             header_idx = idx
             header = r_clean
             break
@@ -702,18 +809,50 @@ def parse_trading212_csv(csv_text_or_bytes):
             col_map["action"] = idx
         elif any(k in c for k in ["time", "date/heure", "date"]):
             col_map["time"] = idx
-        elif any(k == c or k in c for k in ["ticker", "symbole", "symbol"]) and "currency" not in c:
+        elif (
+            any(k == c or k in c for k in ["ticker", "symbole", "symbol"])
+            and "currency" not in c
+        ):
             col_map["ticker"] = idx
-        elif any(k == c or k in c for k in ["name", "nom", "société", "societe"]) and "currency" not in c and "fee" not in c:
+        elif (
+            any(k == c or k in c for k in ["name", "nom", "société", "societe"])
+            and "currency" not in c
+            and "fee" not in c
+        ):
             col_map["name"] = idx
-        elif any(k in c for k in ["no. of shares", "shares", "nombre", "quantité", "quantite", "qty"]):
+        elif any(
+            k in c
+            for k in [
+                "no. of shares",
+                "shares",
+                "nombre",
+                "quantité",
+                "quantite",
+                "qty",
+            ]
+        ):
             col_map["quantity"] = idx
-        elif ("price / share" in c or "prix / action" in c or c == "price" or c == "cours" or c == "prix") and "currency" not in c and "devise" not in c:
+        elif (
+            (
+                "price / share" in c
+                or "prix / action" in c
+                or c == "price"
+                or c == "cours"
+                or c == "prix"
+            )
+            and "currency" not in c
+            and "devise" not in c
+        ):
             col_map["price"] = idx
         elif c.startswith("currency") or c == "devise":
             if "currency" not in col_map or "price" in c:
                 col_map["currency"] = idx
-        elif (c.startswith("result") or c.startswith("résultat") or c == "profit" or c == "gain") and "currency" not in c:
+        elif (
+            c.startswith("result")
+            or c.startswith("résultat")
+            or c == "profit"
+            or c == "gain"
+        ) and "currency" not in c:
             col_map["result"] = idx
         elif (c.startswith("total") or c == "montant") and "currency" not in c:
             col_map["total"] = idx
@@ -723,7 +862,7 @@ def parse_trading212_csv(csv_text_or_bytes):
     closed_positions = []
     cash_operations = []
 
-    for r in all_rows[header_idx + 1:]:
+    for r in all_rows[header_idx + 1 :]:
         if not r or len(r) <= 1:
             continue
 
@@ -739,9 +878,27 @@ def parse_trading212_csv(csv_text_or_bytes):
         ticker = normalize_t212_ticker(raw_ticker)
         name = get_val("name") or ticker
         qty_str = get_val("quantity", "0").replace(" ", "").replace(",", ".")
-        price_str = get_val("price", "0").replace(" ", "").replace(",", ".").replace("€", "").replace("$", "")
-        result_str = get_val("result", "0").replace(" ", "").replace(",", ".").replace("€", "").replace("$", "")
-        total_str = get_val("total", "0").replace(" ", "").replace(",", ".").replace("€", "").replace("$", "")
+        price_str = (
+            get_val("price", "0")
+            .replace(" ", "")
+            .replace(",", ".")
+            .replace("€", "")
+            .replace("$", "")
+        )
+        result_str = (
+            get_val("result", "0")
+            .replace(" ", "")
+            .replace(",", ".")
+            .replace("€", "")
+            .replace("$", "")
+        )
+        total_str = (
+            get_val("total", "0")
+            .replace(" ", "")
+            .replace(",", ".")
+            .replace("€", "")
+            .replace("$", "")
+        )
         curr_str = get_val("currency", "EUR").upper()
         tid = get_val("id") or f"T212_{abs(hash(time_str + raw_ticker + action))}"
 
@@ -757,54 +914,93 @@ def parse_trading212_csv(csv_text_or_bytes):
         if any(k in action for k in ["sell", "vente"]):
             if qty > 0 and (price > 0 or total_val > 0):
                 exit_price = price if price > 0 else (total_val / qty)
-                invested = (total_val - pnl_amount) if total_val > 0 else (price * qty - pnl_amount)
+                invested = (
+                    (total_val - pnl_amount)
+                    if total_val > 0
+                    else (price * qty - pnl_amount)
+                )
                 pru = (invested / qty) if (qty > 0 and invested > 0) else exit_price
                 pnl_pct = (pnl_amount / invested * 100) if invested > 0 else 0.0
-                
-                closed_positions.append({
-                    "id": f"T212_{tid}",
-                    "symbol": ticker,
-                    "name": name,
-                    "open_time": time_str,
-                    "close_time": time_str,
-                    "pru": round(pru, 2),
-                    "exit_price": round(exit_price, 2),
-                    "quantity": qty,
-                    "invested_amount": round(invested, 2),
-                    "pnl_amount": round(pnl_amount, 2),
-                    "pnl_pct": round(pnl_pct, 2),
-                    "days_held": 1,
-                    "result": "GAIN 🟢" if pnl_amount >= 0 else "PERTE 🔴",
-                    "account": "Trading 212",
-                    "currency": curr_str or ("EUR" if ".PA" in ticker else "USD"),
-                    "comment": f"Export Trading 212 ({action})"
-                })
+
+                closed_positions.append(
+                    {
+                        "id": f"T212_{tid}",
+                        "symbol": ticker,
+                        "name": name,
+                        "open_time": time_str,
+                        "close_time": time_str,
+                        "pru": round(pru, 2),
+                        "exit_price": round(exit_price, 2),
+                        "quantity": qty,
+                        "invested_amount": round(invested, 2),
+                        "pnl_amount": round(pnl_amount, 2),
+                        "pnl_pct": round(pnl_pct, 2),
+                        "days_held": 1,
+                        "result": "GAIN 🟢" if pnl_amount >= 0 else "PERTE 🔴",
+                        "account": "Trading 212",
+                        "currency": curr_str or ("EUR" if ".PA" in ticker else "USD"),
+                        "comment": f"Export Trading 212 ({action})",
+                    }
+                )
 
         # 2. Opérations de Cash / Dividendes / Intérêts
-        elif any(k in action for k in ["deposit", "dépôt", "depot", "withdrawal", "retrait", "dividend", "dividende", "interest", "intérêt", "interet"]):
-            op_type = "DIVIDENDE" if "dividend" in action else ("INTERET" if "interest" in action else ("DEPOT" if ("deposit" in action or "dépôt" in action) else "RETRAIT"))
-            cash_amt = abs(total_val if total_val > 0 else (pnl_amount if pnl_amount > 0 else price))
-            cash_operations.append({
-                "id": f"T212_CASH_{tid}",
-                "date": time_str,
-                "type": op_type,
-                "symbol": ticker if op_type == "DIVIDENDE" else "",
-                "amount": cash_amt,
-                "currency": curr_str or "EUR",
-                "account": "Trading 212",
-                "description": f"Trading 212: {action.title()} {name or ''}".strip()
-            })
+        elif any(
+            k in action
+            for k in [
+                "deposit",
+                "dépôt",
+                "depot",
+                "withdrawal",
+                "retrait",
+                "dividend",
+                "dividende",
+                "interest",
+                "intérêt",
+                "interet",
+            ]
+        ):
+            op_type = (
+                "DIVIDENDE"
+                if "dividend" in action
+                else (
+                    "INTERET"
+                    if "interest" in action
+                    else (
+                        "DEPOT"
+                        if ("deposit" in action or "dépôt" in action)
+                        else "RETRAIT"
+                    )
+                )
+            )
+            cash_amt = abs(
+                total_val
+                if total_val > 0
+                else (pnl_amount if pnl_amount > 0 else price)
+            )
+            cash_operations.append(
+                {
+                    "id": f"T212_CASH_{tid}",
+                    "date": time_str,
+                    "type": op_type,
+                    "symbol": ticker if op_type == "DIVIDENDE" else "",
+                    "amount": cash_amt,
+                    "currency": curr_str or "EUR",
+                    "account": "Trading 212",
+                    "description": f"Trading 212: {action.title()} {name or ''}".strip(),
+                }
+            )
 
     return {
         "closed_positions": closed_positions,
         "open_positions": [],
-        "cash_operations": cash_operations
+        "cash_operations": cash_operations,
     }
 
 
 # ==============================================================================
 # --- 6. EXÉCUTION D'ORDRES, GESTION DU CARNET & CONVERSIONS DE TICKERS ---
 # ==============================================================================
+
 
 def convert_yahoo_ticker_to_t212(symbol):
     """
@@ -813,7 +1009,7 @@ def convert_yahoo_ticker_to_t212(symbol):
     s = str(symbol or "").upper().strip()
     if not s:
         return ""
-    
+
     MAPPINGS = {
         "TSLA": "TSLA_US_EQ",
         "AAPL": "AAPL_US_EQ",
@@ -851,12 +1047,12 @@ def convert_yahoo_ticker_to_t212(symbol):
         "GLE.PA": "GLEp_EQ",
         "AIR.PA": "AIRp_EQ",
         "TTE.PA": "TTEp_EQ",
-        "IS3R.DE": "IS3Rd_EQ"
+        "IS3R.DE": "IS3Rd_EQ",
     }
-    
+
     if s in MAPPINGS:
         return MAPPINGS[s]
-    
+
     if s.endswith(".PA"):
         base = s.replace(".PA", "")
         return f"{base}p_EQ"
@@ -868,7 +1064,7 @@ def convert_yahoo_ticker_to_t212(symbol):
         return f"{base}a_EQ"
     elif "." not in s:
         return f"{s}_US_EQ"
-        
+
     return s
 
 
@@ -894,56 +1090,72 @@ def place_trading212_limit_order(symbol, quantity, limit_price, time_validity="D
     """
     headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
-    
+        return {
+            "success": False,
+            "error": "Clé API d'Exécution Trading 212 manquante ou non configurée.",
+        }
+
     t212_ticker = convert_yahoo_ticker_to_t212(symbol)
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/limit"
-    
+
     clean_qty = sanitize_t212_quantity(quantity)
     payload = {
         "ticker": t212_ticker,
         "quantity": clean_qty,
         "limitPrice": float(round(limit_price, 2)),
-        "timeValidity": str(time_validity).upper()
+        "timeValidity": str(time_validity).upper(),
     }
-    
+
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         if resp.status_code in [200, 201]:
             data = resp.json()
             return {"success": True, "order": data, "ticker": t212_ticker}
         else:
-            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text}", "status_code": resp.status_code}
+            return {
+                "success": False,
+                "error": f"HTTP {resp.status_code}: {resp.text}",
+                "status_code": resp.status_code,
+            }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def place_trading212_market_order(symbol, quantity):
+def place_trading212_market_order(symbol, quantity_or_value, is_value=False):
     """
     Émet un ordre au marché (Market Order) d'achat ou de vente sur Trading 212 (Utilise la clé EXÉCUTION / ROBOT).
+    Si is_value est True, utilise l'achat par "valeur" (Euros) plutôt que par "quantité" (actions).
     """
     headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
-    
+        return {
+            "success": False,
+            "error": "Clé API d'Exécution Trading 212 manquante ou non configurée.",
+        }
+
     t212_ticker = convert_yahoo_ticker_to_t212(symbol)
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/market"
-    
-    clean_qty = sanitize_t212_quantity(quantity)
-    payload = {
-        "ticker": t212_ticker,
-        "quantity": clean_qty
-    }
-    
+
+    payload = {"ticker": t212_ticker}
+
+    if is_value:
+        payload["value"] = float(round(quantity_or_value, 2))
+    else:
+        payload["quantity"] = sanitize_t212_quantity(quantity_or_value)
+
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         if resp.status_code in [200, 201]:
             data = resp.json()
             return {"success": True, "order": data, "ticker": t212_ticker}
         else:
-            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text}", "status_code": resp.status_code}
+            return {
+                "success": False,
+                "error": f"HTTP {resp.status_code}: {resp.text}",
+                "status_code": resp.status_code,
+            }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -954,27 +1166,34 @@ def place_trading212_stop_order(symbol, quantity, stop_price, time_validity="GTC
     """
     headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
-    
+        return {
+            "success": False,
+            "error": "Clé API d'Exécution Trading 212 manquante ou non configurée.",
+        }
+
     t212_ticker = convert_yahoo_ticker_to_t212(symbol)
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/stop"
-    
+
     clean_qty = sanitize_t212_quantity(quantity)
     payload = {
         "ticker": t212_ticker,
         "quantity": clean_qty,
         "stopPrice": float(round(stop_price, 2)),
-        "timeValidity": str(time_validity).upper()
+        "timeValidity": str(time_validity).upper(),
     }
-    
+
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         if resp.status_code in [200, 201]:
             data = resp.json()
             return {"success": True, "order": data, "ticker": t212_ticker}
         else:
-            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text}", "status_code": resp.status_code}
+            return {
+                "success": False,
+                "error": f"HTTP {resp.status_code}: {resp.text}",
+                "status_code": resp.status_code,
+            }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -985,11 +1204,14 @@ def cancel_trading212_order(order_id):
     """
     headers = get_trading212_exec_headers()
     if not headers:
-        return {"success": False, "error": "Clé API d'Exécution Trading 212 manquante ou non configurée."}
-    
+        return {
+            "success": False,
+            "error": "Clé API d'Exécution Trading 212 manquante ou non configurée.",
+        }
+
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders/{order_id}"
-    
+
     try:
         resp = requests.delete(url, headers=headers, timeout=10)
         if resp.status_code in [200, 204]:
@@ -1007,10 +1229,10 @@ def get_trading212_open_orders():
     headers = get_trading212_exec_headers()
     if not headers:
         return []
-    
+
     base_url = get_trading212_base_url()
     url = f"{base_url}/equity/orders"
-    
+
     try:
         resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code == 200:
@@ -1027,7 +1249,7 @@ def cancel_all_trading212_orders():
     open_orders = get_trading212_open_orders()
     cancelled = []
     errors = []
-    
+
     for o in open_orders:
         oid = o.get("id")
         if oid:
@@ -1036,12 +1258,11 @@ def cancel_all_trading212_orders():
                 cancelled.append(oid)
             else:
                 errors.append({"id": oid, "error": res.get("error")})
-                
+
     return {
         "success": True,
         "total_open_orders": len(open_orders),
         "cancelled_count": len(cancelled),
         "cancelled_order_ids": cancelled,
-        "errors": errors
+        "errors": errors,
     }
-

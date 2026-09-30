@@ -5,3 +5,4 @@ __pycache__/
 .env
 credentials.json
 data_cache/
+archive_scripts/

@@ -132,7 +132,7 @@ def add_watchlist_ticker():
     source_verif = data.get("source_verif") or "AAOIFI (Agent Trading)"
 
     # 3. Lancer l'analyse pour récupérer le prix actuel et le rapport
-    from app import get_detailed_analysis
+    from src.analysis_engine import get_detailed_analysis
     analysis = get_detailed_analysis(symbol)
     price = 0.0
     currency = "USD"

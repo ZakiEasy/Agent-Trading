@@ -101,14 +101,16 @@ def generate_regime_data(n_bars: int = 500, seed: int = 123) -> pd.DataFrame:
     opens = np.roll(prices_arr, 1)
     opens[0] = prices_arr[0]
 
-    return pd.DataFrame({
-        "open": opens,
-        "high": highs,
-        "low": lows,
-        "close": prices_arr,
-        "volume": volumes,
-        "true_regime": true_regimes,
-    })
+    return pd.DataFrame(
+        {
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": prices_arr,
+            "volume": volumes,
+            "true_regime": true_regimes,
+        }
+    )
 
 
 # ── Indicators ──────────────────────────────────────────────────────
@@ -116,17 +118,23 @@ def compute_atr(
     high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
 ) -> pd.Series:
     """Average True Range."""
-    tr = pd.concat([
-        high - low,
-        (high - close.shift(1)).abs(),
-        (low - close.shift(1)).abs(),
-    ], axis=1).max(axis=1)
+    tr = pd.concat(
+        [
+            high - low,
+            (high - close.shift(1)).abs(),
+            (low - close.shift(1)).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
     return tr.rolling(period).mean()
 
 
 def compute_atr_percentile(
-    high: pd.Series, low: pd.Series, close: pd.Series,
-    atr_period: int = 14, lookback: int = 80
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    atr_period: int = 14,
+    lookback: int = 80,
 ) -> pd.Series:
     """ATR percentile rank."""
     atr = compute_atr(high, low, close, atr_period)
@@ -144,11 +152,14 @@ def compute_adx(
     plus_dm_copy[plus_dm < minus_dm] = 0
     minus_dm_copy[minus_dm < plus_dm] = 0
 
-    tr = pd.concat([
-        high - low,
-        (high - close.shift(1)).abs(),
-        (low - close.shift(1)).abs(),
-    ], axis=1).max(axis=1)
+    tr = pd.concat(
+        [
+            high - low,
+            (high - close.shift(1)).abs(),
+            (low - close.shift(1)).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
 
     atr = tr.ewm(span=period, adjust=False).mean()
     plus_di = 100 * plus_dm_copy.ewm(span=period, adjust=False).mean() / atr
@@ -222,9 +233,15 @@ def run_static_strategy(df: pd.DataFrame) -> pd.DataFrame:
 
     for i in range(EMA_SLOW + 1, len(df)):
         signal = 0
-        if ema_fast.iloc[i] > ema_slow.iloc[i] and ema_fast.iloc[i - 1] <= ema_slow.iloc[i - 1]:
+        if (
+            ema_fast.iloc[i] > ema_slow.iloc[i]
+            and ema_fast.iloc[i - 1] <= ema_slow.iloc[i - 1]
+        ):
             signal = 1  # Buy
-        elif ema_fast.iloc[i] < ema_slow.iloc[i] and ema_fast.iloc[i - 1] >= ema_slow.iloc[i - 1]:
+        elif (
+            ema_fast.iloc[i] < ema_slow.iloc[i]
+            and ema_fast.iloc[i - 1] >= ema_slow.iloc[i - 1]
+        ):
             signal = -1  # Sell
 
         price = close.iloc[i]
@@ -236,17 +253,31 @@ def run_static_strategy(df: pd.DataFrame) -> pd.DataFrame:
             shares = (capital - cost) / price
             capital = 0
             position = 1
-            trades.append({"bar": i, "action": "BUY", "price": price,
-                           "shares": shares, "strategy": "ema_xover"})
+            trades.append(
+                {
+                    "bar": i,
+                    "action": "BUY",
+                    "price": price,
+                    "shares": shares,
+                    "strategy": "ema_xover",
+                }
+            )
 
         elif signal == -1 and position == 1:
             # Sell all
             proceeds = shares * price
             cost = proceeds * commission_rate
             capital = proceeds - cost
-            trades.append({"bar": i, "action": "SELL", "price": price,
-                           "shares": shares, "pnl": capital - INITIAL_CAPITAL,
-                           "strategy": "ema_xover"})
+            trades.append(
+                {
+                    "bar": i,
+                    "action": "SELL",
+                    "price": price,
+                    "shares": shares,
+                    "pnl": capital - INITIAL_CAPITAL,
+                    "strategy": "ema_xover",
+                }
+            )
             shares = 0
             position = 0
 
@@ -256,9 +287,16 @@ def run_static_strategy(df: pd.DataFrame) -> pd.DataFrame:
         proceeds = shares * price
         cost = proceeds * (COMMISSION_BPS / 10000)
         capital = proceeds - cost
-        trades.append({"bar": len(df) - 1, "action": "SELL (EOD)", "price": price,
-                       "shares": shares, "pnl": capital - INITIAL_CAPITAL,
-                       "strategy": "ema_xover"})
+        trades.append(
+            {
+                "bar": len(df) - 1,
+                "action": "SELL (EOD)",
+                "price": price,
+                "shares": shares,
+                "pnl": capital - INITIAL_CAPITAL,
+                "strategy": "ema_xover",
+            }
+        )
         shares = 0
 
     equity = capital if position == 0 else shares * close.iloc[-1]
@@ -322,11 +360,15 @@ def run_adaptive_strategy(
 
         if regime in ("quiet_trend", "volatile_trend"):
             # Trend strategy: EMA crossover
-            if (ema_fast.iloc[i] > ema_slow.iloc[i]
-                    and ema_fast.iloc[i - 1] <= ema_slow.iloc[i - 1]):
+            if (
+                ema_fast.iloc[i] > ema_slow.iloc[i]
+                and ema_fast.iloc[i - 1] <= ema_slow.iloc[i - 1]
+            ):
                 signal = 1
-            elif (ema_fast.iloc[i] < ema_slow.iloc[i]
-                    and ema_fast.iloc[i - 1] >= ema_slow.iloc[i - 1]):
+            elif (
+                ema_fast.iloc[i] < ema_slow.iloc[i]
+                and ema_fast.iloc[i - 1] >= ema_slow.iloc[i - 1]
+            ):
                 signal = -1
         else:
             # Range strategy: RSI mean-reversion
@@ -341,23 +383,34 @@ def run_adaptive_strategy(
             shares = (invest - cost) / price
             capital -= invest
             position = 1
-            trades.append({
-                "bar": i, "action": "BUY", "price": price,
-                "shares": shares, "regime": regime,
-                "size_mult": size_mult,
-                "strategy": "ema_xover" if "trend" in regime else "rsi_mr",
-            })
+            trades.append(
+                {
+                    "bar": i,
+                    "action": "BUY",
+                    "price": price,
+                    "shares": shares,
+                    "regime": regime,
+                    "size_mult": size_mult,
+                    "strategy": "ema_xover" if "trend" in regime else "rsi_mr",
+                }
+            )
 
         elif signal == -1 and position == 1:
             proceeds = shares * price
             cost = proceeds * commission_rate
             capital += proceeds - cost
             pnl = capital - INITIAL_CAPITAL
-            trades.append({
-                "bar": i, "action": "SELL", "price": price,
-                "shares": shares, "pnl": pnl, "regime": regime,
-                "strategy": "ema_xover" if "trend" in regime else "rsi_mr",
-            })
+            trades.append(
+                {
+                    "bar": i,
+                    "action": "SELL",
+                    "price": price,
+                    "shares": shares,
+                    "pnl": pnl,
+                    "regime": regime,
+                    "strategy": "ema_xover" if "trend" in regime else "rsi_mr",
+                }
+            )
             shares = 0
             position = 0
 
@@ -367,11 +420,17 @@ def run_adaptive_strategy(
         proceeds = shares * price
         cost = proceeds * (COMMISSION_BPS / 10000)
         capital += proceeds - cost
-        trades.append({
-            "bar": len(df) - 1, "action": "SELL (EOD)", "price": price,
-            "shares": shares, "pnl": capital - INITIAL_CAPITAL,
-            "regime": "end", "strategy": "close",
-        })
+        trades.append(
+            {
+                "bar": len(df) - 1,
+                "action": "SELL (EOD)",
+                "price": price,
+                "shares": shares,
+                "pnl": capital - INITIAL_CAPITAL,
+                "regime": "end",
+                "strategy": "close",
+            }
+        )
         shares = 0
 
     equity = capital
@@ -380,9 +439,7 @@ def run_adaptive_strategy(
 
 
 # ── Performance Metrics ─────────────────────────────────────────────
-def compute_metrics(
-    trades_df: pd.DataFrame, final_equity: float, label: str
-) -> dict:
+def compute_metrics(trades_df: pd.DataFrame, final_equity: float, label: str) -> dict:
     """Compute performance metrics from a trade log.
 
     Args:
@@ -394,7 +451,11 @@ def compute_metrics(
         Dict of performance metrics.
     """
     total_return = (final_equity / INITIAL_CAPITAL - 1) * 100
-    n_trades = len(trades_df[trades_df["action"].str.startswith("SELL")]) if len(trades_df) > 0 else 0
+    n_trades = (
+        len(trades_df[trades_df["action"].str.startswith("SELL")])
+        if len(trades_df) > 0
+        else 0
+    )
 
     wins = 0
     losses = 0
@@ -474,9 +535,7 @@ def print_regime_timeline(df: pd.DataFrame, vol_pct: pd.Series, adx: pd.Series) 
         )
 
 
-def print_comparison(
-    static_metrics: dict, adaptive_metrics: dict
-) -> None:
+def print_comparison(static_metrics: dict, adaptive_metrics: dict) -> None:
     """Print side-by-side comparison of strategies.
 
     Args:
@@ -491,21 +550,31 @@ def print_comparison(
 
     rows = [
         ("Initial Capital", f"${INITIAL_CAPITAL:,.2f}", f"${INITIAL_CAPITAL:,.2f}"),
-        ("Final Equity",
-         f"${static_metrics['final_equity']:,.2f}",
-         f"${adaptive_metrics['final_equity']:,.2f}"),
-        ("Total Return",
-         f"{static_metrics['total_return_pct']:+.2f}%",
-         f"{adaptive_metrics['total_return_pct']:+.2f}%"),
-        ("Num Trades",
-         f"{static_metrics['n_trades']}",
-         f"{adaptive_metrics['n_trades']}"),
-        ("Win Rate",
-         f"{static_metrics['win_rate_pct']:.1f}%",
-         f"{adaptive_metrics['win_rate_pct']:.1f}%"),
-        ("Wins / Losses",
-         f"{static_metrics['wins']} / {static_metrics['losses']}",
-         f"{adaptive_metrics['wins']} / {adaptive_metrics['losses']}"),
+        (
+            "Final Equity",
+            f"${static_metrics['final_equity']:,.2f}",
+            f"${adaptive_metrics['final_equity']:,.2f}",
+        ),
+        (
+            "Total Return",
+            f"{static_metrics['total_return_pct']:+.2f}%",
+            f"{adaptive_metrics['total_return_pct']:+.2f}%",
+        ),
+        (
+            "Num Trades",
+            f"{static_metrics['n_trades']}",
+            f"{adaptive_metrics['n_trades']}",
+        ),
+        (
+            "Win Rate",
+            f"{static_metrics['win_rate_pct']:.1f}%",
+            f"{adaptive_metrics['win_rate_pct']:.1f}%",
+        ),
+        (
+            "Wins / Losses",
+            f"{static_metrics['wins']} / {static_metrics['losses']}",
+            f"{adaptive_metrics['wins']} / {adaptive_metrics['losses']}",
+        ),
     ]
 
     for label, static_val, adaptive_val in rows:

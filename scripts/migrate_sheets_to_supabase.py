@@ -11,14 +11,12 @@ Migre :
 import os
 import sys
 from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
 
 # Add project root to sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.supabase_connector import get_db_connection
+from src.db_connector import get_db_connection
 from src.sheets_connector import (
     read_journal_from_sheets,
     read_treasury_from_sheets,
@@ -26,9 +24,10 @@ from src.sheets_connector import (
     read_watchlist_from_sheets,
     read_sharia_statuses_from_sheets,
     get_sheets_client,
-    GOOGLE_SPREADSHEET_ID
+    GOOGLE_SPREADSHEET_ID,
 )
 from src.market_data import categorize_ticker, get_company_name
+
 
 def parse_date(date_val):
     if not date_val:
@@ -36,12 +35,20 @@ def parse_date(date_val):
     s = str(date_val).strip()
     if not s or s.lower() == "none" or s.lower() == "nan":
         return None
-    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"]:
+    for fmt in [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d/%m/%Y",
+    ]:
         try:
             return datetime.strptime(s, fmt)
         except ValueError:
             pass
     return None
+
 
 def migrate_watchlist():
     print("--- 1. Migration de la Watchlist ---")
@@ -63,9 +70,14 @@ def migrate_watchlist():
                 is_pea = cat_info.get("is_pea", s.endswith(".PA"))
                 acc_type = "🇫🇷 PEA" if is_pea else "CTO (US)"
                 sharia = sharia_map.get(s, "CONFORME")
-                curr = "EUR" if (is_pea or s.endswith(".PA") or s.endswith(".DE")) else "USD"
+                curr = (
+                    "EUR"
+                    if (is_pea or s.endswith(".PA") or s.endswith(".DE"))
+                    else "USD"
+                )
 
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO public.watchlist (
                         symbol, name, category, category_icon, is_pea, account_type, sharia_status, currency, is_active
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
@@ -78,10 +90,13 @@ def migrate_watchlist():
                         sharia_status = COALESCE(EXCLUDED.sharia_status, public.watchlist.sharia_status),
                         currency = COALESCE(EXCLUDED.currency, public.watchlist.currency),
                         is_active = TRUE;
-                """, (s, name, cat, icon, is_pea, acc_type, sharia, curr))
+                """,
+                    (s, name, cat, icon, is_pea, acc_type, sharia, curr),
+                )
                 count += 1
             conn.commit()
             print(f"✅ {count} actions synchronisées dans 'public.watchlist'.")
+
 
 def migrate_positions():
     print("\n--- 2. Migration des Positions Actives ---")
@@ -96,7 +111,12 @@ def migrate_positions():
                 if not sym:
                     continue
                 name = p.get("name") or sym
-                broker = "Trading 212" if "Trading 212" in str(p.get("broker", "")) or "Trading 212" in str(p.get("account", "")) else "XTB"
+                broker = (
+                    "Trading 212"
+                    if "Trading 212" in str(p.get("broker", ""))
+                    or "Trading 212" in str(p.get("account", ""))
+                    else "XTB"
+                )
                 acc = p.get("account", "CTO")
                 pru = float(p.get("pru", 0.0))
                 qty = float(p.get("quantity", 1.0))
@@ -107,16 +127,35 @@ def migrate_positions():
                 curr = p.get("currency", "EUR")
                 notes = p.get("notes", "")
 
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO public.positions (
                         symbol, company_name, broker, account_type, pru, quantity, invested_capital,
                         stop_loss, take_profit_1, take_profit_2, currency, status, notes
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVE', %s)
                     ON CONFLICT DO NOTHING;
-                """, (sym, name, broker, acc, pru, qty, invested, sl, tp1, tp2, curr, notes))
+                """,
+                    (
+                        sym,
+                        name,
+                        broker,
+                        acc,
+                        pru,
+                        qty,
+                        invested,
+                        sl,
+                        tp1,
+                        tp2,
+                        curr,
+                        notes,
+                    ),
+                )
                 count += 1
             conn.commit()
-            print(f"✅ {count} positions actives synchronisées dans 'public.positions'.")
+            print(
+                f"✅ {count} positions actives synchronisées dans 'public.positions'."
+            )
+
 
 def migrate_trade_journal():
     print("\n--- 3. Migration du Journal de Trading (Trades Clôturés) ---")
@@ -142,14 +181,19 @@ def migrate_trade_journal():
                 qty = float(t.get("quantity", 1.0))
                 invested = float(t.get("invested_amount", pru * qty))
                 pnl_amt = float(t.get("pnl_amount", (exit_p - pru) * qty))
-                pnl_pct = float(t.get("pnl_pct", ((exit_p - pru) / pru * 100) if pru > 0 else 0.0))
-                res = str(t.get("result") or ("GAIN 🟢" if pnl_amt >= 0 else "PERTE 🔴"))
+                pnl_pct = float(
+                    t.get("pnl_pct", ((exit_p - pru) / pru * 100) if pru > 0 else 0.0)
+                )
+                res = str(
+                    t.get("result") or ("GAIN 🟢" if pnl_amt >= 0 else "PERTE 🔴")
+                )
                 curr = str(t.get("currency", "EUR"))
                 notes = str(t.get("comment") or t.get("notes") or "")
                 if notes.lower() == "nan":
                     notes = ""
 
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO public.trade_journal (
                         id, symbol, company_name, broker, account_type, entry_date, exit_date,
                         pru, exit_price, quantity, invested_amount, pnl_amount, pnl_pct, result, currency, notes
@@ -170,11 +214,33 @@ def migrate_trade_journal():
                         result = EXCLUDED.result,
                         currency = EXCLUDED.currency,
                         notes = EXCLUDED.notes;
-                """, (tid, sym, name, broker, acc, entry_dt, exit_dt, pru, exit_p, qty, invested, pnl_amt, pnl_pct, res, curr, notes))
+                """,
+                    (
+                        tid,
+                        sym,
+                        name,
+                        broker,
+                        acc,
+                        entry_dt,
+                        exit_dt,
+                        pru,
+                        exit_p,
+                        qty,
+                        invested,
+                        pnl_amt,
+                        pnl_pct,
+                        res,
+                        curr,
+                        notes,
+                    ),
+                )
                 inserted += 1
 
             conn.commit()
-            print(f"✅ {inserted} trades insérés/synchronisés dans 'public.trade_journal'.")
+            print(
+                f"✅ {inserted} trades insérés/synchronisés dans 'public.trade_journal'."
+            )
+
 
 def migrate_treasury_operations():
     print("\n--- 4. Migration des Opérations de Trésorerie ---")
@@ -195,7 +261,8 @@ def migrate_treasury_operations():
                 curr = str(op.get("currency", "EUR")).strip()
                 comment = str(op.get("comment", "")).strip()
 
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO public.treasury_operations (
                         id, operation_type, instrument, symbol, operation_date, amount, account_type, currency, comment
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -208,11 +275,16 @@ def migrate_treasury_operations():
                         account_type = EXCLUDED.account_type,
                         currency = EXCLUDED.currency,
                         comment = EXCLUDED.comment;
-                """, (cid, op_type, inst, sym, op_dt, amt, acc, curr, comment))
+                """,
+                    (cid, op_type, inst, sym, op_dt, amt, acc, curr, comment),
+                )
                 inserted += 1
 
             conn.commit()
-            print(f"✅ {inserted} opérations de trésorerie insérées/synchronisées dans 'public.treasury_operations'.")
+            print(
+                f"✅ {inserted} opérations de trésorerie insérées/synchronisées dans 'public.treasury_operations'."
+            )
+
 
 def migrate_trading_signals():
     print("\n--- 5. Migration des Signaux Historiques ---")
@@ -242,10 +314,24 @@ def migrate_trading_signals():
                     sym = str(r[1]).strip().upper() if len(r) > 1 else ""
                     if not sym or sym.startswith("TOTAL"):
                         continue
-                    
-                    price_str = r[3].replace("€", "").replace("$", "").replace(" ", "").replace(",", ".") if len(r) > 3 else "0"
-                    drop_str = r[4].replace("%", "").replace(" ", "").replace(",", ".") if len(r) > 4 else "0"
-                    rsi_str = r[7].replace(" ", "").replace(",", ".") if len(r) > 7 else "50"
+
+                    price_str = (
+                        r[3]
+                        .replace("€", "")
+                        .replace("$", "")
+                        .replace(" ", "")
+                        .replace(",", ".")
+                        if len(r) > 3
+                        else "0"
+                    )
+                    drop_str = (
+                        r[4].replace("%", "").replace(" ", "").replace(",", ".")
+                        if len(r) > 4
+                        else "0"
+                    )
+                    rsi_str = (
+                        r[7].replace(" ", "").replace(",", ".") if len(r) > 7 else "50"
+                    )
                     verdict = r[8] if len(r) > 8 else "SIGNAL HISTORIQUE"
 
                     try:
@@ -261,16 +347,22 @@ def migrate_trading_signals():
                     except:
                         rsi = 50.0
 
-                    cur.execute("""
+                    cur.execute(
+                        """
                         INSERT INTO public.trading_signals (
                             symbol, signal_timestamp, current_price, pullback_pct, rsi_14, verdict_swing, status
                         ) VALUES (%s, %s, %s, %s, %s, %s, 'EMIS');
-                    """, (sym, dt, price, drop, rsi, verdict))
+                    """,
+                        (sym, dt, price, drop, rsi, verdict),
+                    )
                     count += 1
                 conn.commit()
-                print(f"✅ {count} signaux historiques insérés dans 'public.trading_signals'.")
+                print(
+                    f"✅ {count} signaux historiques insérés dans 'public.trading_signals'."
+                )
     except Exception as e:
         print(f"Info migration signaux: {e}")
+
 
 def verify_all_data():
     print("\n=======================================================")
@@ -278,11 +370,20 @@ def verify_all_data():
     print("=======================================================")
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            tables = ['watchlist', 'positions', 'trade_journal', 'treasury_operations', 'trading_signals', 'macro_regimes', 'backtest_runs']
+            tables = [
+                "watchlist",
+                "positions",
+                "trade_journal",
+                "treasury_operations",
+                "trading_signals",
+                "macro_regimes",
+                "backtest_runs",
+            ]
             for t in tables:
                 cur.execute(f"SELECT COUNT(*) FROM public.{t};")
                 cnt = cur.fetchone()[0]
                 print(f" - public.{t:22}: {cnt:5} enregistrements")
+
 
 if __name__ == "__main__":
     print("🚀 Début de la migration intégrale Google Sheets -> Supabase...")

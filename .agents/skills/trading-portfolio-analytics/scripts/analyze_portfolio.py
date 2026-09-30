@@ -66,9 +66,7 @@ def daily_mean_return(returns: pd.Series) -> float:
     return float(returns.mean())
 
 
-def annualized_mean_return(
-    returns: pd.Series, periods_per_year: int = 252
-) -> float:
+def annualized_mean_return(returns: pd.Series, periods_per_year: int = 252) -> float:
     """Annualized arithmetic mean return.
 
     Args:
@@ -84,9 +82,7 @@ def annualized_mean_return(
 # ── Risk Metrics ────────────────────────────────────────────────────
 
 
-def annualized_volatility(
-    returns: pd.Series, periods_per_year: int = 252
-) -> float:
+def annualized_volatility(returns: pd.Series, periods_per_year: int = 252) -> float:
     """Annualized standard deviation of returns.
 
     Args:
@@ -353,8 +349,18 @@ def monthly_returns_table(returns: pd.Series) -> pd.DataFrame:
     monthly = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1)
     table_data: dict[int, dict[str, float]] = {}
     month_names = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
     ]
 
     for dt, val in monthly.items():
@@ -559,17 +565,19 @@ def print_full_report(equity: pd.Series, trade_pnl: Optional[pd.Series] = None) 
     pos_days = (returns > 0).sum()
     neg_days = (returns < 0).sum()
     zero_days = (returns == 0).sum()
-    print(f"  Positive Days:         {pos_days:>9} ({format_pct(pos_days / len(returns))})")
-    print(f"  Negative Days:         {neg_days:>9} ({format_pct(neg_days / len(returns))})")
+    print(
+        f"  Positive Days:         {pos_days:>9} ({format_pct(pos_days / len(returns))})"
+    )
+    print(
+        f"  Negative Days:         {neg_days:>9} ({format_pct(neg_days / len(returns))})"
+    )
     print(f"  Zero Days:             {zero_days:>9}")
 
     # ── Monthly Returns Table
     print_separator("MONTHLY RETURNS")
     mt = monthly_returns_table(returns)
     if len(mt) > 0:
-        formatted = mt.map(
-            lambda x: f"{x * 100:6.2f}%" if pd.notna(x) else "    N/A"
-        )
+        formatted = mt.map(lambda x: f"{x * 100:6.2f}%" if pd.notna(x) else "    N/A")
         print(formatted.to_string())
 
     # ── Trade-Level Statistics
@@ -586,7 +594,9 @@ def print_full_report(equity: pd.Series, trade_pnl: Optional[pd.Series] = None) 
         print(f"  Expectancy:            ${stats['expectancy']:>11,.2f}")
         print(f"  Gross Profit:          ${stats['gross_profit']:>11,.2f}")
         print(f"  Gross Loss:            ${stats['gross_loss']:>11,.2f}")
-        print(f"  Net Profit:            ${stats['gross_profit'] - stats['gross_loss']:>11,.2f}")
+        print(
+            f"  Net Profit:            ${stats['gross_profit'] - stats['gross_loss']:>11,.2f}"
+        )
 
     print(f"\n{'=' * 60}")
     print("  Note: This is analytical output for informational purposes.")
@@ -642,9 +652,7 @@ def load_equity_from_csv(
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Portfolio performance analysis tool."
-    )
+    parser = argparse.ArgumentParser(description="Portfolio performance analysis tool.")
     parser.add_argument(
         "--demo",
         action="store_true",
@@ -709,7 +717,9 @@ def main() -> None:
     else:
         print("Usage:")
         print("  python scripts/analyze_portfolio.py --demo")
-        print("  python scripts/analyze_portfolio.py --csv equity.csv --value-col portfolio_value")
+        print(
+            "  python scripts/analyze_portfolio.py --csv equity.csv --value-col portfolio_value"
+        )
         sys.exit(1)
 
 

@@ -34,6 +34,7 @@ from typing import Optional
 
 # ── Configuration ───────────────────────────────────────────────────
 
+
 def get_float_env(name: str, default: float) -> float:
     """Read a float from an environment variable with a default."""
     val = os.getenv(name, "")
@@ -59,6 +60,7 @@ SLIPPAGE_EST = get_float_env("SLIPPAGE_EST", 0.005)
 
 
 # ── Fixed Fractional Sizing ────────────────────────────────────────
+
 
 def fixed_fractional(
     account: float,
@@ -88,7 +90,12 @@ def fixed_fractional(
     effective_risk = price_risk + fee_cost + slippage_cost
 
     if effective_risk <= 0:
-        return {"units": 0.0, "value": 0.0, "risk_amount": risk_amount, "effective_risk": 0.0}
+        return {
+            "units": 0.0,
+            "value": 0.0,
+            "risk_amount": risk_amount,
+            "effective_risk": 0.0,
+        }
 
     units = risk_amount / effective_risk
     value = units * entry
@@ -105,6 +112,7 @@ def fixed_fractional(
 
 
 # ── Volatility-Adjusted Sizing ─────────────────────────────────────
+
 
 def volatility_adjusted(
     account: float,
@@ -124,7 +132,12 @@ def volatility_adjusted(
         Dictionary with units, value, and volatility metrics.
     """
     if atr <= 0:
-        return {"units": 0.0, "value": 0.0, "daily_vol_pct": 0.0, "expected_daily_pnl": 0.0}
+        return {
+            "units": 0.0,
+            "value": 0.0,
+            "daily_vol_pct": 0.0,
+            "expected_daily_pnl": 0.0,
+        }
 
     target_daily_pnl = account * target_vol_pct
     daily_vol_pct = atr / entry
@@ -142,6 +155,7 @@ def volatility_adjusted(
 
 
 # ── Kelly Criterion Sizing ─────────────────────────────────────────
+
 
 def kelly_criterion(
     account: float,
@@ -167,8 +181,12 @@ def kelly_criterion(
     q = 1.0 - win_rate
     if payoff_ratio <= 0:
         return {
-            "full_kelly": 0.0, "fractional_kelly": 0.0, "fraction_used": fraction,
-            "units": 0.0, "value": 0.0, "has_edge": False,
+            "full_kelly": 0.0,
+            "fractional_kelly": 0.0,
+            "fraction_used": fraction,
+            "units": 0.0,
+            "value": 0.0,
+            "has_edge": False,
         }
 
     full_kelly = (win_rate * payoff_ratio - q) / payoff_ratio
@@ -191,11 +209,13 @@ def kelly_criterion(
         "units": units,
         "value": value,
         "has_edge": has_edge,
-        "expected_growth_fraction": fractional_kelly * (2 - fractional_kelly / max(full_kelly, 1e-9)),
+        "expected_growth_fraction": fractional_kelly
+        * (2 - fractional_kelly / max(full_kelly, 1e-9)),
     }
 
 
 # ── Liquidity-Constrained Sizing ───────────────────────────────────
+
 
 def liquidity_constrained(
     pool_liquidity: float,
@@ -230,6 +250,7 @@ def liquidity_constrained(
 
 # ── R:R Targets ────────────────────────────────────────────────────
 
+
 def calculate_rr_targets(
     entry: float,
     stop: float,
@@ -252,16 +273,19 @@ def calculate_rr_targets(
     for r_multiple in [1.0, 1.5, 2.0, 3.0, 5.0]:
         target_price = entry + direction * risk_per_unit * r_multiple
         pnl = units * direction * (target_price - entry)
-        targets.append({
-            "r_multiple": r_multiple,
-            "target_price": round(target_price, 6),
-            "pnl": round(pnl, 2),
-        })
+        targets.append(
+            {
+                "r_multiple": r_multiple,
+                "target_price": round(target_price, 6),
+                "pnl": round(pnl, 2),
+            }
+        )
 
     return targets
 
 
 # ── Report Formatting ──────────────────────────────────────────────
+
 
 def format_number(val: float, decimals: int = 2) -> str:
     """Format a number with commas and specified decimals."""
@@ -312,7 +336,10 @@ def print_report(
     print_row("Account Size", f"${format_number(account)}")
     print_row("Entry Price", f"${format_number(entry, 6)}")
     print_row("Stop Loss", f"${format_number(stop, 6)}")
-    print_row("Price Risk", f"${format_number(abs(entry - stop), 6)} ({abs(entry - stop) / entry * 100:.1f}%)")
+    print_row(
+        "Price Risk",
+        f"${format_number(abs(entry - stop), 6)} ({abs(entry - stop) / entry * 100:.1f}%)",
+    )
     print_row("Win Rate", f"{win_rate * 100:.1f}%")
     print_row("Payoff Ratio", f"{payoff_ratio:.2f}x")
     print_row("Pool Liquidity", f"${format_number(pool_liquidity)}")
@@ -332,8 +359,12 @@ def print_report(
             f"{format_number(ff['units'])} units | ${format_number(ff['value'])} value | ${format_number(ff['risk_amount'])} at risk",
         )
     ff_default = results_ff[0.02]
-    print(f"\n  Fee-adjusted risk per unit: ${format_number(ff_default['effective_risk'], 4)}")
-    print(f"  (Price risk ${format_number(ff_default['price_risk'], 4)} + fees ${format_number(ff_default['fee_cost'], 4)} + slippage ${format_number(ff_default['slippage_cost'], 4)})")
+    print(
+        f"\n  Fee-adjusted risk per unit: ${format_number(ff_default['effective_risk'], 4)}"
+    )
+    print(
+        f"  (Price risk ${format_number(ff_default['price_risk'], 4)} + fees ${format_number(ff_default['fee_cost'], 4)} + slippage ${format_number(ff_default['slippage_cost'], 4)})"
+    )
 
     # ── Volatility-Adjusted ─────────────────────────────────────
     print_header("METHOD 2: VOLATILITY-ADJUSTED")
@@ -342,12 +373,18 @@ def print_report(
     print_row("Target Daily PnL", f"${format_number(va['target_daily_pnl'])}")
     print_row("Position Size", f"{format_number(va['units'])} units")
     print_row("Position Value", f"${format_number(va['value'])}")
-    print_row("Expected Daily PnL Range", f"+/- ${format_number(va['expected_daily_pnl'])}")
+    print_row(
+        "Expected Daily PnL Range", f"+/- ${format_number(va['expected_daily_pnl'])}"
+    )
 
     # ── Kelly Criterion ─────────────────────────────────────────
     print_header("METHOD 3: KELLY CRITERION")
     kelly_results = {}
-    for frac, label in [(1.0, "Full Kelly"), (0.5, "Half Kelly"), (0.25, "Quarter Kelly")]:
+    for frac, label in [
+        (1.0, "Full Kelly"),
+        (0.5, "Half Kelly"),
+        (0.25, "Quarter Kelly"),
+    ]:
         kc = kelly_criterion(account, win_rate, payoff_ratio, entry, stop, frac)
         kelly_results[frac] = kc
         edge_str = "" if kc["has_edge"] else " [NO EDGE]"
@@ -402,13 +439,17 @@ def print_report(
     # Check portfolio limits
     print("\n  Portfolio limit checks:")
     single_ok = pct_of_account <= 10
-    print(f"    Single position < 10%: {'PASS' if single_ok else 'FAIL'} ({pct_of_account:.1f}%)")
+    print(
+        f"    Single position < 10%: {'PASS' if single_ok else 'FAIL'} ({pct_of_account:.1f}%)"
+    )
 
     print("\n  All methods compared:")
     for method, units in sorted(candidates.items(), key=lambda x: x[1]):
         marker = " <-- BINDING" if method == binding_method else ""
         val = units * entry
-        print(f"    {method:<30} {format_number(units):>12} units  ${format_number(val):>12}{marker}")
+        print(
+            f"    {method:<30} {format_number(units):>12} units  ${format_number(val):>12}{marker}"
+        )
 
     # ── R:R Targets ─────────────────────────────────────────────
     print_header("R:R TARGETS (at recommended size)")
@@ -422,10 +463,13 @@ def print_report(
     print(f"  {'-' * 56}")
     for t in targets:
         pct = (t["pnl"] / account) * 100
-        print(f"  {t['r_multiple']:<8.1f} ${format_number(t['target_price'], 6):<14} ${format_number(t['pnl']):<14} {pct:+.2f}%")
+        print(
+            f"  {t['r_multiple']:<8.1f} ${format_number(t['target_price'], 6):<14} ${format_number(t['pnl']):<14} {pct:+.2f}%"
+        )
 
 
 # ── Validation ──────────────────────────────────────────────────────
+
 
 def validate_inputs(
     account: float,
@@ -467,7 +511,9 @@ def validate_inputs(
     # Warnings (non-fatal)
     risk_pct = abs(entry - stop) / entry * 100
     if risk_pct > 30:
-        errors.append(f"Warning: Stop distance is {risk_pct:.1f}% from entry (very wide)")
+        errors.append(
+            f"Warning: Stop distance is {risk_pct:.1f}% from entry (very wide)"
+        )
     if pool_liquidity < account * 0.1:
         errors.append("Warning: Pool liquidity is less than 10% of account size")
 
@@ -476,11 +522,16 @@ def validate_inputs(
 
 # ── Main ────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     """Run the position size calculator with configured parameters."""
     issues = validate_inputs(
-        ACCOUNT_SIZE, ENTRY_PRICE, STOP_LOSS,
-        WIN_RATE, AVG_WIN_RATIO, POOL_LIQUIDITY,
+        ACCOUNT_SIZE,
+        ENTRY_PRICE,
+        STOP_LOSS,
+        WIN_RATE,
+        AVG_WIN_RATIO,
+        POOL_LIQUIDITY,
     )
 
     fatal = [i for i in issues if not i.startswith("Warning")]

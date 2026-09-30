@@ -31,6 +31,7 @@ from scipy.stats import norm
 
 # ── Data Classes ────────────────────────────────────────────────────
 
+
 @dataclasses.dataclass
 class DSRResult:
     """Results from Deflated Sharpe Ratio analysis.
@@ -100,6 +101,7 @@ class MinBTLResult:
 
 # ── Deflated Sharpe Ratio ───────────────────────────────────────────
 
+
 def deflated_sharpe_ratio(
     observed_sr: float,
     num_trials: int,
@@ -136,8 +138,7 @@ def deflated_sharpe_ratio(
 
     # Standard error of the Sharpe ratio estimator
     sr_std = np.sqrt(
-        (1.0 - skewness * sr + (kurtosis - 1.0) / 4.0 * sr**2)
-        / (backtest_length - 1)
+        (1.0 - skewness * sr + (kurtosis - 1.0) / 4.0 * sr**2) / (backtest_length - 1)
     )
 
     # Expected maximum SR under null (all strategies have zero true SR)
@@ -169,6 +170,7 @@ def deflated_sharpe_ratio(
 
 
 # ── Probability of Backtest Overfitting ─────────────────────────────
+
 
 def probability_of_backtest_overfitting(
     strategy_returns: np.ndarray,
@@ -257,9 +259,11 @@ def probability_of_backtest_overfitting(
 
     n_paths = len(logit_values)
     pbo = n_overfit / n_paths if n_paths > 0 else 1.0
-    mean_rank = float(np.mean([
-        (1.0 / (1.0 + np.exp(-lv))) for lv in logit_values
-    ])) if logit_values else 1.0
+    mean_rank = (
+        float(np.mean([(1.0 / (1.0 + np.exp(-lv))) for lv in logit_values]))
+        if logit_values
+        else 1.0
+    )
 
     return PBOResult(
         pbo=pbo,
@@ -272,6 +276,7 @@ def probability_of_backtest_overfitting(
 
 
 # ── Minimum Backtest Length ─────────────────────────────────────────
+
 
 def minimum_backtest_length(
     target_sr: float,
@@ -307,6 +312,7 @@ def minimum_backtest_length(
 
 
 # ── Multiple Testing Corrections ───────────────────────────────────
+
 
 def bonferroni_correction(p_values: list[float], alpha: float = 0.05) -> list[bool]:
     """Apply Bonferroni correction to a list of p-values.
@@ -348,6 +354,7 @@ def holm_correction(p_values: list[float], alpha: float = 0.05) -> list[bool]:
 
 
 # ── Demo ────────────────────────────────────────────────────────────
+
 
 def generate_synthetic_strategies(
     n_obs: int = 500,
@@ -407,8 +414,10 @@ def run_demo() -> None:
         seed=42,
     )
 
-    print(f"Generated {n_strategies} strategies ({n_genuine} with genuine alpha, "
-          f"{n_strategies - n_genuine} noise)")
+    print(
+        f"Generated {n_strategies} strategies ({n_genuine} with genuine alpha, "
+        f"{n_strategies - n_genuine} noise)"
+    )
     print(f"Each strategy has {n_obs} daily return observations")
     print()
 
@@ -437,7 +446,9 @@ def run_demo() -> None:
     best_name = names[best_idx]
 
     print(f"Best strategy: {best_name} with SR = {best_sr:.3f}")
-    print(f"Is it genuine alpha? {'Yes' if best_idx < n_genuine else 'No — it is noise!'}")
+    print(
+        f"Is it genuine alpha? {'Yes' if best_idx < n_genuine else 'No — it is noise!'}"
+    )
     print()
 
     # ── Part 2: Deflated Sharpe Ratio ──────────────────────────────
@@ -446,8 +457,12 @@ def run_demo() -> None:
     print("-" * 72)
 
     best_returns = returns[:, best_idx]
-    skew = float(np.mean(((best_returns - np.mean(best_returns)) / np.std(best_returns)) ** 3))
-    kurt = float(np.mean(((best_returns - np.mean(best_returns)) / np.std(best_returns)) ** 4))
+    skew = float(
+        np.mean(((best_returns - np.mean(best_returns)) / np.std(best_returns)) ** 3)
+    )
+    kurt = float(
+        np.mean(((best_returns - np.mean(best_returns)) / np.std(best_returns)) ** 4)
+    )
 
     dsr_result = deflated_sharpe_ratio(
         observed_sr=best_sr,
@@ -511,9 +526,11 @@ def run_demo() -> None:
     print("Part 4: Minimum Backtest Length")
     print("-" * 72)
 
-    for sr_target, label in [(0.05, "Low SR (daily ~0.05, ann ~0.96)"),
-                              (0.10, "Med SR (daily ~0.10, ann ~1.91)"),
-                              (0.20, "High SR (daily ~0.20, ann ~3.82)")]:
+    for sr_target, label in [
+        (0.05, "Low SR (daily ~0.05, ann ~0.96)"),
+        (0.10, "Med SR (daily ~0.10, ann ~1.91)"),
+        (0.20, "High SR (daily ~0.20, ann ~3.82)"),
+    ]:
         result = minimum_backtest_length(
             target_sr=sr_target, confidence=0.95, skewness=skew, kurtosis=kurt
         )
@@ -538,7 +555,9 @@ def run_demo() -> None:
     bonf = bonferroni_correction(p_values, alpha=0.05)
     holm_results = holm_correction(p_values, alpha=0.05)
 
-    print(f"\n{'Strategy':>12} {'p-value':>10} {'Bonferroni':>12} {'Holm':>8} {'Type':>8}")
+    print(
+        f"\n{'Strategy':>12} {'p-value':>10} {'Bonferroni':>12} {'Holm':>8} {'Type':>8}"
+    )
     print("-" * 56)
     for i in sorted_idx[:10]:
         stype = "ALPHA" if i < n_genuine else "noise"
@@ -560,18 +579,25 @@ def run_demo() -> None:
     print("Summary")
     print("=" * 72)
     print(f"  Best raw Sharpe:    {best_sr:.3f} ({best_name})")
-    print(f"  DSR p-value:        {dsr_result.dsr_pvalue:.4f} ({'significant' if dsr_result.is_significant else 'NOT significant'})")
-    print(f"  PBO:                {pbo_result.pbo:.3f} ({'overfit' if pbo_result.is_overfit else 'acceptable'})")
+    print(
+        f"  DSR p-value:        {dsr_result.dsr_pvalue:.4f} ({'significant' if dsr_result.is_significant else 'NOT significant'})"
+    )
+    print(
+        f"  PBO:                {pbo_result.pbo:.3f} ({'overfit' if pbo_result.is_overfit else 'acceptable'})"
+    )
     print(f"  Bonferroni pass:    {n_bonf_sig} strategies")
     print(f"  Holm pass:          {n_holm_sig} strategies")
     print()
     print("  Key takeaway: Always adjust for multiple testing. A Sharpe of")
-    print(f"  {best_sr:.2f} looks great in isolation, but after testing {n_strategies} strategies,")
+    print(
+        f"  {best_sr:.2f} looks great in isolation, but after testing {n_strategies} strategies,"
+    )
     print(f"  the DSR reduces it to a p-value of {dsr_result.dsr_pvalue:.3f}.")
     print()
 
 
 # ── Main ────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     """Entry point for overfit detection."""
@@ -590,7 +616,9 @@ def main() -> None:
         print("Example: python scripts/overfit_detector.py --demo")
         print()
         print("Or use the functions programmatically:")
-        print("  from overfit_detector import deflated_sharpe_ratio, probability_of_backtest_overfitting")
+        print(
+            "  from overfit_detector import deflated_sharpe_ratio, probability_of_backtest_overfitting"
+        )
         sys.exit(0)
 
     run_demo()

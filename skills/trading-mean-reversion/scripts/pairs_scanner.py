@@ -243,7 +243,10 @@ def analyze_pair(
         coint_ab = engle_granger_test(prices_a, prices_b)
         coint_ba = engle_granger_test(prices_b, prices_a)
 
-        if coint_ab["adf_result"]["p_value_approx"] <= coint_ba["adf_result"]["p_value_approx"]:
+        if (
+            coint_ab["adf_result"]["p_value_approx"]
+            <= coint_ba["adf_result"]["p_value_approx"]
+        ):
             coint = coint_ab
             dependent, independent = name_a, name_b
         else:
@@ -390,15 +393,19 @@ def print_pairs_report(
     print("=" * 80)
 
     # Summary table
-    print(f"\n{'Rank':<5} {'Pair':<12} {'Quality':<9} {'Coint?':<8} "
-          f"{'Hurst':<7} {'Half-Life':<11} {'Z-Score':<9} {'Signal'}")
+    print(
+        f"\n{'Rank':<5} {'Pair':<12} {'Quality':<9} {'Coint?':<8} "
+        f"{'Hurst':<7} {'Half-Life':<11} {'Z-Score':<9} {'Signal'}"
+    )
     print("-" * 80)
 
     for i, r in enumerate(results, 1):
         coint_flag = "YES" if r["is_cointegrated"] else "no"
         hl_str = f"{r['half_life']:.1f}" if r["half_life"] > 0 else "N/A"
-        print(f"{i:<5} {r['pair']:<12} {r['quality_score']:<9.1f} {coint_flag:<8} "
-              f"{r['hurst']:<7.3f} {hl_str:<11} {r['current_z']:+.3f}   {r['signal']}")
+        print(
+            f"{i:<5} {r['pair']:<12} {r['quality_score']:<9.1f} {coint_flag:<8} "
+            f"{r['hurst']:<7.3f} {hl_str:<11} {r['current_z']:+.3f}   {r['signal']}"
+        )
 
     # Detailed view of top pairs
     print(f"\n{'=' * 80}")
@@ -417,8 +424,10 @@ def print_pairs_report(
         print(f"    ADF p-value: {r['coint_p']:.4f}")
         print(f"    Cointegrated: {'YES' if r['is_cointegrated'] else 'NO'}")
         print(f"  Spread Properties:")
-        print(f"    Hurst exponent: {r['hurst']:.4f} "
-              f"({'mean-reverting' if r['hurst'] < 0.5 else 'trending'})")
+        print(
+            f"    Hurst exponent: {r['hurst']:.4f} "
+            f"({'mean-reverting' if r['hurst'] < 0.5 else 'trending'})"
+        )
         hl_str = f"{r['half_life']:.1f} bars" if r["half_life"] > 0 else "N/A"
         print(f"    Half-life: {hl_str}")
         print(f"    Lookback window: {r['lookback']} bars")
@@ -500,9 +509,11 @@ def main() -> None:
         result = analyze_pair(name_a, name_b, assets[name_a], assets[name_b])
         if result is not None:
             results.append(result)
-            print(f"  {name_a}/{name_b}: quality={result['quality_score']:.1f}, "
-                  f"H={result['hurst']:.3f}, "
-                  f"coint={'Y' if result['is_cointegrated'] else 'N'}")
+            print(
+                f"  {name_a}/{name_b}: quality={result['quality_score']:.1f}, "
+                f"H={result['hurst']:.3f}, "
+                f"coint={'Y' if result['is_cointegrated'] else 'N'}"
+            )
 
     print()
     print_pairs_report(results, top_n=args.top)

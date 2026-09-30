@@ -1,9 +1,5 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
-
-# Charger les variables d'environnement
-load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -176,16 +172,7 @@ SHARIA_EXCLUDED_INDUSTRIES = [
 ]
 
 # ==============================================================================
-# --- 5. Intégration Google Sheets ---
-# ==============================================================================
 
-GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", str(BASE_DIR / "credentials.json"))
-GOOGLE_SPREADSHEET_ID = os.getenv("GOOGLE_SPREADSHEET_ID", "")
-GOOGLE_SHEET_NAME_WATCHLIST = os.getenv("GOOGLE_SHEET_NAME_WATCHLIST", "Suivi d'Investissement")
-GOOGLE_SHEET_NAME_SIGNALS = os.getenv("GOOGLE_SHEET_NAME_SIGNALS", "Signaux")
-GOOGLE_SHEET_NAME_POSITIONS = os.getenv("GOOGLE_SHEET_NAME_POSITIONS", "Positions")
-GOOGLE_SHEET_NAME_JOURNAL = os.getenv("GOOGLE_SHEET_NAME_JOURNAL", "Journal de Trading")
-GOOGLE_SHEET_NAME_TREASURY = os.getenv("GOOGLE_SHEET_NAME_TREASURY", "Trésorerie")
 
 # ==============================================================================
 # --- 6. Plafond XTB Commissions à 0% & Tarification ---

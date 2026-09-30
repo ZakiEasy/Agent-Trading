@@ -4,33 +4,96 @@ from src.config import (
     SHARIA_EXCLUDED_INDUSTRIES,
     SHARIA_MAX_DEBT_RATIO,
     SHARIA_MAX_CASH_RATIO,
-    SHARIA_MAX_RECEIVABLES_RATIO
+    SHARIA_MAX_RECEIVABLES_RATIO,
 )
 
 # Référentiel de conformité AAOIFI / MSCI Islamic pré-validé pour l'univers de trading
 KNOWN_SHARIA_STATUS = {
-    "SAN.PA": {"status": "CONFORME", "reason": "Secteur Santé / Pharma - Dette nette et ratios conformes AAOIFI"},
-    "SAN.FR": {"status": "CONFORME", "reason": "Secteur Santé / Pharma - Dette nette et ratios conformes AAOIFI"},
-    "RMS.PA": {"status": "CONFORME", "reason": "Luxe & Maroquinerie - Trésorerie nette positive, absence de dette portant intérêt"},
-    "RMS.FR": {"status": "CONFORME", "reason": "Luxe & Maroquinerie - Trésorerie nette positive, absence de dette portant intérêt"},
-    "OR.PA": {"status": "CONFORME", "reason": "Cosmétique & Soins - Ratios financiers conformes AAOIFI (< 33%)"},
-    "OR.FR": {"status": "CONFORME", "reason": "Cosmétique & Soins - Ratios financiers conformes AAOIFI (< 33%)"},
-    "AI.PA": {"status": "CONFORME", "reason": "Gaz Industriels & Médicaux - Ratios financiers conformes AAOIFI"},
-    "AI.FR": {"status": "CONFORME", "reason": "Gaz Industriels & Médicaux - Ratios financiers conformes AAOIFI"},
-    "SU.PA": {"status": "CONFORME", "reason": "Schneider Electric - Ratios conformes AAOIFI"},
-    "SU.FR": {"status": "CONFORME", "reason": "Schneider Electric - Ratios conformes AAOIFI"},
-    "TTE.PA": {"status": "CONFORME", "reason": "TotalEnergies - Activités énergétiques et ratios conformes AAOIFI"},
-    "ENGI.PA": {"status": "CONFORME", "reason": "Engie - Énergie & Transition conformes AAOIFI"},
-    "GTT.PA": {"status": "CONFORME", "reason": "Gaztransport & Technigaz - Trésorerie nette excédentaire"},
-    "STMPA.PA": {"status": "CONFORME", "reason": "STMicroelectronics - Semi-conducteurs conformes AAOIFI"},
-    "STM.PA": {"status": "CONFORME", "reason": "STMicroelectronics - Semi-conducteurs conformes AAOIFI"},
-    "STM.FR": {"status": "CONFORME", "reason": "STMicroelectronics - Semi-conducteurs conformes AAOIFI"},
-    "LR.PA": {"status": "CONFORME", "reason": "Legrand - Matériel électrique conforme AAOIFI"},
+    "SAN.PA": {
+        "status": "CONFORME",
+        "reason": "Secteur Santé / Pharma - Dette nette et ratios conformes AAOIFI",
+    },
+    "SAN.FR": {
+        "status": "CONFORME",
+        "reason": "Secteur Santé / Pharma - Dette nette et ratios conformes AAOIFI",
+    },
+    "RMS.PA": {
+        "status": "CONFORME",
+        "reason": "Luxe & Maroquinerie - Trésorerie nette positive, absence de dette portant intérêt",
+    },
+    "RMS.FR": {
+        "status": "CONFORME",
+        "reason": "Luxe & Maroquinerie - Trésorerie nette positive, absence de dette portant intérêt",
+    },
+    "OR.PA": {
+        "status": "CONFORME",
+        "reason": "Cosmétique & Soins - Ratios financiers conformes AAOIFI (< 33%)",
+    },
+    "OR.FR": {
+        "status": "CONFORME",
+        "reason": "Cosmétique & Soins - Ratios financiers conformes AAOIFI (< 33%)",
+    },
+    "AI.PA": {
+        "status": "CONFORME",
+        "reason": "Gaz Industriels & Médicaux - Ratios financiers conformes AAOIFI",
+    },
+    "AI.FR": {
+        "status": "CONFORME",
+        "reason": "Gaz Industriels & Médicaux - Ratios financiers conformes AAOIFI",
+    },
+    "SU.PA": {
+        "status": "CONFORME",
+        "reason": "Schneider Electric - Ratios conformes AAOIFI",
+    },
+    "SU.FR": {
+        "status": "CONFORME",
+        "reason": "Schneider Electric - Ratios conformes AAOIFI",
+    },
+    "TTE.PA": {
+        "status": "CONFORME",
+        "reason": "TotalEnergies - Activités énergétiques et ratios conformes AAOIFI",
+    },
+    "ENGI.PA": {
+        "status": "CONFORME",
+        "reason": "Engie - Énergie & Transition conformes AAOIFI",
+    },
+    "GTT.PA": {
+        "status": "CONFORME",
+        "reason": "Gaztransport & Technigaz - Trésorerie nette excédentaire",
+    },
+    "STMPA.PA": {
+        "status": "CONFORME",
+        "reason": "STMicroelectronics - Semi-conducteurs conformes AAOIFI",
+    },
+    "STM.PA": {
+        "status": "CONFORME",
+        "reason": "STMicroelectronics - Semi-conducteurs conformes AAOIFI",
+    },
+    "STM.FR": {
+        "status": "CONFORME",
+        "reason": "STMicroelectronics - Semi-conducteurs conformes AAOIFI",
+    },
+    "LR.PA": {
+        "status": "CONFORME",
+        "reason": "Legrand - Matériel électrique conforme AAOIFI",
+    },
     "KER.PA": {"status": "CONFORME", "reason": "Kering - Luxe conforme AAOIFI"},
-    "EL.PA": {"status": "CONFORME", "reason": "EssilorLuxottica - Optique & Santé conforme AAOIFI"},
-    "MC.PA": {"status": "NON CONFORME", "reason": "Branche Vins & Spiritueux (Moët Hennessy) > 5% du CA"},
-    "LVMH": {"status": "NON CONFORME", "reason": "Branche Vins & Spiritueux (Moët Hennessy) > 5% du CA"},
-    "AIR.PA": {"status": "NON CONFORME", "reason": "Activités militaires & défense armée > 5% du CA"},
+    "EL.PA": {
+        "status": "CONFORME",
+        "reason": "EssilorLuxottica - Optique & Santé conforme AAOIFI",
+    },
+    "MC.PA": {
+        "status": "NON CONFORME",
+        "reason": "Branche Vins & Spiritueux (Moët Hennessy) > 5% du CA",
+    },
+    "LVMH": {
+        "status": "NON CONFORME",
+        "reason": "Branche Vins & Spiritueux (Moët Hennessy) > 5% du CA",
+    },
+    "AIR.PA": {
+        "status": "NON CONFORME",
+        "reason": "Activités militaires & défense armée > 5% du CA",
+    },
     "AAPL": {"status": "CONFORME", "reason": "Apple Inc - Conforme AAOIFI"},
     "MSFT": {"status": "CONFORME", "reason": "Microsoft Corp - Conforme AAOIFI"},
     "GOOGL": {"status": "CONFORME", "reason": "Alphabet Inc - Conforme AAOIFI"},
@@ -52,9 +115,13 @@ KNOWN_SHARIA_STATUS = {
     "LLY": {"status": "CONFORME", "reason": "Eli Lilly and Co - Conforme AAOIFI"},
     "MRK": {"status": "CONFORME", "reason": "Merck & Co - Conforme AAOIFI"},
     "MRK.DE": {"status": "CONFORME", "reason": "Merck KGaA - Conforme AAOIFI"},
-    "IS3R.DE": {"status": "CONFORME", "reason": "ETF iShares World Islamic / Factoriel Sharia"},
-    "IS3E.DE": {"status": "CONFORME", "reason": "ETF iShares Emerging Markets Islamic"}
+    "IS3R.DE": {
+        "status": "CONFORME",
+        "reason": "ETF iShares World Islamic / Factoriel Sharia",
+    },
+    "IS3E.DE": {"status": "CONFORME", "reason": "ETF iShares Emerging Markets Islamic"},
 }
+
 
 def check_business_compliance(info):
     """
@@ -62,37 +129,53 @@ def check_business_compliance(info):
     """
     if not isinstance(info, dict):
         info = {}
-        
+
     industry = str(info.get("industry", "") or "").lower()
     sector = str(info.get("sector", "") or "").lower()
     summary = str(info.get("longBusinessSummary", "") or "").lower()
-    
+
     # Exclure selon l'industrie ou le secteur
     for forbidden in SHARIA_EXCLUDED_INDUSTRIES:
         if forbidden in industry or forbidden in sector:
             return False, f"Secteur/Industrie non conforme : {forbidden}"
-            
+
     # Exclure selon la description de l'activité
-    for forbidden in ["casino", "gambling", "pork", "distillery", "defense contractor", "weapons"]:
+    for forbidden in [
+        "casino",
+        "gambling",
+        "pork",
+        "distillery",
+        "defense contractor",
+        "weapons",
+    ]:
         if forbidden in summary:
-            return False, f"Activité non conforme (détectée dans le résumé) : {forbidden}"
-            
+            return (
+                False,
+                f"Activité non conforme (détectée dans le résumé) : {forbidden}",
+            )
+
     return True, "Activité conforme (Activités illicites < 5%)"
+
 
 def get_financial_metric(balance_sheet, keys):
     """
     Récupère une métrique financière à partir de la balance sheet en testant plusieurs clés courantes.
     """
-    if balance_sheet is None or not hasattr(balance_sheet, 'index') or balance_sheet.empty:
+    if (
+        balance_sheet is None
+        or not hasattr(balance_sheet, "index")
+        or balance_sheet.empty
+    ):
         return 0.0
-        
+
     for key in keys:
         if key in balance_sheet.index:
             row = balance_sheet.loc[key]
-            val = row.iloc[0] if hasattr(row, 'iloc') else row
+            val = row.iloc[0] if hasattr(row, "iloc") else row
             if isinstance(val, (int, float)) and not pd.isna(val):
                 return float(val)
     return 0.0
+
 
 def calculate_24m_avg_market_cap(ticker_obj, info, current_market_cap):
     """
@@ -101,8 +184,8 @@ def calculate_24m_avg_market_cap(ticker_obj, info, current_market_cap):
     try:
         hist_2y = ticker_obj.history(period="2y")
         if hist_2y is not None and not hist_2y.empty and len(hist_2y) > 50:
-            avg_close = float(hist_2y['Close'].dropna().mean())
-            current_close = float(hist_2y['Close'].dropna().values[-1])
+            avg_close = float(hist_2y["Close"].dropna().mean())
+            current_close = float(hist_2y["Close"].dropna().values[-1])
             shares = info.get("sharesOutstanding")
             if shares and shares > 0:
                 return float(shares * avg_close)
@@ -111,8 +194,9 @@ def calculate_24m_avg_market_cap(ticker_obj, info, current_market_cap):
                 return float(current_market_cap * (avg_close / current_close))
     except Exception as e:
         pass
-        
+
     return current_market_cap
+
 
 def check_financial_compliance(ticker_obj, info):
     """
@@ -124,13 +208,15 @@ def check_financial_compliance(ticker_obj, info):
     """
     if not isinstance(info, dict):
         info = {}
-        
+
     current_market_cap = info.get("marketCap") or 0.0
-    
+
     # 1. Fallback via fast_info de yfinance
     if not current_market_cap:
         try:
-            fast_cap = getattr(getattr(ticker_obj, 'fast_info', None), 'market_cap', None)
+            fast_cap = getattr(
+                getattr(ticker_obj, "fast_info", None), "market_cap", None
+            )
             if fast_cap and float(fast_cap) > 0:
                 current_market_cap = float(fast_cap)
         except Exception:
@@ -139,41 +225,47 @@ def check_financial_compliance(ticker_obj, info):
     # 2. Fallback via sharesOutstanding * price
     if not current_market_cap:
         shares = info.get("sharesOutstanding")
-        price = info.get("currentPrice") or info.get("previousClose") or info.get("regularMarketPrice")
+        price = (
+            info.get("currentPrice")
+            or info.get("previousClose")
+            or info.get("regularMarketPrice")
+        )
         if not price:
             try:
-                price = getattr(getattr(ticker_obj, 'fast_info', None), 'last_price', None)
+                price = getattr(
+                    getattr(ticker_obj, "fast_info", None), "last_price", None
+                )
             except Exception:
                 pass
         if shares and price:
             current_market_cap = float(shares * price)
-            
+
     # 3. Fallback historique si market cap non fournie par l'API
     if not current_market_cap:
         try:
             h = ticker_obj.history(period="5d")
             if h is not None and not h.empty:
-                last_p = float(h['Close'].dropna().iloc[-1])
+                last_p = float(h["Close"].dropna().iloc[-1])
                 # Estimation large cap standard par défaut
                 current_market_cap = float(last_p * 1_000_000_000)
         except Exception:
             pass
 
     if not current_market_cap or current_market_cap <= 0:
-        return True, {
-            "status": "CONFORME",
-            "reason": "Activité conforme et liquidité validée (ratios financiers par défaut).",
-            "details": {}
+        return False, {
+            "status": "DONNÉES INSUFFISANTES",
+            "reason": "Activité sectorielle conforme, mais capitalisation boursière introuvable (impossible de calculer les ratios).",
+            "details": {},
         }
 
     # Calcul de la capitalisation moyenne 24 mois
     market_cap_24m = calculate_24m_avg_market_cap(ticker_obj, info, current_market_cap)
 
     try:
-        bs = getattr(ticker_obj, 'quarterly_balance_sheet', None)
+        bs = getattr(ticker_obj, "quarterly_balance_sheet", None)
         if bs is None or bs.empty:
-            bs = getattr(ticker_obj, 'balance_sheet', None)
-            
+            bs = getattr(ticker_obj, "balance_sheet", None)
+
         if bs is None or bs.empty:
             # Fallback ratios directs via info
             total_debt = float(info.get("totalDebt") or 0.0)
@@ -181,33 +273,54 @@ def check_financial_compliance(ticker_obj, info):
             cap_ref = market_cap_24m if market_cap_24m > 0 else current_market_cap
             debt_ratio = total_debt / cap_ref if cap_ref else 0.0
             cash_ratio = total_cash / cap_ref if cap_ref else 0.0
-            
-            if debt_ratio < SHARIA_MAX_DEBT_RATIO and cash_ratio < SHARIA_MAX_CASH_RATIO:
-                return True, {
-                    "status": "CONFORME",
-                    "reason": f"Ratios AAOIFI validés (Dette: {debt_ratio:.1%}, Cash: {cash_ratio:.1%}).",
-                    "details": {"debt_ratio": debt_ratio, "cash_ratio": cash_ratio}
+
+            if (
+                debt_ratio >= SHARIA_MAX_DEBT_RATIO
+                or cash_ratio >= SHARIA_MAX_CASH_RATIO
+            ):
+                return False, {
+                    "status": "NON CONFORME",
+                    "reason": f"Dépassement des seuils AAOIFI via infos (Dette: {debt_ratio:.1%}, Cash: {cash_ratio:.1%}).",
+                    "details": {"debt_ratio": debt_ratio, "cash_ratio": cash_ratio},
                 }
-            return True, {
-                "status": "CONFORME",
-                "reason": "Activité sectorielle conforme AAOIFI.",
-                "details": {"market_cap": current_market_cap}
+            return False, {
+                "status": "DONNÉES INSUFFISANTES",
+                "reason": "Bilan non trouvé et informations de ratios insuffisantes.",
+                "details": {"market_cap": current_market_cap},
             }
-            
+
         # 1. Dette totale portant intérêt
-        debt_keys = ["Total Debt", "Long Term Debt", "LongTermDebt", "ShortLongTermDebt", "CurrentDebt"]
+        debt_keys = [
+            "Total Debt",
+            "Long Term Debt",
+            "LongTermDebt",
+            "ShortLongTermDebt",
+            "CurrentDebt",
+        ]
         total_debt = get_financial_metric(bs, debt_keys)
         if total_debt == 0.0:
             lt_debt = get_financial_metric(bs, ["Long Term Debt", "LongTermDebt"])
-            st_debt = get_financial_metric(bs, ["Short Term Debt", "ShortLongTermDebt", "CurrentDebt"])
+            st_debt = get_financial_metric(
+                bs, ["Short Term Debt", "ShortLongTermDebt", "CurrentDebt"]
+            )
             total_debt = lt_debt + st_debt
 
         # 2. Liquidités & Placements rémunérés
-        cash_keys = ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments", "CashAndCashEquivalents", "OtherShortTermInvestments"]
+        cash_keys = [
+            "Cash And Cash Equivalents",
+            "Cash Cash Equivalents And Short Term Investments",
+            "CashAndCashEquivalents",
+            "OtherShortTermInvestments",
+        ]
         cash_investments = get_financial_metric(bs, cash_keys)
 
         # 3. Créances clients
-        receivables_keys = ["Accounts Receivable", "Net Receivables", "Receivables", "GrossAccountsReceivable"]
+        receivables_keys = [
+            "Accounts Receivable",
+            "Net Receivables",
+            "Receivables",
+            "GrossAccountsReceivable",
+        ]
         receivables = get_financial_metric(bs, receivables_keys)
 
         # Calcul des ratios sur la capitalisation moyenne 24 mois
@@ -224,39 +337,47 @@ def check_financial_compliance(ticker_obj, info):
             "cash_investments": cash_investments,
             "cash_ratio": cash_ratio,
             "receivables": receivables,
-            "receivables_ratio": receivables_ratio
+            "receivables_ratio": receivables_ratio,
         }
 
         # Évaluation par rapport aux seuils AAOIFI de 33%
         violations = []
         if debt_ratio >= SHARIA_MAX_DEBT_RATIO:
-            violations.append(f"Dette / Cap. 24m élevée ({debt_ratio:.1%} >= {SHARIA_MAX_DEBT_RATIO:.0%})")
+            violations.append(
+                f"Dette / Cap. 24m élevée ({debt_ratio:.1%} >= {SHARIA_MAX_DEBT_RATIO:.0%})"
+            )
         if cash_ratio >= SHARIA_MAX_CASH_RATIO:
-            violations.append(f"Cash & Placements / Cap. 24m élevés ({cash_ratio:.1%} >= {SHARIA_MAX_CASH_RATIO:.0%})")
+            violations.append(
+                f"Cash & Placements / Cap. 24m élevés ({cash_ratio:.1%} >= {SHARIA_MAX_CASH_RATIO:.0%})"
+            )
         if receivables_ratio >= SHARIA_MAX_RECEIVABLES_RATIO:
-            violations.append(f"Créances clients / Cap. 24m élevées ({receivables_ratio:.1%} >= {SHARIA_MAX_RECEIVABLES_RATIO:.0%})")
+            violations.append(
+                f"Créances clients / Cap. 24m élevées ({receivables_ratio:.1%} >= {SHARIA_MAX_RECEIVABLES_RATIO:.0%})"
+            )
 
         if violations:
             return False, {
                 "status": "NON CONFORME",
                 "reason": "Dépassement des seuils AAOIFI : " + " ; ".join(violations),
-                "details": details
+                "details": details,
             }
 
         return True, {
             "status": "CONFORME",
             "reason": "Ratios AAOIFI validés sur Cap. Moyenne 24 mois (Dette, Cash, Créances < 33%).",
-            "details": details
+            "details": details,
         }
     except Exception as e:
-        return True, {
-            "status": "CONFORME",
-            "reason": "Activité conforme et screening validé par défaut.",
-            "details": {}
+        return False, {
+            "status": "DONNÉES INSUFFISANTES",
+            "reason": f"Erreur lors de l'extraction des ratios financiers : {str(e)}",
+            "details": {},
         }
+
 
 _SHARIA_CACHE = {}
 _SHARIA_CACHE_TTL = 600  # 10 minutes
+
 
 def screen_ticker(ticker_symbol):
     """
@@ -265,11 +386,15 @@ def screen_ticker(ticker_symbol):
     """
     import time
     from src.market_data import resolve_ticker_symbol
+
     raw_sym = str(ticker_symbol or "").strip().upper()
     lookup_sym = resolve_ticker_symbol(raw_sym)
     now = time.time()
-    
-    if lookup_sym in _SHARIA_CACHE and (now - _SHARIA_CACHE[lookup_sym]["ts"]) < _SHARIA_CACHE_TTL:
+
+    if (
+        lookup_sym in _SHARIA_CACHE
+        and (now - _SHARIA_CACHE[lookup_sym]["ts"]) < _SHARIA_CACHE_TTL
+    ):
         return _SHARIA_CACHE[lookup_sym]["data"]
 
     # 0. Référentiel statique prioritaire (0ms latence, 100% fiabilité)
@@ -281,26 +406,38 @@ def screen_ticker(ticker_symbol):
                 "status": known["status"],
                 "compliant": known["status"] == "CONFORME",
                 "reason": known["reason"],
-                "details": {}
+                "details": {},
             }
             _SHARIA_CACHE[lookup_sym] = {"data": res, "ts": now}
             return res
-        
+
     # 1. Tenter de lire le statut pré-défini dans la Watchlist Supabase
     try:
-        from src.supabase_connector import get_watchlist_item
+        from src.db_connector import get_watchlist_item
+
         for sym_check in [lookup_sym, raw_sym]:
             wl_item = get_watchlist_item(sym_check)
             if wl_item and wl_item.get("sharia_status"):
                 status_val = str(wl_item["sharia_status"]).strip().upper()
-                if status_val in ["CONFORME", "NON CONFORME", "HALAL", "HARAM", "TRUE", "FALSE"]:
-                    normalized_status = "CONFORME" if status_val in ["CONFORME", "HALAL", "TRUE"] else "NON CONFORME"
+                if status_val in [
+                    "CONFORME",
+                    "NON CONFORME",
+                    "HALAL",
+                    "HARAM",
+                    "TRUE",
+                    "FALSE",
+                ]:
+                    normalized_status = (
+                        "CONFORME"
+                        if status_val in ["CONFORME", "HALAL", "TRUE"]
+                        else "NON CONFORME"
+                    )
                     res = {
                         "symbol": lookup_sym,
                         "status": normalized_status,
                         "compliant": normalized_status == "CONFORME",
                         "reason": f"Statut AAOIFI officiel enregistré en base de données",
-                        "details": {}
+                        "details": {},
                     }
                     _SHARIA_CACHE[lookup_sym] = {"data": res, "ts": now}
                     return res
@@ -309,6 +446,7 @@ def screen_ticker(ticker_symbol):
 
     # 2. Screening dynamique
     from src.market_data import get_ticker_info
+
     info = get_ticker_info(lookup_sym) or {}
     ticker_obj = yf.Ticker(lookup_sym)
 
@@ -320,21 +458,23 @@ def screen_ticker(ticker_symbol):
             "status": "NON CONFORME",
             "compliant": False,
             "reason": business_reason,
-            "details": {"industry": info.get("industry", ""), "sector": info.get("sector", "")}
+            "details": {
+                "industry": info.get("industry", ""),
+                "sector": info.get("sector", ""),
+            },
         }
         _SHARIA_CACHE[lookup_sym] = {"data": res, "ts": now}
         return res
 
     # 2.2. Financial Screen (Ratios < 33% sur Cap. Moyenne 24 mois)
     is_financial_compliant, financial_res = check_financial_compliance(ticker_obj, info)
-    
+
     if not isinstance(financial_res, dict):
         financial_res = {"status": "CONFORME", "reason": "Screening financier validé"}
-        
+
     financial_res["symbol"] = lookup_sym
-    financial_res["compliant"] = (financial_res.get("status") == "CONFORME")
+    financial_res["compliant"] = financial_res.get("status") == "CONFORME"
     financial_res["industry"] = info.get("industry", "")
     financial_res["sector"] = info.get("sector", "")
     _SHARIA_CACHE[lookup_sym] = {"data": financial_res, "ts": now}
     return financial_res
-

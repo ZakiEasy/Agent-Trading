@@ -1,0 +1,7 @@
+zatrad.fr {
+    reverse_proxy api:5000
+}
+
+infisical.zatrad.fr {
+    reverse_proxy 178.104.133.250:8080
+}

@@ -29,6 +29,7 @@ import numpy as np
 @dataclass
 class DrawdownPeriod:
     """A single drawdown period from peak to recovery."""
+
     start_index: int
     trough_index: int
     recovery_index: Optional[int]  # None if not yet recovered
@@ -43,6 +44,7 @@ class DrawdownPeriod:
 @dataclass
 class DrawdownSummary:
     """Summary statistics for all drawdowns in an equity curve."""
+
     max_drawdown: float
     max_drawdown_period: Optional[DrawdownPeriod]
     current_drawdown: float
@@ -85,17 +87,19 @@ def find_drawdown_periods(
             if in_drawdown:
                 depth = (peak - trough) / peak if peak > 0 else 0.0
                 if depth >= min_depth:
-                    periods.append(DrawdownPeriod(
-                        start_index=dd_start,
-                        trough_index=trough_index,
-                        recovery_index=i,
-                        peak_value=peak,
-                        trough_value=trough,
-                        depth=depth,
-                        duration_to_trough=trough_index - dd_start,
-                        recovery_duration=i - trough_index,
-                        total_duration=i - dd_start,
-                    ))
+                    periods.append(
+                        DrawdownPeriod(
+                            start_index=dd_start,
+                            trough_index=trough_index,
+                            recovery_index=i,
+                            peak_value=peak,
+                            trough_value=trough,
+                            depth=depth,
+                            duration_to_trough=trough_index - dd_start,
+                            recovery_duration=i - trough_index,
+                            total_duration=i - dd_start,
+                        )
+                    )
                 in_drawdown = False
             peak = equity[i]
             peak_index = i
@@ -115,17 +119,19 @@ def find_drawdown_periods(
     if in_drawdown:
         depth = (peak - trough) / peak if peak > 0 else 0.0
         if depth >= min_depth:
-            periods.append(DrawdownPeriod(
-                start_index=dd_start,
-                trough_index=trough_index,
-                recovery_index=None,
-                peak_value=peak,
-                trough_value=trough,
-                depth=depth,
-                duration_to_trough=trough_index - dd_start,
-                recovery_duration=None,
-                total_duration=None,
-            ))
+            periods.append(
+                DrawdownPeriod(
+                    start_index=dd_start,
+                    trough_index=trough_index,
+                    recovery_index=None,
+                    peak_value=peak,
+                    trough_value=trough,
+                    depth=depth,
+                    duration_to_trough=trough_index - dd_start,
+                    recovery_duration=None,
+                    total_duration=None,
+                )
+            )
 
     return periods
 
@@ -225,11 +231,23 @@ def drawdown_response(drawdown: float) -> tuple[str, str, str]:
     if drawdown < 0.05:
         return ("Normal", "\033[92m", "Continue trading at full size.")
     elif drawdown < 0.10:
-        return ("Caution", "\033[93m", "Reduce position sizes by 25-50%. Review recent trades for errors.")
+        return (
+            "Caution",
+            "\033[93m",
+            "Reduce position sizes by 25-50%. Review recent trades for errors.",
+        )
     elif drawdown < 0.15:
-        return ("Warning", "\033[91m", "Minimum position sizes only. Review strategy edge and market regime.")
+        return (
+            "Warning",
+            "\033[91m",
+            "Minimum position sizes only. Review strategy edge and market regime.",
+        )
     elif drawdown < 0.20:
-        return ("Critical", "\033[91m", "Halt new trades. Manage existing positions only. Mandatory review.")
+        return (
+            "Critical",
+            "\033[91m",
+            "Halt new trades. Manage existing positions only. Mandatory review.",
+        )
     else:
         return (
             "Emergency",
@@ -306,8 +324,12 @@ def print_summary(summary: DrawdownSummary, equity: np.ndarray) -> None:
     print_separator("-")
 
     total_periods = len(equity)
-    uw_pct = summary.total_time_underwater / total_periods * 100 if total_periods > 0 else 0
-    print(f"  Total Time Underwater: {summary.total_time_underwater} periods ({uw_pct:.1f}%)")
+    uw_pct = (
+        summary.total_time_underwater / total_periods * 100 if total_periods > 0 else 0
+    )
+    print(
+        f"  Total Time Underwater: {summary.total_time_underwater} periods ({uw_pct:.1f}%)"
+    )
     print(f"  Longest Underwater: {summary.longest_underwater} periods")
     print(f"  Number of Drawdowns (>1%): {summary.num_drawdowns}")
     print(f"  Average Drawdown Depth: {summary.avg_drawdown_depth:.1%}")
@@ -321,7 +343,9 @@ def print_summary(summary: DrawdownSummary, equity: np.ndarray) -> None:
         print("  ALL DRAWDOWN PERIODS")
         print_separator("-")
 
-        print(f"  {'#':>3s}  {'Depth':>7s}  {'Peak':>8s}  {'Trough':>8s}  {'To Trough':>10s}  {'Recovery':>10s}  {'Status':<12s}")
+        print(
+            f"  {'#':>3s}  {'Depth':>7s}  {'Peak':>8s}  {'Trough':>8s}  {'To Trough':>10s}  {'Recovery':>10s}  {'Status':<12s}"
+        )
         print("  " + "-" * 65)
 
         for i, p in enumerate(sorted(summary.all_periods, key=lambda x: -x.depth), 1):
@@ -387,37 +411,37 @@ def generate_demo_equity(
     # Phase 1: Mild uptrend (periods 0-40)
     for _ in range(40):
         ret = rng.normal(0.003, 0.015)
-        current *= (1 + ret)
+        current *= 1 + ret
         equity.append(current)
 
     # Phase 2: Moderate drawdown (periods 41-60)
     for _ in range(20):
         ret = rng.normal(-0.004, 0.012)
-        current *= (1 + ret)
+        current *= 1 + ret
         equity.append(current)
 
     # Phase 3: Recovery and new highs (periods 61-100)
     for _ in range(40):
         ret = rng.normal(0.004, 0.014)
-        current *= (1 + ret)
+        current *= 1 + ret
         equity.append(current)
 
     # Phase 4: Significant drawdown (periods 101-130)
     for _ in range(30):
         ret = rng.normal(-0.006, 0.015)
-        current *= (1 + ret)
+        current *= 1 + ret
         equity.append(current)
 
     # Phase 5: Slow recovery (periods 131-170)
     for _ in range(40):
         ret = rng.normal(0.005, 0.013)
-        current *= (1 + ret)
+        current *= 1 + ret
         equity.append(current)
 
     # Phase 6: Current mild drawdown (periods 171-200)
     for _ in range(periods - 171):
         ret = rng.normal(-0.001, 0.012)
-        current *= (1 + ret)
+        current *= 1 + ret
         equity.append(current)
 
     return np.array(equity[:periods])

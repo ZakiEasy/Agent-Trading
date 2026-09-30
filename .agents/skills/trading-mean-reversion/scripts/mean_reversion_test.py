@@ -28,9 +28,7 @@ from scipy import stats as scipy_stats
 
 # ── Configuration ───────────────────────────────────────────────────
 BIRDEYE_API_KEY: str = os.getenv("BIRDEYE_API_KEY", "")
-TOKEN_MINT: str = os.getenv(
-    "TOKEN_MINT", "So11111111111111111111111111111111111111112"
-)
+TOKEN_MINT: str = os.getenv("TOKEN_MINT", "So11111111111111111111111111111111111111112")
 DEFAULT_LOOKBACK_BARS: int = 200
 
 
@@ -434,8 +432,12 @@ def fetch_birdeye_ohlcv(
     now = int(time.time())
     # Map interval to seconds for time_from calculation
     interval_seconds = {
-        "1m": 60, "5m": 300, "15m": 900,
-        "1H": 3600, "4H": 14400, "1D": 86400,
+        "1m": 60,
+        "5m": 300,
+        "15m": 900,
+        "1H": 3600,
+        "4H": 14400,
+        "1D": 86400,
     }
     secs = interval_seconds.get(interval, 3600)
     time_from = now - (limit * secs)
@@ -504,9 +506,11 @@ def print_report(
     adf = adf_test(prices, max_lag=1)
     print(f"   Test statistic: {adf['test_statistic']:.4f}")
     print(f"   Approx p-value: {adf['p_value_approx']:.4f}")
-    print(f"   Critical values: 1%={adf['critical_values'][0.01]:.2f}, "
-          f"5%={adf['critical_values'][0.05]:.2f}, "
-          f"10%={adf['critical_values'][0.10]:.2f}")
+    print(
+        f"   Critical values: 1%={adf['critical_values'][0.01]:.2f}, "
+        f"5%={adf['critical_values'][0.05]:.2f}, "
+        f"10%={adf['critical_values'][0.10]:.2f}"
+    )
     print(f"   >> {adf['conclusion']}")
 
     # ── Hurst Exponent ──────────────────────────────────────────────
@@ -537,8 +541,10 @@ def print_report(
         if q >= len(prices) // 2:
             continue
         vr = variance_ratio(prices, q=q)
-        print(f"   q={q:3d}: VR={vr['vr']:.3f}  z={vr['z_stat']:+.2f}  "
-              f"p={vr['p_value']:.4f}  ({vr['conclusion'].split('(')[0].strip()})")
+        print(
+            f"   q={q:3d}: VR={vr['vr']:.3f}  z={vr['z_stat']:+.2f}  "
+            f"p={vr['p_value']:.4f}  ({vr['conclusion'].split('(')[0].strip()})"
+        )
 
     # ── Half-Life ───────────────────────────────────────────────────
     print("\n4. HALF-LIFE ESTIMATION")
@@ -573,9 +579,15 @@ def print_report(
     current_z = z_scores[-1] if not np.isnan(z_scores[-1]) else 0.0
     current_signal = int(signals[-1])
 
-    signal_map = {1: "LONG (buy -- price below mean)", -1: "SHORT (sell -- price above mean)", 0: "FLAT (no signal)"}
+    signal_map = {
+        1: "LONG (buy -- price below mean)",
+        -1: "SHORT (sell -- price above mean)",
+        0: "FLAT (no signal)",
+    }
     print(f"   Lookback window: {lookback} bars (2x half-life)")
-    print(f"   Entry z: +/-{entry_z:.1f}  Exit z: {exit_z:.1f}  Stop z: +/-{stop_z:.1f}")
+    print(
+        f"   Entry z: +/-{entry_z:.1f}  Exit z: {exit_z:.1f}  Stop z: +/-{stop_z:.1f}"
+    )
     print(f"   Current z-score: {current_z:+.4f}")
     print(f"   Current signal: {signal_map.get(current_signal, 'UNKNOWN')}")
 
@@ -589,7 +601,9 @@ def print_report(
     long_count = int(np.sum(signals == 1))
     short_count = int(np.sum(signals == -1))
     flat_count = int(np.sum(signals == 0))
-    print(f"   Signal distribution: Long={long_count}, Short={short_count}, Flat={flat_count}")
+    print(
+        f"   Signal distribution: Long={long_count}, Short={short_count}, Flat={flat_count}"
+    )
 
     # ── Overall Assessment ──────────────────────────────────────────
     print("\n" + "=" * 70)
@@ -635,7 +649,9 @@ def print_report(
     elif score == 1:
         print("   >> WEAK mean-reversion evidence. Consider other strategies.")
     else:
-        print("   >> NO mean-reversion evidence. Do NOT trade mean reversion on this series.")
+        print(
+            "   >> NO mean-reversion evidence. Do NOT trade mean reversion on this series."
+        )
 
     if hl["half_life"] > 0:
         print(f"\n   Suggested parameters:")
@@ -690,7 +706,9 @@ def main() -> None:
             print("  export BIRDEYE_API_KEY=your_key_here")
             sys.exit(1)
 
-        print(f"Fetching {args.bars} bars of {args.interval} data for {TOKEN_MINT[:8]}...")
+        print(
+            f"Fetching {args.bars} bars of {args.interval} data for {TOKEN_MINT[:8]}..."
+        )
         prices = fetch_birdeye_ohlcv(
             mint=TOKEN_MINT,
             api_key=BIRDEYE_API_KEY,

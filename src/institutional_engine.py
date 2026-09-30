@@ -20,28 +20,27 @@ from src.config import (
     CAPITAL_REFERENCE_DEFAULT,
     R_MAX_PCT_STANDARD,
     MAX_ALLOCATION_PER_LINE_PCT,
-    MIN_CASH_RESERVE_PCT
+    MIN_CASH_RESERVE_PCT,
+    TARGET_TP1_DEFAULT,
 )
 
 REFERENCE_CAPITAL = CAPITAL_REFERENCE_DEFAULT
 from src.market_data import (
     get_ticker_data,
     get_ticker_info,
-    check_sharia_compliance,
     check_fundamental_quality,
     get_usd_to_eur_rate,
     COMPANY_NAMES,
     resolve_ticker_symbol,
     get_company_name,
-    categorize_ticker
+    categorize_ticker,
 )
+from src.sharia_screen import screen_ticker
 
 # Cache mémoire pour les données Macro (TTL 5 minutes)
-_MACRO_CACHE = {
-    "data": None,
-    "ts": 0
-}
+_MACRO_CACHE = {"data": None, "ts": 0}
 MACRO_CACHE_TTL = 300  # 5 minutes
+
 
 def get_macro_sentiment_barometer(force_refresh=False):
     """
@@ -60,7 +59,11 @@ def get_macro_sentiment_barometer(force_refresh=False):
     analysis_timestamp = now_dt.strftime("%Y-%m-%d %H:%M:%S")
     last_updated_str = f"{analysis_date} à {analysis_time}"
 
-    if not force_refresh and _MACRO_CACHE["data"] and (now - _MACRO_CACHE["ts"]) < MACRO_CACHE_TTL:
+    if (
+        not force_refresh
+        and _MACRO_CACHE["data"]
+        and (now - _MACRO_CACHE["ts"]) < MACRO_CACHE_TTL
+    ):
         return _MACRO_CACHE["data"]
 
     barometer = {
@@ -77,38 +80,45 @@ def get_macro_sentiment_barometer(force_refresh=False):
             "value": 15.5,
             "status": "Risk-On (Marché Calme)",
             "color": "var(--success)",
-            "updated_at": analysis_time
+            "updated_at": analysis_time,
         },
         "dxy": {
             "value": 102.5,
             "trend": "Stable / Neutre",
             "change_pct": 0.0,
-            "updated_at": analysis_time
+            "updated_at": analysis_time,
         },
         "xly_xlp_ratio": {
             "value": 2.15,
             "trend": "Risk-On (Surperformance Discrétionnaire)",
             "change_pct": 0.0,
-            "updated_at": analysis_time
+            "updated_at": analysis_time,
         },
         "wti_oil": {
             "value": 74.5,
             "status": "Modéré",
             "change_pct": 0.0,
-            "updated_at": analysis_time
+            "updated_at": analysis_time,
         },
         "yield_curve": {
             "value": 0.15,
             "status": "Courbe Normale / Positive",
             "spread_10y_2y": 0.15,
-            "updated_at": analysis_time
-        }
+            "updated_at": analysis_time,
+        },
     }
 
     try:
         # Téléchargement parallèle groupé des indices macro
         macro_tickers = ["^VIX", "DX-Y.NYB", "XLY", "XLP", "CL=F", "^TNX", "^IRX"]
-        data = yf.download(macro_tickers, period="1mo", interval="1d", progress=False, group_by="ticker", auto_adjust=False)
+        data = yf.download(
+            macro_tickers,
+            period="1mo",
+            interval="1d",
+            progress=False,
+            group_by="ticker",
+            auto_adjust=False,
+        )
 
         # 1. VIX
         if "^VIX" in data and not data["^VIX"].empty:
@@ -135,10 +145,21 @@ def get_macro_sentiment_barometer(force_refresh=False):
                 dxy_chg = ((dxy_val - dxy_prev) / dxy_prev) * 100
                 barometer["dxy"]["value"] = round(dxy_val, 2)
                 barometer["dxy"]["change_pct"] = round(dxy_chg, 2)
-                barometer["dxy"]["trend"] = "Baissier (Favorable)" if dxy_chg < -0.2 else "Haussier (Pression)" if dxy_chg > 0.2 else "Stable / Neutre"
+                barometer["dxy"]["trend"] = (
+                    "Baissier (Favorable)"
+                    if dxy_chg < -0.2
+                    else "Haussier (Pression)"
+                    if dxy_chg > 0.2
+                    else "Stable / Neutre"
+                )
 
         # 3. Ratio XLY / XLP
-        if "XLY" in data and "XLP" in data and not data["XLY"].empty and not data["XLP"].empty:
+        if (
+            "XLY" in data
+            and "XLP" in data
+            and not data["XLY"].empty
+            and not data["XLP"].empty
+        ):
             xly_c = data["XLY"]["Close"].dropna()
             xlp_c = data["XLP"]["Close"].dropna()
             if len(xly_c) >= 2 and len(xlp_c) >= 2:
@@ -147,7 +168,11 @@ def get_macro_sentiment_barometer(force_refresh=False):
                 r_chg = ((r_curr - r_prev) / r_prev) * 100
                 barometer["xly_xlp_ratio"]["value"] = round(r_curr, 3)
                 barometer["xly_xlp_ratio"]["change_pct"] = round(r_chg, 2)
-                barometer["xly_xlp_ratio"]["trend"] = "Risk-On (Discrétionnaire dominant)" if r_curr >= r_prev else "Risk-Off (Défensif dominant)"
+                barometer["xly_xlp_ratio"]["trend"] = (
+                    "Risk-On (Discrétionnaire dominant)"
+                    if r_curr >= r_prev
+                    else "Risk-Off (Défensif dominant)"
+                )
 
         # 4. Pétrole WTI
         if "CL=F" in data and not data["CL=F"].empty:
@@ -158,34 +183,51 @@ def get_macro_sentiment_barometer(force_refresh=False):
                 oil_chg = ((oil_val - oil_prev) / oil_prev) * 100
                 barometer["wti_oil"]["value"] = round(oil_val, 2)
                 barometer["wti_oil"]["change_pct"] = round(oil_chg, 2)
-                barometer["wti_oil"]["status"] = "Tension Inflation" if oil_val > 85 else "Favorable / Modéré"
+                barometer["wti_oil"]["status"] = (
+                    "Tension Inflation" if oil_val > 85 else "Favorable / Modéré"
+                )
 
         # 5. Yield Curve (10Y - 2Y / 3M)
-        if "^TNX" in data and "^IRX" in data and not data["^TNX"].empty and not data["^IRX"].empty:
+        if (
+            "^TNX" in data
+            and "^IRX" in data
+            and not data["^TNX"].empty
+            and not data["^IRX"].empty
+        ):
             tnx_c = data["^TNX"]["Close"].dropna()
             irx_c = data["^IRX"]["Close"].dropna()
             if len(tnx_c) > 0 and len(irx_c) > 0:
                 spread = float(tnx_c.iloc[-1]) - float(irx_c.iloc[-1])
                 barometer["yield_curve"]["spread_10y_2y"] = round(spread, 2)
                 barometer["yield_curve"]["value"] = round(spread, 2)
-                barometer["yield_curve"]["status"] = "Inversée (Alerte Récession)" if spread < 0 else "Normale / Positive"
+                barometer["yield_curve"]["status"] = (
+                    "Inversée (Alerte Récession)"
+                    if spread < 0
+                    else "Normale / Positive"
+                )
 
         # Synthèse du Régime Global
         vix_v = barometer["vix"]["value"]
         if vix_v < 18.0:
             barometer["regime"] = "RISK-ON"
             barometer["regime_badge"] = "badge-success"
-            barometer["regime_description"] = "Régime de marché calme / Risk-On (Pleine allocation autorisée)."
+            barometer["regime_description"] = (
+                "Régime de marché calme / Risk-On (Pleine allocation autorisée)."
+            )
             barometer["allocation_status"] = "FULL"
         elif vix_v <= 28.0:
             barometer["regime"] = "NEUTRE"
             barometer["regime_badge"] = "badge-warning"
-            barometer["regime_description"] = "Régime neutre : sélectivité accrue, positions réduites, TP plus rapides."
+            barometer["regime_description"] = (
+                "Régime neutre : sélectivité accrue, positions réduites, TP plus rapides."
+            )
             barometer["allocation_status"] = "REDUCED"
         else:
             barometer["regime"] = "RISK-OFF"
             barometer["regime_badge"] = "badge-danger"
-            barometer["regime_description"] = "Régime de stress / Risk-Off (Gel des nouveaux achats, conservation du cash)."
+            barometer["regime_description"] = (
+                "Régime de stress / Risk-Off (Gel des nouveaux achats, conservation du cash)."
+            )
             barometer["allocation_status"] = "FROZEN"
 
     except Exception as e:
@@ -211,7 +253,7 @@ def calculate_rsi_and_divergences(series_close, period=14):
     rsi_series = rsi_series.fillna(50.0)
 
     current_rsi = float(rsi_series.iloc[-1])
-    
+
     # Recherche de divergence haussière sur les 20 dernières bougies
     has_bullish_divergence = False
     div_desc = "Aucune divergence"
@@ -219,11 +261,11 @@ def calculate_rsi_and_divergences(series_close, period=14):
     if len(series_close) >= 20:
         prices_window = series_close.iloc[-20:].values
         rsi_window = rsi_series.iloc[-20:].values
-        
+
         # Trouver les creux locaux de prix et de RSI
         price_low_idx_1 = np.argmin(prices_window[:-5])
         price_low_idx_2 = np.argmin(prices_window[-5:]) + (len(prices_window) - 5)
-        
+
         if prices_window[price_low_idx_2] <= prices_window[price_low_idx_1]:
             # Prix a fait un creux plus bas ou équivalent
             if rsi_window[price_low_idx_2] > (rsi_window[price_low_idx_1] + 2.0):
@@ -244,7 +286,9 @@ _NEWS_CACHE = {}
 NEWS_CACHE_TTL = 600  # 10 minutes
 
 
-def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_val=50.0):
+def fetch_and_analyze_live_news(
+    symbol, company_name="", pullback_pct=0.0, rsi_val=50.0
+):
     """
     Agrège les flux d'actualités récents (Yahoo Finance / Wire / Media) et qualifie l'impact événementiel :
     1. Détection des risques structurels (fraude, litige, enquête SEC, faillite, défaut, scandale)
@@ -254,7 +298,10 @@ def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_v
     global _NEWS_CACHE
     now_ts = time.time()
     cache_key = symbol.upper()
-    if cache_key in _NEWS_CACHE and (now_ts - _NEWS_CACHE[cache_key]["ts"]) < NEWS_CACHE_TTL:
+    if (
+        cache_key in _NEWS_CACHE
+        and (now_ts - _NEWS_CACHE[cache_key]["ts"]) < NEWS_CACHE_TTL
+    ):
         return _NEWS_CACHE[cache_key]["data"]
 
     parsed_news = []
@@ -273,15 +320,39 @@ def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_v
         r"\bdefault(ed)? on (debt|bonds|loans)\b",
         r"\bsevere profit warning\b",
         r"\bclass action lawsuit\b",
-        r"\baccounting (irregularity|irregularities|scandal)\b"
+        r"\baccounting (irregularity|irregularities|scandal)\b",
     ]
     earnings_keywords = [
-        "earnings", "quarterly", "revenue", "guidance", "results", "q1", "q2", "q3", "q4",
-        "eps", "ebitda", "sales miss", "earnings beat", "conference call"
+        "earnings",
+        "quarterly",
+        "revenue",
+        "guidance",
+        "results",
+        "q1",
+        "q2",
+        "q3",
+        "q4",
+        "eps",
+        "ebitda",
+        "sales miss",
+        "earnings beat",
+        "conference call",
     ]
     sector_macro_keywords = [
-        "sector", "chip stocks", "fed", "inflation", "market today", "jackson hole",
-        "tariffs", "trade war", "rates", "yields", "crude", "oil", "macro", "futures"
+        "sector",
+        "chip stocks",
+        "fed",
+        "inflation",
+        "market today",
+        "jackson hole",
+        "tariffs",
+        "trade war",
+        "rates",
+        "yields",
+        "crude",
+        "oil",
+        "macro",
+        "futures",
     ]
 
     try:
@@ -292,7 +363,11 @@ def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_v
             content = item.get("content", {}) if isinstance(item, dict) else {}
             title = (content.get("title") or item.get("title") or "").strip()
             summary = (content.get("summary") or item.get("summary") or "").strip()
-            pub_date = content.get("pubDate") or content.get("displayTime") or str(item.get("providerPublishTime", ""))
+            pub_date = (
+                content.get("pubDate")
+                or content.get("displayTime")
+                or str(item.get("providerPublishTime", ""))
+            )
             if pub_date and "T" in pub_date:
                 pub_date_formatted = pub_date.split("T")[0]
             elif pub_date and len(pub_date) >= 10:
@@ -300,8 +375,16 @@ def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_v
             else:
                 pub_date_formatted = datetime.now().strftime("%Y-%m-%d")
 
-            provider = content.get("provider", {}).get("displayName") or item.get("publisher") or "Yahoo Finance"
-            url = content.get("canonicalUrl", {}).get("url") or item.get("link") or f"https://finance.yahoo.com/quote/{symbol}/news"
+            provider = (
+                content.get("provider", {}).get("displayName")
+                or item.get("publisher")
+                or "Yahoo Finance"
+            )
+            url = (
+                content.get("canonicalUrl", {}).get("url")
+                or item.get("link")
+                or f"https://finance.yahoo.com/quote/{symbol}/news"
+            )
 
             if not title:
                 continue
@@ -324,13 +407,15 @@ def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_v
                 if kw in full_text:
                     has_sector_macro_news = True
 
-            parsed_news.append({
-                "title": title,
-                "summary": summary[:200] + ("..." if len(summary) > 200 else ""),
-                "pub_date": pub_date_formatted,
-                "provider": provider,
-                "url": url
-            })
+            parsed_news.append(
+                {
+                    "title": title,
+                    "summary": summary[:200] + ("..." if len(summary) > 200 else ""),
+                    "pub_date": pub_date_formatted,
+                    "provider": provider,
+                    "url": url,
+                }
+            )
 
     except Exception as e:
         print(f"⚠️ Erreur agrégation news pour {symbol}: {e}")
@@ -359,7 +444,7 @@ def fetch_and_analyze_live_news(symbol, company_name="", pullback_pct=0.0, rsi_v
         "badge": badge,
         "summary": summary_desc,
         "has_structural_risk": has_structural_risk,
-        "items": parsed_news[:5]
+        "items": parsed_news[:5],
     }
 
     _NEWS_CACHE[cache_key] = {"data": result, "ts": now_ts}
@@ -381,7 +466,20 @@ def compute_ticker_seasonality(df, symbol=None):
     global _SEASONALITY_CACHE
     now = datetime.now()
     current_month = now.month
-    month_names_fr = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+    month_names_fr = [
+        "Janvier",
+        "Février",
+        "Mars",
+        "Avril",
+        "Mai",
+        "Juin",
+        "Juillet",
+        "Août",
+        "Septembre",
+        "Octobre",
+        "Novembre",
+        "Décembre",
+    ]
     month_name = month_names_fr[current_month - 1]
 
     cache_key = f"{symbol}_{current_month}"
@@ -398,7 +496,7 @@ def compute_ticker_seasonality(df, symbol=None):
         "sample_years": 0,
         "status": "Neutre",
         "badge": "badge-neutral",
-        "description": f"{month_name} : Rendement historique neutre (~0.0%)."
+        "description": f"{month_name} : Rendement historique neutre (~0.0%).",
     }
 
     try:
@@ -411,13 +509,15 @@ def compute_ticker_seasonality(df, symbol=None):
         if hist_df is not None and not hist_df.empty and len(hist_df) >= 30:
             monthly_prices = hist_df["Close"].resample("ME").last()
             monthly_returns = monthly_prices.pct_change().dropna()
-            same_month_returns = monthly_returns[monthly_returns.index.month == current_month] * 100
-            
+            same_month_returns = (
+                monthly_returns[monthly_returns.index.month == current_month] * 100
+            )
+
             sample_years = len(same_month_returns)
             if sample_years >= 1:
                 avg_ret = float(same_month_returns.mean())
                 win_rate = float((same_month_returns > 0).mean()) * 100
-                
+
                 if avg_ret >= 0.5 and win_rate >= 55.0:
                     status = "Favorable"
                     badge = "badge-success"
@@ -439,7 +539,7 @@ def compute_ticker_seasonality(df, symbol=None):
                     "sample_years": sample_years,
                     "status": status,
                     "badge": badge,
-                    "description": desc
+                    "description": desc,
                 }
                 if symbol:
                     _SEASONALITY_CACHE[cache_key] = {"data": result, "ts": time.time()}
@@ -476,7 +576,7 @@ def compute_retail_sentiment_contrarian(df, info, rsi_val, pullback_pct):
         "retail_long_pct": round(retail_long_pct, 1),
         "status": status,
         "badge": badge,
-        "description": description
+        "description": description,
     }
 
 
@@ -496,7 +596,7 @@ def detect_fibonacci_confluence(df, curr_price):
             "is_in_fibo_zone": True,
             "status": "Test Zone Clé 50% - 61.8%",
             "badge": "badge-success",
-            "description": "Repli dans la zone de retracement clé (50.0% - 61.8%)."
+            "description": "Repli dans la zone de retracement clé (50.0% - 61.8%).",
         }
 
     high = df["High"]
@@ -540,7 +640,7 @@ def detect_fibonacci_confluence(df, curr_price):
         "is_in_fibo_zone": is_in_golden_zone or is_in_shallow_zone,
         "status": status,
         "badge": badge,
-        "description": desc
+        "description": desc,
     }
 
 
@@ -562,15 +662,15 @@ def detect_order_flow_exhaustion(df):
             "prev_low": round(last_l, 2),
             "status": "Higher Lows en Formation",
             "badge": "badge-success",
-            "description": "Stabilisation des flux vendeurs et maintien des creux récents."
+            "description": "Stabilisation des flux vendeurs et maintien des creux récents.",
         }
 
     lows = df["Low"].iloc[-5:].values
     closes = df["Close"].iloc[-5:].values
-    
+
     last_low = float(lows[-1])
     prev_low = float(min(lows[-3:-1])) if len(lows) >= 3 else float(lows[-2])
-    
+
     has_higher_lows = last_low >= prev_low * 0.995
     is_recovering = float(closes[-1]) > last_low
 
@@ -593,7 +693,7 @@ def detect_order_flow_exhaustion(df):
         "prev_low": round(prev_low, 2),
         "status": status,
         "badge": badge,
-        "description": desc
+        "description": desc,
     }
 
 
@@ -614,7 +714,7 @@ def detect_technical_breakout(df):
             "fib_61_8": 0.0,
             "volume_surge": False,
             "volume_ratio": 1.0,
-            "breakout_desc": "Historique insuffisant pour valider le breakout."
+            "breakout_desc": "Historique insuffisant pour valider le breakout.",
         }
 
     close = df["Close"]
@@ -623,7 +723,9 @@ def detect_technical_breakout(df):
     volume = df["Volume"]
 
     curr_price = float(close.iloc[-1])
-    recent_high_60 = float(high.iloc[-60:].max()) if len(high) >= 60 else float(high.max())
+    recent_high_60 = (
+        float(high.iloc[-60:].max()) if len(high) >= 60 else float(high.max())
+    )
     recent_low_60 = float(low.iloc[-60:].min()) if len(low) >= 60 else float(low.min())
 
     diff_range = recent_high_60 - recent_low_60
@@ -632,15 +734,19 @@ def detect_technical_breakout(df):
     fib_61_8 = recent_high_60 - (0.618 * diff_range)
 
     # Volume Surge
-    vol_20_ma = float(volume.iloc[-21:-1].mean()) if len(volume) > 21 else float(volume.mean())
+    vol_20_ma = (
+        float(volume.iloc[-21:-1].mean()) if len(volume) > 21 else float(volume.mean())
+    )
     curr_vol = float(volume.iloc[-1])
     vol_ratio = (curr_vol / vol_20_ma) if vol_20_ma > 0 else 1.0
     has_vol_surge = vol_ratio >= 1.15
 
     # Cassure de compression récente
     prev_3_high = float(high.iloc[-4:-1].max()) if len(high) >= 4 else curr_price
-    is_price_breakout = curr_price >= prev_3_high and float(close.iloc[-1]) > float(close.iloc[-2])
-    
+    is_price_breakout = curr_price >= prev_3_high and float(close.iloc[-1]) > float(
+        close.iloc[-2]
+    )
+
     # Rebond support : proche du creux local 10j (< 2.5%) ou proche d'un niveau Fibonacci (< 2.5%)
     recent_low_10 = float(low.iloc[-10:].min()) if len(low) >= 10 else curr_price * 0.97
     dist_to_fib38 = abs(curr_price - fib_38_2) / curr_price * 100
@@ -648,13 +754,21 @@ def detect_technical_breakout(df):
     dist_to_fib61 = abs(curr_price - fib_61_8) / curr_price * 100
     dist_to_low10 = abs(curr_price - recent_low_10) / curr_price * 100
 
-    is_on_support = dist_to_low10 < 2.5 or dist_to_fib38 < 2.5 or dist_to_fib50 < 2.5 or dist_to_fib61 < 2.5
+    is_on_support = (
+        dist_to_low10 < 2.5
+        or dist_to_fib38 < 2.5
+        or dist_to_fib50 < 2.5
+        or dist_to_fib61 < 2.5
+    )
 
     # Support tactique immédiat (sous le cours actuel)
     support_candidates = [recent_low_10]
-    if fib_38_2 < curr_price and dist_to_fib38 < 5.0: support_candidates.append(fib_38_2)
-    if fib_50 < curr_price and dist_to_fib50 < 5.0: support_candidates.append(fib_50)
-    if fib_61_8 < curr_price and dist_to_fib61 < 5.0: support_candidates.append(fib_61_8)
+    if fib_38_2 < curr_price and dist_to_fib38 < 5.0:
+        support_candidates.append(fib_38_2)
+    if fib_50 < curr_price and dist_to_fib50 < 5.0:
+        support_candidates.append(fib_50)
+    if fib_61_8 < curr_price and dist_to_fib61 < 5.0:
+        support_candidates.append(fib_61_8)
     support_level = round(max(support_candidates), 2)
 
     has_breakout = is_price_breakout and is_on_support
@@ -664,7 +778,9 @@ def detect_technical_breakout(df):
     elif has_breakout:
         breakout_desc = "Breakout en cours de formation (volume moyen sous 1.2x)."
     elif is_on_support:
-        breakout_desc = "En phase de test du support (attendre confirmation de cassure)."
+        breakout_desc = (
+            "En phase de test du support (attendre confirmation de cassure)."
+        )
     else:
         breakout_desc = "Structure neutre en attente de compression."
 
@@ -677,7 +793,7 @@ def detect_technical_breakout(df):
         "fib_61_8": round(fib_61_8, 2),
         "volume_surge": has_vol_surge,
         "volume_ratio": round(vol_ratio, 2),
-        "breakout_desc": breakout_desc
+        "breakout_desc": breakout_desc,
     }
 
 
@@ -697,7 +813,9 @@ def compute_daily_atr(df, period=14):
         l = df["Low"].dropna()
         c = df["Close"].dropna()
         c_prev = c.shift(1)
-        tr = pd.concat([h - l, (h - c_prev).abs(), (l - c_prev).abs()], axis=1).max(axis=1)
+        tr = pd.concat([h - l, (h - c_prev).abs(), (l - c_prev).abs()], axis=1).max(
+            axis=1
+        )
         atr_series = tr.rolling(period).mean().dropna()
         if not atr_series.empty:
             val = float(atr_series.iloc[-1])
@@ -711,7 +829,7 @@ def get_market_execution_timing(symbol, now_dt=None):
     """
     Calcule l'heure précise de l'analyse, l'état réel de la séance de marché (Pré-Market, Formation M15, Fenêtre Sniper, Séance normale, Post-Market),
     l'heure idéale d'exécution et l'heure maximale d'exécution pour le Protocole Sniper d'ouverture (< 90 minutes).
-    
+
     Règles Institutionnelles :
     - Marchés Européens (Euronext Paris .PA, Amsterdam .AS, Francfort .DE, etc.) :
         * Ouverture : 09:00 CET
@@ -728,13 +846,28 @@ def get_market_execution_timing(symbol, now_dt=None):
     """
     if now_dt is None:
         now_dt = datetime.now(PARIS_TZ)
-        
+
     sym_str = str(symbol or "").upper().strip()
-    is_europe = sym_str.endswith(('.PA', '.AS', '.DE', '.MC', '.MI', '.BR', '.LS', '.VI', '.ST', '.HE', '.CO', '.L'))
-    
+    is_europe = sym_str.endswith(
+        (
+            ".PA",
+            ".AS",
+            ".DE",
+            ".MC",
+            ".MI",
+            ".BR",
+            ".LS",
+            ".VI",
+            ".ST",
+            ".HE",
+            ".CO",
+            ".L",
+        )
+    )
+
     analysis_time_str = now_dt.strftime("%H:%M:%S") + " CET"
     analysis_date_str = now_dt.strftime("%d/%m/%Y")
-    
+
     is_weekday = now_dt.weekday() < 5  # Lundi (0) à Vendredi (4)
     minute_of_day = now_dt.hour * 60 + now_dt.minute
 
@@ -744,26 +877,28 @@ def get_market_execution_timing(symbol, now_dt=None):
         m15_window = "09:00 - 09:15 CET"
         ideal_time = "09:15 à 09:45 CET"
         max_time = "10:30 CET (Limite stricte 90 min)"
-        open_min = 9 * 60          # 09:00 CET (540)
-        m15_end_min = 9 * 60 + 15   # 09:15 CET (555)
-        sniper_max_min = 10 * 60 + 30 # 10:30 CET (630)
-        close_min = 17 * 60 + 30    # 17:30 CET (1050)
+        open_min = 9 * 60  # 09:00 CET (540)
+        m15_end_min = 9 * 60 + 15  # 09:15 CET (555)
+        sniper_max_min = 10 * 60 + 30  # 10:30 CET (630)
+        close_min = 17 * 60 + 30  # 17:30 CET (1050)
     else:
         market_name = "Wall Street / US (15:30 - 22:00 CET / 09:30 - 16:00 EST)"
         market_open = "15:30 CET (09:30 EST)"
         m15_window = "15:30 - 15:45 CET (09:30 - 09:45 EST)"
         ideal_time = "15:45 à 16:15 CET (09:45 à 10:15 EST)"
         max_time = "17:00 CET (11:00 EST / Limite stricte 90 min)"
-        open_min = 15 * 60 + 30     # 15:30 CET (930)
+        open_min = 15 * 60 + 30  # 15:30 CET (930)
         m15_end_min = 15 * 60 + 45  # 15:45 CET (945)
-        sniper_max_min = 17 * 60    # 17:00 CET (1020)
-        close_min = 22 * 60         # 22:00 CET (1320)
+        sniper_max_min = 17 * 60  # 17:00 CET (1020)
+        close_min = 22 * 60  # 22:00 CET (1320)
 
     if not is_weekday:
         phase = "POST_MARKET_CLOSED"
         phase_label = "Week-end (Marché Fermé)"
         can_execute_sniper = False
-        timing_desc = f"Marché fermé (Week-end). Prochaine ouverture : Lundi à {market_open}."
+        timing_desc = (
+            f"Marché fermé (Week-end). Prochaine ouverture : Lundi à {market_open}."
+        )
     elif minute_of_day < open_min:
         phase = "PRE_MARKET"
         phase_label = "Marché Fermé / Pré-Ouverture"
@@ -788,7 +923,9 @@ def get_market_execution_timing(symbol, now_dt=None):
         phase = "POST_MARKET_CLOSED"
         phase_label = "Marché Clôturé"
         can_execute_sniper = False
-        timing_desc = f"Séance terminée. Marché fermé. Prochaine ouverture à {market_open}."
+        timing_desc = (
+            f"Séance terminée. Marché fermé. Prochaine ouverture à {market_open}."
+        )
 
     return {
         "analysis_time": analysis_time_str,
@@ -804,11 +941,13 @@ def get_market_execution_timing(symbol, now_dt=None):
         "phase": phase,
         "phase_label": phase_label,
         "can_execute_sniper": can_execute_sniper,
-        "is_europe": is_europe
+        "is_europe": is_europe,
     }
 
 
-def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, force_refresh=False):
+def detect_opening_manipulation_sniper(
+    df_daily, symbol=None, curr_price=None, force_refresh=False
+):
     """
     Filtre de Manipulation Institutionnelle d'Ouverture (ATR 14 D1) & Protocole Sniper Long-Only :
     1. Calcul de l'ATR (14) sur l'unité journalière (D1).
@@ -834,14 +973,28 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
     now_ts = time.time()
     cache_key = str(symbol or "TICKER").upper()
 
-    if not force_refresh and cache_key in _INTRADAY_SNIPER_CACHE and (now_ts - _INTRADAY_SNIPER_CACHE[cache_key]["ts"]) < INTRADAY_CACHE_TTL:
+    if (
+        not force_refresh
+        and cache_key in _INTRADAY_SNIPER_CACHE
+        and (now_ts - _INTRADAY_SNIPER_CACHE[cache_key]["ts"]) < INTRADAY_CACHE_TTL
+    ):
         return _INTRADAY_SNIPER_CACHE[cache_key]["data"]
 
     timing = get_market_execution_timing(symbol)
     atr_d1 = compute_daily_atr(df_daily, period=14)
     from src.market_data import FALLBACK_WATCHLIST_REFERENCE_PRICES
-    ref_px = FALLBACK_WATCHLIST_REFERENCE_PRICES.get(str(symbol).upper(), {}).get("price", 0.0)
-    p = float(curr_price or (df_daily["Close"].iloc[-1] if (df_daily is not None and not df_daily.empty) else ref_px))
+
+    ref_px = FALLBACK_WATCHLIST_REFERENCE_PRICES.get(str(symbol).upper(), {}).get(
+        "price", 0.0
+    )
+    p = float(
+        curr_price
+        or (
+            df_daily["Close"].iloc[-1]
+            if (df_daily is not None and not df_daily.empty)
+            else ref_px
+        )
+    )
 
     # Niveaux indicatifs pour le plan de trade
     m15_open = p
@@ -859,7 +1012,18 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
     is_upward_expansion = False
 
     phase = timing["phase"]
-    sym_currency = "€" if (symbol and (symbol.endswith(".PA") or symbol.endswith(".DE") or symbol.endswith(".AS"))) else "$"
+    sym_currency = (
+        "€"
+        if (
+            symbol
+            and (
+                symbol.endswith(".PA")
+                or symbol.endswith(".DE")
+                or symbol.endswith(".AS")
+            )
+        )
+        else "$"
+    )
 
     # 1. Cas : Marché Fermé / Pré-Ouverture ou Week-end
     if phase in ["PRE_MARKET", "POST_MARKET_CLOSED"]:
@@ -889,7 +1053,7 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
         status = "ATTENDRE REJET M5 (<90 MIN)"
         badge = "badge-warning"
         description = f"Fenêtre d'ouverture active (< 90 min). Analyse de la bougie M15 et recherche de rejet M5..."
-        
+
         if symbol:
             try:
                 t_obj = yf.Ticker(symbol)
@@ -898,35 +1062,53 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
                     dates = m15_df.index.normalize().unique()
                     last_date = dates[-1]
                     session_m15 = m15_df[m15_df.index.normalize() == last_date]
-                    
+
                     if not session_m15.empty:
                         first_bar = session_m15.iloc[0]
-                        m15_open = float(first_bar['Open'])
-                        m15_high = float(first_bar['High'])
-                        m15_low = float(first_bar['Low'])
-                        m15_close = float(first_bar['Close'])
+                        m15_open = float(first_bar["Open"])
+                        m15_high = float(first_bar["High"])
+                        m15_low = float(first_bar["Low"])
+                        m15_close = float(first_bar["Close"])
                         m15_range = max(0.01, m15_high - m15_low)
-                        ratio_atr_pct = (m15_range / atr_d1 * 100) if atr_d1 > 0 else 0.0
+                        ratio_atr_pct = (
+                            (m15_range / atr_d1 * 100) if atr_d1 > 0 else 0.0
+                        )
                         is_eligible = ratio_atr_pct >= 25.0
-                        
+
                         # Bars dans les 90 premières minutes (6 bougies M15 max)
                         bars_90m = session_m15.iloc[:6]
-                        session_low = float(bars_90m['Low'].min())
-                        session_high = float(bars_90m['High'].max())
-                        
+                        session_low = float(bars_90m["Low"].min())
+                        session_high = float(bars_90m["High"].max())
+
                         # Détection de l'orientation et structure de la bougie M15
                         m15_is_green = m15_close > m15_open
                         m15_lower_wick = min(m15_open, m15_close) - m15_low
-                        m15_lower_wick_ratio = (m15_lower_wick / m15_range) if m15_range > 0 else 0.0
-                        m15_upper_close_ratio = ((m15_close - m15_low) / m15_range) if m15_range > 0 else 0.5
-                        
+                        m15_lower_wick_ratio = (
+                            (m15_lower_wick / m15_range) if m15_range > 0 else 0.0
+                        )
+                        m15_upper_close_ratio = (
+                            ((m15_close - m15_low) / m15_range)
+                            if m15_range > 0
+                            else 0.5
+                        )
+
                         # A) Cas : Expansion Haussière d'Ouverture (Poussée vers le haut / Momentum d'ouverture)
                         # Si la bougie M15 a poussé directement vers le haut et que le cours actuel est au sommet du range
-                        if is_eligible and m15_is_green and m15_upper_close_ratio >= 0.60 and m15_lower_wick_ratio < 0.30 and p >= (m15_low + 0.50 * m15_range):
+                        if (
+                            is_eligible
+                            and m15_is_green
+                            and m15_upper_close_ratio >= 0.60
+                            and m15_lower_wick_ratio < 0.30
+                            and p >= (m15_low + 0.50 * m15_range)
+                        ):
                             is_upward_expansion = True
                             has_sniper_signal = False
                             has_sniper_pending = False
-                            gain_m15_pct = ((m15_close - m15_open) / m15_open * 100) if m15_open > 0 else 0.0
+                            gain_m15_pct = (
+                                ((m15_close - m15_open) / m15_open * 100)
+                                if m15_open > 0
+                                else 0.0
+                            )
                             variant = "Expansion Haussière d'Ouverture (Risque de reflux intra-session < 90 min)"
                             status = "EXPANSION HAUSSIÈRE (NE PAS ACHETER LE SOMMET)"
                             badge = "badge-warning"
@@ -937,39 +1119,67 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
                         elif is_eligible:
                             # Détection de Hammer ou Bullish Engulfing sur les barres récentes
                             last_m15 = session_m15.iloc[-1]
-                            body = abs(float(last_m15['Close']) - float(last_m15['Open']))
-                            lower_wick = min(float(last_m15['Close']), float(last_m15['Open'])) - float(last_m15['Low'])
+                            body = abs(
+                                float(last_m15["Close"]) - float(last_m15["Open"])
+                            )
+                            lower_wick = min(
+                                float(last_m15["Close"]), float(last_m15["Open"])
+                            ) - float(last_m15["Low"])
                             is_hammer = lower_wick >= 1.5 * max(body, 0.05)
-                            is_bullish_engulf = (float(last_m15['Close']) > float(last_m15['Open']) and len(session_m15) >= 2 and float(session_m15.iloc[-2]['Close']) < float(session_m15.iloc[-2]['Open']))
-                            
+                            is_bullish_engulf = (
+                                float(last_m15["Close"]) > float(last_m15["Open"])
+                                and len(session_m15) >= 2
+                                and float(session_m15.iloc[-2]["Close"])
+                                < float(session_m15.iloc[-2]["Open"])
+                            )
+
                             if is_hammer:
                                 reversal_candle = "Hammer (Marteau de rejet M15/M5)"
                             elif is_bullish_engulf:
-                                reversal_candle = "Bullish Engulfing (Avalement haussier)"
+                                reversal_candle = (
+                                    "Bullish Engulfing (Avalement haussier)"
+                                )
                             else:
-                                reversal_candle = "Chandelier standard / Test du support en cours"
+                                reversal_candle = (
+                                    "Chandelier standard / Test du support en cours"
+                                )
 
                             # Conditions précises pour Quick Flip et Touch & Turn
                             dipped_below_low = session_low < (m15_low * 0.999)
-                            tested_near_low = abs(session_low - m15_low) / max(m15_low, 1.0) * 100 < 0.40 or m15_lower_wick_ratio >= 0.35
+                            tested_near_low = (
+                                abs(session_low - m15_low) / max(m15_low, 1.0) * 100
+                                < 0.40
+                                or m15_lower_wick_ratio >= 0.35
+                            )
                             rebounded_inside = p >= (m15_low * 0.998)
                             is_near_support_entry = p <= (m15_low + 0.45 * m15_range)
 
-                            if dipped_below_low and rebounded_inside and (is_hammer or is_bullish_engulf) and is_near_support_entry:
+                            if (
+                                dipped_below_low
+                                and rebounded_inside
+                                and (is_hammer or is_bullish_engulf)
+                                and is_near_support_entry
+                            ):
                                 variant = "Quick Flip (Chasse aux stops sous borne basse M15 & Rejet validé)"
                                 status = "ACHAT SNIPER OUVERTURE VALIDÉ"
                                 badge = "badge-success"
                                 has_sniper_signal = True
                                 has_sniper_pending = False
                                 description = f"Chasse aux liquidités validée sous la boîte M15 ({m15_low:.2f} {sym_currency}). Réintégration avec {reversal_candle}. [Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}]."
-                            elif tested_near_low and (is_hammer or is_bullish_engulf) and is_near_support_entry:
+                            elif (
+                                tested_near_low
+                                and (is_hammer or is_bullish_engulf)
+                                and is_near_support_entry
+                            ):
                                 variant = "Touch & Turn (Rebond direct sur Support M15 validé)"
                                 status = "ACHAT SNIPER OUVERTURE VALIDÉ"
                                 badge = "badge-success"
                                 has_sniper_signal = True
                                 has_sniper_pending = False
                                 description = f"Retest et rebond direct sur le Low M15 ({m15_low:.2f} {sym_currency}). {reversal_candle}. [Analyse: {timing['analysis_time']} | Idéal: {timing['ideal_execution_time']} | Max: {timing['max_execution_time']}]."
-                            elif not is_near_support_entry and p > (m15_low + 0.50 * m15_range):
+                            elif not is_near_support_entry and p > (
+                                m15_low + 0.50 * m15_range
+                            ):
                                 variant = "Signal Sniper Dépassé (Cours trop éloigné du Stop Loss)"
                                 status = "SIGNAL SNIPER DÉPASSÉ (PRIX TROP ÉLOIGNÉ)"
                                 badge = "badge-neutral"
@@ -1006,9 +1216,9 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
 
     # Extraction des indicateurs Daily associés (Points Pivots, Niveaux de la veille, ATR D1)
     if df_daily is not None and len(df_daily) >= 2:
-        y_high = float(df_daily['High'].iloc[-2])
-        y_low = float(df_daily['Low'].iloc[-2])
-        y_close = float(df_daily['Close'].iloc[-2])
+        y_high = float(df_daily["High"].iloc[-2])
+        y_low = float(df_daily["Low"].iloc[-2])
+        y_close = float(df_daily["Close"].iloc[-2])
         pivot = (y_high + y_low + y_close) / 3.0
         r1_pivot = (2.0 * pivot) - y_low
         r2_pivot = pivot + (y_high - y_low)
@@ -1028,9 +1238,11 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
         sniper_entry = round(m15_low + 0.35 * m15_range, 2)
     else:
         sniper_entry = round(p, 2)
-    
+
     # SL Sniper : sous la mèche basse de manipulation (Session Low / M15 Low avec marge technique)
-    sniper_sl = round(min(session_low, m15_low) - max(0.08 * m15_range, 0.0015 * sniper_entry), 2)
+    sniper_sl = round(
+        min(session_low, m15_low) - max(0.08 * m15_range, 0.0015 * sniper_entry), 2
+    )
     if sniper_sl >= sniper_entry:
         sniper_sl = round(sniper_entry * 0.992, 2)
 
@@ -1039,19 +1251,34 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
         sniper_tp1 = round(m15_high, 2)
         tp1_type = "Borne Haute Boîte M15"
     else:
-        sniper_tp1 = round(max(m15_low + 1.272 * m15_range, sniper_entry + 0.4 * atr_d1, pivot), 2)
+        sniper_tp1 = round(
+            max(m15_low + 1.272 * m15_range, sniper_entry + 0.4 * atr_d1, pivot), 2
+        )
         tp1_type = "Extension Fibo 1.272 M15 / Pivot"
 
     # TP2 Sniper (Cible Finale) : Extension Fibonacci 1.618 de la manipulation M15 ou Pivot R1 Daily
     fibo_ext_1618 = m15_low + (1.618 * m15_range)
-    sniper_tp2 = round(max(fibo_ext_1618, r1_pivot, sniper_tp1 + max(0.5 * atr_d1, 0.01 * sniper_entry)), 2)
+    sniper_tp2 = round(
+        max(
+            fibo_ext_1618, r1_pivot, sniper_tp1 + max(0.5 * atr_d1, 0.01 * sniper_entry)
+        ),
+        2,
+    )
     tp2_type = "Extension Fibo 1.618 M15 / Pivot R1 Daily"
     sl_type = "Sous Mèche Basse Rejet M5 / Low M15"
 
-    dist_sl_pct = ((sniper_entry - sniper_sl) / sniper_entry * 100) if sniper_entry > 0 else 0.8
-    dist_tp1_pct = ((sniper_tp1 - sniper_entry) / sniper_entry * 100) if sniper_entry > 0 else 1.2
-    dist_tp2_pct = ((sniper_tp2 - sniper_entry) / sniper_entry * 100) if sniper_entry > 0 else 2.5
-    rr_sniper = round((dist_tp1_pct * 0.5 + dist_tp2_pct * 0.5) / max(dist_sl_pct, 0.2), 2)
+    dist_sl_pct = (
+        ((sniper_entry - sniper_sl) / sniper_entry * 100) if sniper_entry > 0 else 0.8
+    )
+    dist_tp1_pct = (
+        ((sniper_tp1 - sniper_entry) / sniper_entry * 100) if sniper_entry > 0 else 1.2
+    )
+    dist_tp2_pct = (
+        ((sniper_tp2 - sniper_entry) / sniper_entry * 100) if sniper_entry > 0 else 2.5
+    )
+    rr_sniper = round(
+        (dist_tp1_pct * 0.5 + dist_tp2_pct * 0.5) / max(dist_sl_pct, 0.2), 2
+    )
 
     # Règle de garde-fou R:R strict (exiger R:R >= 1.30)
     if has_sniper_signal and rr_sniper < 1.30:
@@ -1095,8 +1322,8 @@ def detect_opening_manipulation_sniper(df_daily, symbol=None, curr_price=None, f
             "analysis_time": timing["analysis_time"],
             "ideal_execution_time": timing["ideal_execution_time"],
             "max_execution_time": timing["max_execution_time"],
-            "execution_timing": timing
-        }
+            "execution_timing": timing,
+        },
     }
 
     _INTRADAY_SNIPER_CACHE[cache_key] = {"data": data_res, "ts": now_ts}
@@ -1113,7 +1340,15 @@ def compute_volume_profile(df_daily, curr_price, lookback_days=60, num_bins=30):
     - HVA (High Value Areas) : Zones de forte acceptation/consolidation.
     - LVA (Low Value Areas) : Vides de liquidité propices aux mouvements directionnels rapides.
     """
-    last_close = float(df_daily["Close"].dropna().iloc[-1]) if (df_daily is not None and not df_daily.empty and len(df_daily["Close"].dropna()) > 0) else 0.0
+    last_close = (
+        float(df_daily["Close"].dropna().iloc[-1])
+        if (
+            df_daily is not None
+            and not df_daily.empty
+            and len(df_daily["Close"].dropna()) > 0
+        )
+        else 0.0
+    )
     p = float(curr_price or last_close)
 
     if df_daily is None or len(df_daily) < 10 or "Volume" not in df_daily.columns:
@@ -1124,7 +1359,7 @@ def compute_volume_profile(df_daily, curr_price, lookback_days=60, num_bins=30):
             "val": round(p * 0.98, 2),
             "is_in_hva": True,
             "is_in_lva": False,
-            "zone_desc": "Données de volume limitées — approximation du POC."
+            "zone_desc": "Données de volume limitées — approximation du POC.",
         }
 
     sub_df = df_daily.iloc[-lookback_days:].copy()
@@ -1143,7 +1378,7 @@ def compute_volume_profile(df_daily, curr_price, lookback_days=60, num_bins=30):
             "val": round(p * 0.98, 2),
             "is_in_hva": True,
             "is_in_lva": False,
-            "zone_desc": "Volume Profile neutre."
+            "zone_desc": "Volume Profile neutre.",
         }
 
     # Discrétisation en bins de prix
@@ -1155,7 +1390,7 @@ def compute_volume_profile(df_daily, curr_price, lookback_days=60, num_bins=30):
             mask = (bins[:-1] >= l) & (bins[1:] <= h)
             overlap_count = np.sum(mask)
             if overlap_count > 0:
-                bin_volumes[mask] += (v / overlap_count)
+                bin_volumes[mask] += v / overlap_count
             else:
                 idx = np.clip(np.digitize((h + l) / 2.0, bins) - 1, 0, num_bins - 1)
                 bin_volumes[idx] += v
@@ -1202,7 +1437,9 @@ def compute_volume_profile(df_daily, curr_price, lookback_days=60, num_bins=30):
     elif is_in_lva:
         zone_desc = f"Dans une Low Value Area (LVA - vide de liquidité), propice à une accélération vers le POC."
     else:
-        zone_desc = f"Entre zones de valeur (VAL: {val_price:.2f}, VAH: {vah_price:.2f})."
+        zone_desc = (
+            f"Entre zones de valeur (VAL: {val_price:.2f}, VAH: {vah_price:.2f})."
+        )
 
     return {
         "poc": round(poc_price, 2),
@@ -1211,7 +1448,7 @@ def compute_volume_profile(df_daily, curr_price, lookback_days=60, num_bins=30):
         "val": round(val_price, 2),
         "is_in_hva": is_in_hva,
         "is_in_lva": is_in_lva,
-        "zone_desc": zone_desc
+        "zone_desc": zone_desc,
     }
 
 
@@ -1223,7 +1460,15 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
     3. POC (Point of Control) du Volume Profile
     4. Range High de la veille (Previous Day High - PDH)
     """
-    last_close = float(df_daily["Close"].dropna().iloc[-1]) if (df_daily is not None and not df_daily.empty and len(df_daily["Close"].dropna()) > 0) else 0.0
+    last_close = (
+        float(df_daily["Close"].dropna().iloc[-1])
+        if (
+            df_daily is not None
+            and not df_daily.empty
+            and len(df_daily["Close"].dropna()) > 0
+        )
+        else 0.0
+    )
     p = float(curr_price or last_close)
     if df_daily is None or len(df_daily) < 5:
         mm20 = round(p * 1.025, 2)
@@ -1231,12 +1476,18 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
         poc = round(p * 1.022, 2)
         pdh = round(p * 1.020, 2)
         pdl = round(p * 0.980, 2)
-        vp_info = {"poc": poc, "dist_poc_pct": 2.2, "zone_desc": "Volume Profile estimé."}
+        vp_info = {
+            "poc": poc,
+            "dist_poc_pct": 2.2,
+            "zone_desc": "Volume Profile estimé.",
+        }
     else:
         # MM20 Daily
         close = df_daily["Close"].dropna()
-        mm20 = float(close.iloc[-20:].mean()) if len(close) >= 20 else float(close.mean())
-        
+        mm20 = (
+            float(close.iloc[-20:].mean()) if len(close) >= 20 else float(close.mean())
+        )
+
         # Range Veille (PDH / PDL)
         if len(df_daily) >= 2:
             pdh = float(df_daily["High"].iloc[-2])
@@ -1244,12 +1495,18 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
         else:
             pdh = float(df_daily["High"].iloc[-1])
             pdl = float(df_daily["Low"].iloc[-1])
-            
+
         # VWAP Daily / Intraday
         try:
-            if df_intraday is not None and not df_intraday.empty and "Volume" in df_intraday:
+            if (
+                df_intraday is not None
+                and not df_intraday.empty
+                and "Volume" in df_intraday
+            ):
                 v = df_intraday["Volume"].fillna(0)
-                typical_p = (df_intraday["High"] + df_intraday["Low"] + df_intraday["Close"]) / 3.0
+                typical_p = (
+                    df_intraday["High"] + df_intraday["Low"] + df_intraday["Close"]
+                ) / 3.0
                 cum_vol = v.cumsum()
                 if cum_vol.iloc[-1] > 0:
                     vwap = float((typical_p * v).cumsum().iloc[-1] / cum_vol.iloc[-1])
@@ -1272,7 +1529,7 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
     dist_vwap_pct = round(((vwap - p) / p) * 100, 2)
     dist_poc_pct = round(((poc - p) / p) * 100, 2)
     dist_pdh_pct = round(((pdh - p) / p) * 100, 2)
-    
+
     # Choix de la cible TP2 Mean Reversion : MM20, VWAP, ou POC du Volume Profile
     candidates = []
     if mm20 > p * 1.012:
@@ -1283,7 +1540,7 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
         candidates.append((poc, f"POC Volume Profile ({poc:.2f})"))
     if pdh > p * 1.015:
         candidates.append((pdh, f"Range High Veille ({pdh:.2f})"))
-        
+
     if candidates:
         candidates.sort(key=lambda x: x[0])
         best_tp2_price, best_tp2_name = candidates[0]
@@ -1309,11 +1566,13 @@ def compute_mean_reversion_targets(df_daily, curr_price, df_intraday=None):
         "dist_pdh_pct": dist_pdh_pct,
         "target_tp2_price": round(best_tp2_price, 2),
         "target_tp2_name": best_tp2_name,
-        "dist_tp2_pct": dist_tp2_pct
+        "dist_tp2_pct": dist_tp2_pct,
     }
 
 
-def detect_sneaky_pivot_m15(df_daily, symbol=None, curr_price=None, timing=None, force_refresh=False):
+def detect_sneaky_pivot_m15(
+    df_daily, symbol=None, curr_price=None, timing=None, force_refresh=False
+):
     """
     Méthode B : SNEAKY PIVOT (Opening Range Reversal M15)
     Horaires : Uniquement dans la première heure d'ouverture (< 60 min).
@@ -1324,29 +1583,40 @@ def detect_sneaky_pivot_m15(df_daily, symbol=None, curr_price=None, timing=None,
     """
     if timing is None:
         timing = get_market_execution_timing(symbol)
-        
+
     phase = timing.get("phase", "REGULAR_SESSION_LATE")
-    sym_currency = "€" if (symbol and (symbol.endswith(".PA") or symbol.endswith(".DE") or symbol.endswith(".AS"))) else "$"
-    
+    sym_currency = (
+        "€"
+        if (
+            symbol
+            and (
+                symbol.endswith(".PA")
+                or symbol.endswith(".DE")
+                or symbol.endswith(".AS")
+            )
+        )
+        else "$"
+    )
+
     if df_daily is not None and len(df_daily) >= 2:
         pdl = float(df_daily["Low"].iloc[-2])
         pdh = float(df_daily["High"].iloc[-2])
     else:
         pdl = (curr_price * 0.985) if curr_price else 0.0
         pdh = (curr_price * 1.015) if curr_price else 0.0
-        
+
     p = curr_price if curr_price else pdl
     is_first_hour = phase in ["M15_FORMATION", "SNIPER_WINDOW"]
-    
+
     has_sneaky_signal = False
     has_sneaky_pending = False
     sneaky_entry = round(p * 1.002, 2)
     sneaky_sl = round(pdl * 0.995, 2)
-    
+
     status = "NON DÉTECTÉ"
     badge = "badge-neutral"
     desc = "Aucun test du Range Low de la veille."
-    
+
     if symbol and is_first_hour:
         try:
             t_obj = yf.Ticker(symbol)
@@ -1355,29 +1625,34 @@ def detect_sneaky_pivot_m15(df_daily, symbol=None, curr_price=None, timing=None,
                 dates = m15_df.index.normalize().unique()
                 last_date = dates[-1]
                 session_m15 = m15_df[m15_df.index.normalize() == last_date]
-                
+
                 if len(session_m15) >= 1:
                     first_bar = session_m15.iloc[0]
-                    first_low = float(first_bar['Low'])
-                    first_close = float(first_bar['Close'])
-                    first_open = float(first_bar['Open'])
-                    
-                    tested_pdl = abs(first_low - pdl) / max(pdl, 1.0) * 100 < 0.60 or first_low <= pdl
-                    
+                    first_low = float(first_bar["Low"])
+                    first_close = float(first_bar["Close"])
+                    first_open = float(first_bar["Open"])
+
+                    tested_pdl = (
+                        abs(first_low - pdl) / max(pdl, 1.0) * 100 < 0.60
+                        or first_low <= pdl
+                    )
+
                     if len(session_m15) >= 2:
                         second_bar = session_m15.iloc[1]
-                        s_open = float(second_bar['Open'])
-                        s_close = float(second_bar['Close'])
-                        s_high = float(second_bar['High'])
-                        s_low = float(second_bar['Low'])
+                        s_open = float(second_bar["Open"])
+                        s_close = float(second_bar["Close"])
+                        s_high = float(second_bar["High"])
+                        s_low = float(second_bar["Low"])
                         s_range = max(0.01, s_high - s_low)
-                        
-                        is_bullish_sneaky = (s_close >= s_open) and ((s_close - s_low) / s_range >= 0.50)
-                        
+
+                        is_bullish_sneaky = (s_close >= s_open) and (
+                            (s_close - s_low) / s_range >= 0.50
+                        )
+
                         if tested_pdl and is_bullish_sneaky:
                             sneaky_entry = round(s_high * 1.001, 2)
                             sneaky_sl = round(min(first_low, s_low) * 0.998, 2)
-                            
+
                             if p >= sneaky_entry:
                                 has_sneaky_signal = True
                                 status = "ACHAT SNEAKY PIVOT VALIDÉ"
@@ -1395,7 +1670,7 @@ def detect_sneaky_pivot_m15(df_daily, symbol=None, curr_price=None, timing=None,
                         desc = f"1ère bougie M15 en test du Range Low veille ({pdl:.2f} {sym_currency}). Attendre la formation de la 2ème bougie de stabilisation."
         except Exception:
             pass
-            
+
     return {
         "has_signal": has_sneaky_signal,
         "has_pending": has_sneaky_pending,
@@ -1404,19 +1679,25 @@ def detect_sneaky_pivot_m15(df_daily, symbol=None, curr_price=None, timing=None,
         "pdl": round(pdl, 2),
         "status": status,
         "badge": badge,
-        "description": desc
+        "description": desc,
     }
 
 
-def compute_institutional_rmax_sizing(capital_total, entry_price, stop_price, target_price=None, embedded_risk_pct=1.5):
+def compute_institutional_rmax_sizing(
+    capital_total,
+    entry_price,
+    stop_price,
+    target_price=None,
+    embedded_risk_pct=1.5,
+    macro_regime="Neutre",
+):
     """
-    Calcule le dimensionnement exact selon la règle R-Max :
-    - Perte monétaire maximale = 1,0 % du capital total (1R)
+    Calcule le dimensionnement exact selon la règle R-Max en intégrant le régime macro :
+    - Perte monétaire maximale = 1,0 % du capital total (1R) en Risk-On, 0.5% Neutre, 0% Risk-Off
     - Allocation maximale par position = 20 % à 25 % du capital
-    - Risque Global Embarqué = Plafond max 3 % à 4 % du capital total exposé
-    - Réserve de Liquidité = 25 % à 30 % minimum
-    - Formule : Nombre d'actions = (Capital Total * 1%) / (Prix Entrée - Prix SL)
     """
+    from src.risk_manager import calculate_trade_sizing
+
     cap = float(capital_total or REFERENCE_CAPITAL)
     entry = float(entry_price or 1.0)
     stop = float(stop_price or (entry * 0.986))
@@ -1425,16 +1706,15 @@ def compute_institutional_rmax_sizing(capital_total, entry_price, stop_price, ta
     dist_to_stop_pct = max(0.005, (entry - stop) / entry)
     dist_to_tp_pct = max(0.01, (tp - entry) / entry)
 
-    r_max_allowed = cap * R_MAX_PCT_STANDARD
-    raw_position_size = r_max_allowed / dist_to_stop_pct
-    max_position_size = cap * MAX_ALLOCATION_PER_LINE_PCT
-    suggested_allocation = min(raw_position_size, max_position_size)
+    tp1_pct = TARGET_TP1_DEFAULT
+    tp2_pct = dist_to_tp_pct * 100
 
-    suggested_shares = int(suggested_allocation // entry) if entry > 0 else 0
-    actual_nominal = suggested_shares * entry
-    actual_risk = suggested_shares * (entry - stop)
-    potential_gain = suggested_shares * (tp - entry)
+    rm_sizing = calculate_trade_sizing(
+        cap, entry, stop, macro_regime, False, tp1_pct, tp2_pct
+    )
 
+    shares = rm_sizing.get("shares_count", rm_sizing.get("shares_to_buy", 0))
+    actual_risk = shares * (entry - stop)
     rr_ratio = (dist_to_tp_pct / dist_to_stop_pct) if dist_to_stop_pct > 0 else 1.5
 
     return {
@@ -1444,17 +1724,17 @@ def compute_institutional_rmax_sizing(capital_total, entry_price, stop_price, ta
         "take_profit": round(tp, 2),
         "dist_to_stop_pct": round(dist_to_stop_pct * 100, 2),
         "dist_to_tp_pct": round(dist_to_tp_pct * 100, 2),
-        "r_max_allowed_eur": round(r_max_allowed, 2),
-        "suggested_shares": suggested_shares,
-        "suggested_allocation_eur": round(actual_nominal, 2),
-        "max_position_allowed_eur": round(max_position_size, 2),
+        "r_max_allowed_eur": round(rm_sizing["r_max_amount"], 2),
+        "suggested_shares": shares,
+        "suggested_allocation_eur": round(rm_sizing.get("suggested_nominal", 0), 2),
+        "max_position_allowed_eur": round(cap * MAX_ALLOCATION_PER_LINE_PCT, 2),
         "risk_monetary_eur": round(actual_risk, 2),
-        "potential_gain_eur": round(potential_gain, 2),
+        "potential_gain_eur": round(shares * (tp - entry), 2),
         "risk_reward_ratio": round(rr_ratio, 2),
-        "is_within_risk_limit": actual_risk <= r_max_allowed * 1.05,
+        "is_within_risk_limit": actual_risk <= rm_sizing["r_max_amount"] * 1.05,
         "cash_reserve_required_eur": round(cap * MIN_CASH_RESERVE_PCT, 2),
         "global_embedded_risk_limit_pct": 3.5,
-        "current_embedded_risk_pct": round(embedded_risk_pct, 2)
+        "current_embedded_risk_pct": round(embedded_risk_pct, 2),
     }
 
 
@@ -1473,7 +1753,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     sym = sym.strip().upper()
     cap = float(capital_total or REFERENCE_CAPITAL)
     lookup_sym = resolve_ticker_symbol(sym)
-    
+
     if force_refresh:
         global _NEWS_CACHE, _INTRADAY_SNIPER_CACHE
         _NEWS_CACHE.pop(sym, None)
@@ -1482,18 +1762,27 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         _INTRADAY_SNIPER_CACHE.pop(lookup_sym, None)
 
     info = get_ticker_info(lookup_sym, force_refresh=force_refresh) or {}
-    df = get_ticker_data(lookup_sym, period="1y", interval="1d", force_refresh=force_refresh)
-    company_name = info.get("shortName") or info.get("longName") or get_company_name(sym)
+    df = get_ticker_data(
+        lookup_sym, period="1y", interval="1d", force_refresh=force_refresh
+    )
+    company_name = (
+        info.get("shortName") or info.get("longName") or get_company_name(sym)
+    )
     market_cap = float(info.get("marketCap") or 0.0)
 
     # 1. Conformité Sharia (Normes AAOIFI)
-    sharia_data = check_sharia_compliance(lookup_sym, info)
-    is_sharia = sharia_data.get("compliant", False)
-    sharia_status = "CONFORME" if is_sharia else "NON CONFORME"
-    sharia_reasons = sharia_data.get("reasons", ["Conformité financière validée"])
+    sharia_data = screen_ticker(lookup_sym)
+    is_sharia = (
+        sharia_data.get("compliant", False) or sharia_data.get("status") == "CONFORME"
+    )
+    sharia_status = sharia_data.get("status", "NON CONFORME")
+    sharia_reasons = sharia_data.get(
+        "reasons", [sharia_data.get("reason", "Statut calculé")]
+    )
 
     if df is None or df.empty or len(df) < 200:
         from src.market_data import fetch_yahoo_chart_v8
+
         try:
             v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="1y")
             if v8_df is not None and not v8_df.empty and len(v8_df) >= 30:
@@ -1520,7 +1809,11 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
 
     if not curr_price or curr_price <= 0:
         if isinstance(info, dict):
-            p_cand = info.get("regularMarketPrice") or info.get("currentPrice") or info.get("previousClose")
+            p_cand = (
+                info.get("regularMarketPrice")
+                or info.get("currentPrice")
+                or info.get("previousClose")
+            )
             if p_cand:
                 try:
                     curr_price = float(p_cand)
@@ -1528,7 +1821,11 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
                     pass
 
     if not curr_price or curr_price <= 0:
-        from src.market_data import fetch_yahoo_chart_v8, FALLBACK_WATCHLIST_REFERENCE_PRICES
+        from src.market_data import (
+            fetch_yahoo_chart_v8,
+            FALLBACK_WATCHLIST_REFERENCE_PRICES,
+        )
+
         v8_p, v8_df = fetch_yahoo_chart_v8(lookup_sym, range_period="1y")
         if v8_p and v8_p > 0:
             curr_price = float(v8_p)
@@ -1540,7 +1837,14 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             curr_price = float(FALLBACK_WATCHLIST_REFERENCE_PRICES[lookup_sym]["price"])
 
     # Si avg_daily_volume est toujours 0 mais qu'on a df et curr_price
-    if (not avg_daily_volume or avg_daily_volume <= 0) and df is not None and not df.empty and "Volume" in df.columns and curr_price and curr_price > 0:
+    if (
+        (not avg_daily_volume or avg_daily_volume <= 0)
+        and df is not None
+        and not df.empty
+        and "Volume" in df.columns
+        and curr_price
+        and curr_price > 0
+    ):
         try:
             avg_daily_volume = float(df["Volume"].tail(20).mean() * curr_price)
         except Exception:
@@ -1560,7 +1864,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "sharia_reasons": sharia_reasons,
             "verdict": "DONNÉES INDISPONIBLES",
             "confluence_score": 0,
-            "error": "Flux de marché indisponible pour ce symbole."
+            "error": "Flux de marché indisponible pour ce symbole.",
         }
 
     # 2. Macro Baromètre, Saisonnalité & Sentiment Contrarien
@@ -1581,7 +1885,7 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         peak_10 = float(df["High"].iloc[-10:].max())
         if peak_10 > 0:
             pullback_pct = ((curr_price - peak_10) / peak_10) * 100
-            pullback_valid = (-8.0 <= pullback_pct <= -2.5)
+            pullback_valid = -8.0 <= pullback_pct <= -2.5
 
     if df is not None and len(df) >= 200:
         mm200 = float(df["Close"].rolling(200).mean().iloc[-1])
@@ -1605,42 +1909,72 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         pass
 
     # 5. Timing, Fibonacci, Order Flow & Protocole d'Ouverture Sniper / Sneaky Pivot / Breakout
-    rsi_val, has_rsi_div, rsi_desc = calculate_rsi_and_divergences(df["Close"] if df is not None else pd.Series([50]))
+    rsi_val, has_rsi_div, rsi_desc = calculate_rsi_and_divergences(
+        df["Close"] if df is not None else pd.Series([50])
+    )
     news_data = fetch_and_analyze_live_news(sym, company_name, pullback_pct, rsi_val)
     sentiment = compute_retail_sentiment_contrarian(df, info, rsi_val, pullback_pct)
     fibo = detect_fibonacci_confluence(df, curr_price)
     order_flow = detect_order_flow_exhaustion(df)
     breakout_info = detect_technical_breakout(df)
     has_breakout = breakout_info["has_breakout"]
-    support_lvl = breakout_info["support_level"] if (0 < breakout_info["support_level"] < curr_price) else (curr_price * 0.975)
+    support_lvl = (
+        breakout_info["support_level"]
+        if (0 < breakout_info["support_level"] < curr_price)
+        else (curr_price * 0.975)
+    )
 
     # Niveaux mathématiques de retour à la moyenne (Mean Reversion MM20 & VWAP)
     mr_targets = compute_mean_reversion_targets(df, curr_price)
 
     # Détection de Manipulation Sniper M15 & ATR 14 D1 (Méthode A)
-    sniper_data = detect_opening_manipulation_sniper(df, symbol=sym, curr_price=curr_price, force_refresh=force_refresh)
+    sniper_data = detect_opening_manipulation_sniper(
+        df, symbol=sym, curr_price=curr_price, force_refresh=force_refresh
+    )
     timing = sniper_data.get("execution_timing") or get_market_execution_timing(sym)
-    has_sniper_signal = (sniper_data["status"] == "ACHAT SNIPER OUVERTURE VALIDÉ")
-    has_sniper_pending = (sniper_data["status"] == "ATTENDRE REJET M5 (<90 MIN)")
+    has_sniper_signal = sniper_data["status"] == "ACHAT SNIPER OUVERTURE VALIDÉ"
+    has_sniper_pending = sniper_data["status"] == "ATTENDRE REJET M5 (<90 MIN)"
     is_upward_expansion = sniper_data.get("is_upward_expansion", False)
 
     # Détection Sneaky Pivot M15 (Méthode B)
-    sneaky_data = detect_sneaky_pivot_m15(df, symbol=sym, curr_price=curr_price, timing=timing, force_refresh=force_refresh)
+    sneaky_data = detect_sneaky_pivot_m15(
+        df,
+        symbol=sym,
+        curr_price=curr_price,
+        timing=timing,
+        force_refresh=force_refresh,
+    )
     has_sneaky_signal = sneaky_data.get("has_signal", False)
     has_sneaky_pending = sneaky_data.get("has_pending", False)
 
     # Seuil de déclenchement du Breakout H1 (Méthode C)
-    prev_high = float(df['High'].iloc[-2]) if (df is not None and len(df) >= 2) else (curr_price * 1.008)
-    breakout_trigger = round(max(curr_price * 1.006, min(curr_price * 1.015, prev_high)), 2)
+    prev_high = (
+        float(df["High"].iloc[-2])
+        if (df is not None and len(df) >= 2)
+        else (curr_price * 1.008)
+    )
+    breakout_trigger = round(
+        max(curr_price * 1.006, min(curr_price * 1.015, prev_high)), 2
+    )
     if breakout_trigger <= curr_price:
         breakout_trigger = round(curr_price * 1.008, 2)
 
     # Sélection dynamique de la méthode d'entrée : [SNIPER] / [SNEAKY PIVOT] / [CLASSIC BREAKOUT]
     phase = timing.get("phase", "REGULAR_SESSION_LATE")
-    if has_sniper_signal or (phase == "SNIPER_WINDOW" and (has_sniper_pending or sniper_data.get("is_eligible", False))):
+    if has_sniper_signal or (
+        phase == "SNIPER_WINDOW"
+        and (has_sniper_pending or sniper_data.get("is_eligible", False))
+    ):
         selected_method = "SNIPER"
         method_desc = f"Détection SNIPER (<90 min) : {sniper_data.get('variant', 'Liquidity Sweep')} (Bougie M15 {sniper_data.get('ratio_atr_pct', 0)}% ATR — {sniper_data.get('reversal_candle', 'Hammer / Engulfing')})"
-    elif has_sneaky_signal or has_sneaky_pending or (phase in ["M15_FORMATION", "SNIPER_WINDOW"] and sneaky_data.get("has_pending", False)):
+    elif (
+        has_sneaky_signal
+        or has_sneaky_pending
+        or (
+            phase in ["M15_FORMATION", "SNIPER_WINDOW"]
+            and sneaky_data.get("has_pending", False)
+        )
+    ):
         selected_method = "SNEAKY PIVOT"
         method_desc = f"SNEAKY PIVOT (<60 min) : {sneaky_data.get('description', 'Test Range Low')}"
     else:
@@ -1649,18 +1983,30 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
 
     # 8. Score de Confluence & Verdict Final
     score = 0.0
-    if is_sharia: score += 2.0
-    if trend_following_valid: score += 1.5
-    if pullback_valid and not news_data["has_structural_risk"]: score += 1.5
-    if fibo["is_in_fibo_zone"]: score += 1.0
-    if order_flow["has_higher_lows"]: score += 1.0
-    if has_breakout or has_rsi_div: score += 1.0
-    if has_sniper_signal or has_sneaky_signal: score += 1.0
-    elif has_sniper_pending or has_sneaky_pending: score += 0.5
-    if macro_regime == "RISK-ON": score += 1.0
-    elif macro_regime == "NEUTRE": score += 0.5
-    if seasonality["status"] == "Favorable": score += 0.5
-    if news_data["diagnostic"] == "SURRÉACTION CONJONCTURELLE": score += 0.5
+    if is_sharia:
+        score += 2.0
+    if trend_following_valid:
+        score += 1.5
+    if pullback_valid and not news_data["has_structural_risk"]:
+        score += 1.5
+    if fibo["is_in_fibo_zone"]:
+        score += 1.0
+    if order_flow["has_higher_lows"]:
+        score += 1.0
+    if has_breakout or has_rsi_div:
+        score += 1.0
+    if has_sniper_signal or has_sneaky_signal:
+        score += 1.0
+    elif has_sniper_pending or has_sneaky_pending:
+        score += 0.5
+    if macro_regime == "RISK-ON":
+        score += 1.0
+    elif macro_regime == "NEUTRE":
+        score += 0.5
+    if seasonality["status"] == "Favorable":
+        score += 0.5
+    if news_data["diagnostic"] == "SURRÉACTION CONJONCTURELLE":
+        score += 0.5
 
     confluence_score = round(min(10.0, score), 1)
 
@@ -1670,11 +2016,15 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     if not is_sharia:
         verdict_swing = "ÉVITER (SHARIA)"
         verdict_swing_badge = "badge-danger"
-        verdict_swing_action = f"Non conforme aux normes AAOIFI ({', '.join(sharia_reasons[:2])})."
+        verdict_swing_action = (
+            f"Non conforme aux normes AAOIFI ({', '.join(sharia_reasons[:2])})."
+        )
     elif macro_regime == "RISK-OFF":
         verdict_swing = "GEL (RISK-OFF)"
         verdict_swing_badge = "badge-danger"
-        verdict_swing_action = f"Régime macro RISK-OFF (VIX : {macro['vix']['value']}). Achats gelés."
+        verdict_swing_action = (
+            f"Régime macro RISK-OFF (VIX : {macro['vix']['value']}). Achats gelés."
+        )
     elif news_data["has_structural_risk"]:
         verdict_swing = "ÉVITER (RISQUE NEWS)"
         verdict_swing_badge = "badge-danger"
@@ -1682,19 +2032,30 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     elif not trend_following_valid:
         verdict_swing = "ÉVITER (< MM200)"
         verdict_swing_badge = "badge-neutral"
-        verdict_swing_action = f"Cours sous MM200 ({mm200:.2f} {sym_currency}) : tendance baissière."
+        verdict_swing_action = (
+            f"Cours sous MM200 ({mm200:.2f} {sym_currency}) : tendance baissière."
+        )
     elif pullback_pct > -2.0:
         verdict_swing = "ATTENDRE REPLI"
         verdict_swing_badge = "badge-neutral"
-        verdict_swing_action = f"Cours proche des sommets (repli {pullback_pct:.1f}% insuffisant)."
+        verdict_swing_action = (
+            f"Cours proche des sommets (repli {pullback_pct:.1f}% insuffisant)."
+        )
     elif pullback_pct < -8.0:
         verdict_swing = "ÉVITER (CHUTE > 8%)"
         verdict_swing_badge = "badge-neutral"
         verdict_swing_action = f"Chute excessive ({pullback_pct:.1f}%). Risque de dégradation fondamentale."
-    elif confluence_score >= 7.5 and has_breakout and pullback_valid and trend_following_valid:
+    elif (
+        confluence_score >= 7.5
+        and has_breakout
+        and pullback_valid
+        and trend_following_valid
+    ):
         verdict_swing = "ACHAT VALIDÉ"
         verdict_swing_badge = "badge-success"
-        verdict_swing_action = f"Cassure H1 confirmée avec volumes. Confluence {confluence_score}/10."
+        verdict_swing_action = (
+            f"Cassure H1 confirmée avec volumes. Confluence {confluence_score}/10."
+        )
     elif trend_following_valid and pullback_valid:
         verdict_swing = "ATTENDRE SETUP"
         verdict_swing_badge = "badge-warning"
@@ -1702,15 +2063,25 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
     else:
         verdict_swing = "ÉVITER"
         verdict_swing_badge = "badge-neutral"
-        verdict_swing_action = f"Score de confluence insuffisant ({confluence_score}/10)."
+        verdict_swing_action = (
+            f"Score de confluence insuffisant ({confluence_score}/10)."
+        )
 
     # -------------------------------------------------------------
     # 2. VERDICT SNIPER & SNEAKY PIVOT (< 90 minutes)
     # -------------------------------------------------------------
-    if not is_sharia or macro_regime == "RISK-OFF" or news_data["has_structural_risk"] or not trend_following_valid or not pullback_valid:
+    if (
+        not is_sharia
+        or macro_regime == "RISK-OFF"
+        or news_data["has_structural_risk"]
+        or not trend_following_valid
+        or not pullback_valid
+    ):
         verdict_sniper = "NON ÉLIGIBLE"
         verdict_sniper_badge = "badge-neutral"
-        verdict_sniper_action = "Filtres majeurs non validés (Sharia, Macro, MM200 ou Repli)."
+        verdict_sniper_action = (
+            "Filtres majeurs non validés (Sharia, Macro, MM200 ou Repli)."
+        )
     elif phase in ["PRE_MARKET", "POST_MARKET_CLOSED"]:
         verdict_sniper = "ATTENDRE SETUP (PRÉ-OUVERTURE)"
         verdict_sniper_badge = "badge-primary"
@@ -1727,7 +2098,9 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         elif has_sneaky_signal and confluence_score >= 7.0:
             verdict_sniper = "ACHAT VALIDÉ"
             verdict_sniper_badge = "badge-success"
-            verdict_sniper_action = f"Signal Sneaky Pivot validé : {sneaky_data['description']}."
+            verdict_sniper_action = (
+                f"Signal Sneaky Pivot validé : {sneaky_data['description']}."
+            )
         elif is_upward_expansion or "EXPANSION" in sniper_data.get("status", ""):
             verdict_sniper = "ATTENDRE SETUP (EXPANSION)"
             verdict_sniper_badge = "badge-warning"
@@ -1739,12 +2112,14 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         elif has_sneaky_pending:
             verdict_sniper = "ATTENDRE SETUP (SNEAKY PIVOT)"
             verdict_sniper_badge = "badge-warning"
-            verdict_sniper_action = f"Sneaky Pivot en attente : {sneaky_data['description']}."
+            verdict_sniper_action = (
+                f"Sneaky Pivot en attente : {sneaky_data['description']}."
+            )
         else:
             verdict_sniper = "NON ÉLIGIBLE (M15 < 25% ATR)"
             verdict_sniper_badge = "badge-neutral"
             verdict_sniper_action = f"Amplitude bougie M15 ({sniper_data['ratio_atr_pct']}% ATR) inférieure à 25% ATR."
-    else: # REGULAR_SESSION_LATE
+    else:  # REGULAR_SESSION_LATE
         verdict_sniper = "FENÊTRE EXPIRÉE (> 90 MIN)"
         verdict_sniper_badge = "badge-neutral"
         verdict_sniper_action = f"Fenêtre d'ouverture de 90 min terminée. Bascule sur le Classic Breakout H1."
@@ -1756,53 +2131,129 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         verdict = "ACHAT VALIDÉ"
         verdict_badge = "badge-success"
         verdict_action = f"Signal {selected_method} validé : {method_desc}. [Analyse : {timing['analysis_time']} | Idéal : {timing['ideal_execution_time']} | Max : {timing['max_execution_time']}]."
-        entry_price = sniper_data["sniper_plan"]["entry"] if selected_method == "SNIPER" else (sneaky_data.get("entry") or curr_price)
-        entry_label = f"Achat {selected_method} immédiat (~{entry_price:.2f} {sym_currency})"
+        entry_price = (
+            sniper_data["sniper_plan"]["entry"]
+            if selected_method == "SNIPER"
+            else (sneaky_data.get("entry") or curr_price)
+        )
+        entry_label = (
+            f"Achat {selected_method} immédiat (~{entry_price:.2f} {sym_currency})"
+        )
         alert_price = entry_price
-        action_plan = f"🎯 Ordre XTB / Trading 212 : Acheter à ~{entry_price:.2f} {sym_currency} | SL Invalidation : {sniper_data['sniper_plan']['sl']:.2f} {sym_currency} | TP1 (50%) : {round(entry_price * 1.018, 2):.2f} {sym_currency} (+1.8%) | Step Stop : Break-Even après TP1 | TP2 Mean Reversion : {mr_targets['target_tp2_price']:.2f} {sym_currency} (+{mr_targets['dist_tp2_pct']}%)."
     elif verdict_swing == "ACHAT VALIDÉ":
         verdict = "ACHAT VALIDÉ"
         verdict_badge = "badge-success"
         verdict_action = f"Confluence Mean Reversion validée ({confluence_score}/10). Rebond sur support Fibonacci et cassure H1 confirmée. [Analyse: {timing['analysis_time']}]."
         entry_price = curr_price
-        entry_label = f"Achat Classic Breakout au marché (~{entry_price:.2f} {sym_currency})"
+        entry_label = (
+            f"Achat Classic Breakout au marché (~{entry_price:.2f} {sym_currency})"
+        )
         alert_price = curr_price
-        action_plan = f"🎯 Ordre XTB / Trading 212 : Acheter au marché à ~{entry_price:.2f} {sym_currency} | SL Invalidation : {round(entry_price * 0.985, 2):.2f} {sym_currency} | TP1 (50%) : {round(entry_price * 1.018, 2):.2f} {sym_currency} (+1.8%) | Step Stop : Break-Even après TP1 | TP2 Mean Reversion : {mr_targets['target_tp2_price']:.2f} {sym_currency} (+{mr_targets['dist_tp2_pct']}%)."
     elif "ATTENDRE" in verdict_sniper or "ATTENDRE" in verdict_swing:
         verdict = "ATTENDRE SETUP"
         verdict_badge = "badge-warning"
-        verdict_action = verdict_sniper_action if "ATTENDRE" in verdict_sniper else verdict_swing_action
-        entry_price = sniper_data["sniper_plan"]["entry"] if selected_method == "SNIPER" else breakout_trigger
+        verdict_action = (
+            verdict_sniper_action
+            if "ATTENDRE" in verdict_sniper
+            else verdict_swing_action
+        )
+        entry_price = (
+            sniper_data["sniper_plan"]["entry"]
+            if selected_method == "SNIPER"
+            else breakout_trigger
+        )
         entry_label = f"{entry_price:.2f} {sym_currency} (En attente de confirmation {selected_method})"
         alert_price = entry_price
-        action_plan = f"🔔 Placer une alerte au dépassement de {entry_price:.2f} {sym_currency} (Validation {selected_method}). Ne pas acheter prématurément."
     else:
         verdict = "ÉVITER"
         verdict_badge = "badge-neutral"
         verdict_action = f"Score de confluence insuffisant ({confluence_score}/10) ou critères non satisfaits. [Analyse: {timing['analysis_time']}]."
-        action_plan = "🛑 Rester à l'écart — Confluence technique et macro insuffisante. Si déjà en portefeuille : sécuriser."
         alert_price = None
         entry_price = curr_price
         entry_label = f"Hors critères (~{curr_price:.2f} {sym_currency})"
 
     # 6. Plan de Trade Swing Tactique (Scaling Out & Step Stop)
-    tp1_price = round(entry_price * 1.018, 2)
-    last_l = order_flow.get("last_low") if order_flow.get("last_low") is not None else (entry_price * 0.985)
+    tp1_price = round(entry_price * (1 + TARGET_TP1_DEFAULT / 100), 2)
+    last_l = (
+        order_flow.get("last_low")
+        if order_flow.get("last_low") is not None
+        else (entry_price * 0.985)
+    )
     raw_sl = min(last_l * 0.998, min(support_lvl * 0.998, entry_price * 0.986))
     if selected_method == "SNIPER" and has_sniper_signal:
         stop_loss = sniper_data["sniper_plan"]["sl"]
     elif selected_method == "SNEAKY PIVOT" and has_sneaky_signal:
         stop_loss = sneaky_data["sl"]
     else:
-        stop_loss = round(max(entry_price * 0.985, min(entry_price * 0.987, raw_sl)), 2)
+        stop_loss = round(raw_sl, 2)
 
-    dist_stop_pct = round(((entry_price - stop_loss) / entry_price) * 100, 2) if entry_price > 0 else 1.5
-    dist_tp1_pct = round(((tp1_price - entry_price) / entry_price) * 100, 2) if entry_price > 0 else 1.8
+    dist_stop_pct = (
+        round(((entry_price - stop_loss) / entry_price) * 100, 2)
+        if entry_price > 0
+        else 1.5
+    )
+    dist_tp1_pct = (
+        round(((tp1_price - entry_price) / entry_price) * 100, 2)
+        if entry_price > 0
+        else TARGET_TP1_DEFAULT
+    )
+
     tp2_price = mr_targets["target_tp2_price"]
-    dist_tp2_pct = mr_targets["dist_tp2_pct"]
+    tp2_name = mr_targets["target_tp2_name"]
+
+    # On s'assure que TP2 est strictement supérieur à TP1
+    if tp2_price <= tp1_price:
+        tp2_price = round(tp1_price * 1.01, 2)  # TP2 = TP1 + 1%
+        tp2_name = f"Objectif Étendu ({tp2_price:.2f})"
+
+    dist_tp2_pct = (
+        round(((tp2_price - entry_price) / entry_price) * 100, 2)
+        if entry_price > 0
+        else 3.0
+    )
+
+    # Mise à jour des targets pour l'UI
+    mr_targets["target_tp2_price"] = tp2_price
+    mr_targets["target_tp2_name"] = tp2_name
+    mr_targets["dist_tp2_pct"] = dist_tp2_pct
+
+    # --- Construction du message du Plan d'Action ---
+    if verdict == "ACHAT VALIDÉ":
+        method_str = "au marché à" if selected_method != "SNIPER" else "à"
+        action_plan = f"🎯 Ordre XTB / Trading 212 : Acheter {method_str} ~{entry_price:.2f} {sym_currency} | SL Invalidation : {stop_loss:.2f} {sym_currency} | TP1 (50%) : {tp1_price:.2f} {sym_currency} (+{dist_tp1_pct}%) | Step Stop : Break-Even après TP1 | TP2 Mean Reversion : {tp2_price:.2f} {sym_currency} (+{dist_tp2_pct}%)."
+    elif verdict == "ATTENDRE SETUP":
+        action_plan = f"🔔 Placer une alerte au dépassement de {entry_price:.2f} {sym_currency} (Validation {selected_method}). Ne pas acheter prématurément."
+    else:
+        action_plan = "🛑 Rester à l'écart — Confluence technique et macro insuffisante. Si déjà en portefeuille : sécuriser."
 
     # 7. Dimensionnement R-Max & Risque Global Embarqué
-    sizing = compute_institutional_rmax_sizing(cap, entry_price, stop_loss, tp2_price)
+    sizing = compute_institutional_rmax_sizing(
+        cap, entry_price, stop_loss, tp2_price, macro_regime=macro_regime
+    )
+    if verdict in ("ÉVITER", "GEL (RISK-OFF)", "ÉVITER - HORS CRITÈRES"):
+        sizing["suggested_shares"] = 0
+        sizing["suggested_allocation_eur"] = 0.0
+        sizing["risk_monetary_eur"] = 0.0
+
+    jev_data = None
+    if verdict == "ACHAT VALIDÉ":
+        try:
+            from src.jev_connector import ask_jev_confirmation
+
+            jev_macro = {
+                "VIX": macro.get("vix", {}).get("value", "N/A"),
+                "DXY": macro.get("dxy", {}).get("value", "N/A"),
+                "SPY_trend": macro.get("spy_trend", "N/A"),
+                "regime": macro_regime,
+            }
+            jev_stock = {
+                "drop_pct": pullback_pct,
+                "RSI": rsi_val,
+                "Bollinger": "Bas" if rsi_val < 40 else "N/A",
+            }
+            jev_data = ask_jev_confirmation(sym, jev_macro, jev_stock)
+        except Exception as e:
+            print(f"Erreur appel JEV: {e}")
 
     # Construction du Protocole en 8 Étapes Conforme aux Nouvelles Instructions
     protocol_steps = [
@@ -1814,31 +2265,39 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "items": [
                 f"**Activité :** {info.get('sector', 'Général')} — {info.get('industry', 'N/A')} (Revenus impurs tolérés < 5 %)",
                 f"**Ratios Financiers :** Dette Totale ({fund_qual.get('debt_to_market_cap', 15.0):.1f}% < 33 %), Trésorerie ({fund_qual.get('cash_to_market_cap', 12.0):.1f}% < 33 %), Créances ({fund_qual.get('receivables_to_market_cap', 10.0):.1f}% < 33 %)",
-                f"**Statut Sharia :** `[{sharia_status}]` ({', '.join(sharia_reasons[:2])})"
-            ]
+                f"**Statut Sharia :** `[{sharia_status}]` ({', '.join(sharia_reasons[:2])})",
+            ],
         },
         {
             "step": 2,
             "title": "2. Macro, Saisonnalité & Sentiment",
             "status": f"{macro_regime} | Saison {seasonality['status']}",
-            "badge": "badge-success" if (macro_regime == "RISK-ON" and seasonality['status'] != "Défavorable") else "badge-warning",
+            "badge": "badge-success"
+            if (macro_regime == "RISK-ON" and seasonality["status"] != "Défavorable")
+            else "badge-warning",
             "items": [
                 f"**Régime Macro :** `[{macro_regime}]` (VIX : {macro['vix']['value']} — {macro['vix']['status']}, DXY : {macro['dxy']['value']}, Pétrole WTI : {macro['wti_oil']['value']} $, Yield Curve : {macro['yield_curve']['status']})",
                 f"**Saisonnalité :** `[{seasonality['status']} pour {seasonality['month_name']}]` ({seasonality['description']})",
-                f"**Sentiment Retail :** `[{sentiment['status']}]` ({sentiment['description']})"
-            ]
+                f"**Sentiment Retail :** `[{sentiment['status']}]` ({sentiment['description']})",
+            ],
         },
         {
             "step": 3,
             "title": "3. Catalyseur & Qualification du Repli",
             "status": f"Repli {pullback_pct:.1f}% ({'Validé' if pullback_valid else 'Hors critères'})",
-            "badge": "badge-success" if (pullback_valid and fibo["is_in_fibo_zone"] and not news_data["has_structural_risk"]) else "badge-neutral",
+            "badge": "badge-success"
+            if (
+                pullback_valid
+                and fibo["is_in_fibo_zone"]
+                and not news_data["has_structural_risk"]
+            )
+            else "badge-neutral",
             "items": [
                 f"**Ampleur du Repli :** {pullback_pct:.1f} % sur 10 séances",
                 f"**Tendance (MM200) :** {curr_price:.2f} {sym_currency} vs MM200 {mm200:.2f} {sym_currency} (`[{'Au-dessus — Trend Saine ✅' if trend_following_valid else 'En-dessous — Tendance Baissière ❌'}]`)",
                 f"**Cause Factuelle :** `[{news_data['diagnostic']}]` ({news_data['summary']}) — Absence de résultats à +10j : {earnings_date_str}",
-                f"**Retracement Fibonacci :** `[{fibo['status']}]` ({fibo['description']})"
-            ]
+                f"**Retracement Fibonacci :** `[{fibo['status']}]` ({fibo['description']})",
+            ],
         },
         {
             "step": 4,
@@ -1847,19 +2306,21 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "badge": "badge-primary",
             "items": [
                 f"**Bilan & Rentabilité :** Marges opérationnelles solides, Free Cash Flow positif et récurrent, Capitalisation > 2 Mrd {sym_currency}, absence de dette toxique et pricing power établi."
-            ]
+            ],
         },
         {
             "step": 5,
             "title": "5. Timing, Volume Profile & Order Flow",
             "status": f"{selected_method} | POC {mr_targets['poc']:.2f} {sym_currency}",
-            "badge": "badge-success" if (has_sniper_signal or has_sneaky_signal or has_breakout) else "badge-warning",
+            "badge": "badge-success"
+            if (has_sniper_signal or has_sneaky_signal or has_breakout)
+            else "badge-warning",
             "items": [
                 f"**Méthode Sélectionnée :** `[{selected_method}]`",
                 f"**Niveaux Clés & Volume Profile (VP) :** POC : **{mr_targets['poc']:.2f} {sym_currency}** ({'+' if mr_targets['dist_poc_pct'] >= 0 else ''}{mr_targets['dist_poc_pct']}%) | VAH (HVA) : {mr_targets.get('volume_profile', {}).get('vah', 0.0):.2f} {sym_currency} | VAL (LVA) : {mr_targets.get('volume_profile', {}).get('val', 0.0):.2f} {sym_currency} — Market Generated Levels (PDH, PDL, ONH, ONL)",
                 f"**Analyse Delta & Order Flow (H1/H4) :** Détection d'Absorption sur Delta Profile / Épuisement Vendeur via Divergence Cumulative Delta (`[{'Absorption / Divergence Validée' if (has_sniper_signal or has_rsi_div) else 'Flux Vendeur sous contrôle'}]`)",
-                f"**Analyse de l'Action des Prix :** {method_desc} | RSI(14) : {rsi_val:.1f} ({rsi_desc}) | Support tactique : {support_lvl:.2f} {sym_currency}"
-            ]
+                f"**Analyse de l'Action des Prix :** {method_desc} | RSI(14) : {rsi_val:.1f} ({rsi_desc}) | Support tactique : {support_lvl:.2f} {sym_currency}",
+            ],
         },
         {
             "step": 6,
@@ -1872,35 +2333,57 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
                 f"**TP1 (Sécurisation 50 %) :** {tp1_price:.2f} {sym_currency} (+{dist_tp1_pct}%) [Objectif +1,5 % à +2,0 % pour valider 1R et sécuriser la moitié de la position]",
                 f"**Step Stop (Break-Even) :** Remontée immédiate du Stop-Loss au prix d'achat ({entry_price:.2f} {sym_currency}) dès TP1 atteint pour un trade à risque zéro sur le solde",
                 f"**TP2 Mean Reversion (Cible Finale 50 %) :** {tp2_price:.2f} {sym_currency} (+{dist_tp2_pct}%) [Ciblant {mr_targets['target_tp2_name']}]",
-                f"**Horizon Estimé :** ~1 à 10 jours ouvrés / Respect de la règle du Time in Market (Le cash est une position)"
-            ]
+                f"**Horizon Estimé :** ~1 à 10 jours ouvrés / Respect de la règle du Time in Market (Le cash est une position)",
+            ],
         },
         {
             "step": 7,
             "title": "7. Dimensionnement & Risque (R-Max & Risque Global)",
             "status": f"1R = {sizing['risk_monetary_eur']} € (≤ 1.0%) | Risque Global ≤ 4%",
-            "badge": "badge-success" if sizing['is_within_risk_limit'] else "badge-warning",
+            "badge": "badge-success"
+            if sizing["is_within_risk_limit"]
+            else "badge-warning",
             "items": [
                 f"**Capital Global Réel :** {sizing['capital_total']:,.2f} € (Cash / Au comptant)",
                 f"**Montant Investi (Allocation) :** {sizing['suggested_allocation_eur']:,.2f} € ({sizing['suggested_shares']} actions à {entry_price:.2f} {sym_currency} — {sizing['suggested_allocation_eur'] / sizing['capital_total'] * 100:.1f}% du capital, max 25%)",
                 f"**Risque Monétaire Engagé (1R) :** {sizing['risk_monetary_eur']:,.2f} € ({sizing['risk_monetary_eur'] / sizing['capital_total'] * 100:.2f}% du capital — strictement ≤ 1,0 % du Capital Global)",
                 f"**Ratio Risque / Rendement (R:R) :** 1:{sizing['risk_reward_ratio']:.2f} (Cible globale > 1:1,5)",
-                f"**Risque Global Embarqué :** Exposition simultanée contrôlée (Plafond strict de 3 % à 4 % du capital total exposé simultanément | Réserve de liquidité requise : {sizing['cash_reserve_required_eur']:,.2f} € soit 25-30%)"
-            ]
+                f"**Risque Global Embarqué :** Exposition simultanée contrôlée (Plafond strict de 3 % à 4 % du capital total exposé simultanément | Réserve de liquidité requise : {sizing['cash_reserve_required_eur']:,.2f} € soit 25-30%)",
+            ],
         },
+    ]
+
+    if jev_data:
+        protocol_steps.append(
+            {
+                "step": 8,
+                "title": "8. Confirmation IA (TypeSafe JEV)",
+                "status": f"Swing : {jev_data.get('swing_prob', 0)}% Favorable",
+                "badge": "badge-success"
+                if jev_data.get("swing_prob", 0) >= 50
+                else "badge-warning",
+                "items": [
+                    f"**Régime Macro :** {jev_data.get('regime', 'N/A')} ({jev_data.get('regime_conf', 0)}%)",
+                    f"**Force du Setup :** {jev_data.get('setup_label', 'N/A')} ({jev_data.get('setup_score', 0)}/3)",
+                    f"**Contexte Swing :** {jev_data.get('swing_prob', 0)}% favorable",
+                ],
+            }
+        )
+
+    protocol_steps.append(
         {
-            "step": 8,
-            "title": "8. Verdict Final & Score de Confluence",
+            "step": len(protocol_steps) + 1,
+            "title": f"{len(protocol_steps) + 1}. Verdict Final & Score de Confluence",
             "status": f"{verdict} ({confluence_score}/10)",
             "badge": verdict_badge,
             "items": [
                 f"**Score de Confluence :** `{confluence_score} / 10`",
                 f"**Avis Décisionnel :** `[{verdict}]`",
                 f"**Synthèse :** {verdict_action}",
-                f"**Actions Concrètes :** {action_plan}"
-            ]
+                f"**Actions Concrètes :** {action_plan}",
+            ],
         }
-    ]
+    )
 
     return {
         "symbol": sym,
@@ -1910,6 +2393,8 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
         "is_pea": is_pea,
         "account_type": account_type,
         "sharia": sharia_status,
+        "sector": info.get("sector", "Unknown"),
+        "industry": info.get("industry", "Unknown"),
         "currency": "USD" if is_usd else "EUR",
         "current_price": curr_price,
         "price": curr_price,
@@ -1954,12 +2439,12 @@ def generate_8_step_protocol_analysis(sym, capital_total=None, force_refresh=Fal
             "dist_stop_pct": dist_stop_pct,
             "dist_tp1_pct": dist_tp1_pct,
             "dist_tp2_pct": dist_tp2_pct,
-            "horizon_days": "1-10j"
+            "horizon_days": "1-10j",
         },
         "pricing_plan_sniper": sniper_data.get("sniper_plan", {}),
         "sizing": sizing,
         "steps": protocol_steps,
-        "generated_at": datetime.now(PARIS_TZ).strftime("%Y-%m-%d %H:%M:%S")
+        "generated_at": datetime.now(PARIS_TZ).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 
@@ -1970,7 +2455,7 @@ def scan_watchlist_institutional(tickers=None, capital_total=None, max_workers=6
     Renvoie les résultats triés par Score de Confluence (/10).
     """
     import concurrent.futures
-    from src.supabase_connector import get_watchlist_symbols
+    from src.db_connector import get_watchlist_symbols
     from src.config import DEFAULT_WATCHLIST
 
     if tickers is None or not tickers:
@@ -1986,7 +2471,10 @@ def scan_watchlist_institutional(tickers=None, capital_total=None, max_workers=6
 
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(generate_8_step_protocol_analysis, sym, cap): sym for sym in clean_tickers}
+        futures = {
+            executor.submit(generate_8_step_protocol_analysis, sym, cap): sym
+            for sym in clean_tickers
+        }
         for future in concurrent.futures.as_completed(futures):
             sym = futures[future]
             try:
@@ -2006,8 +2494,12 @@ def scan_watchlist_institutional(tickers=None, capital_total=None, max_workers=6
         "scanned_count": len(results),
         "total_requested": len(clean_tickers),
         "macro_barometer": macro,
-        "validated_buys_count": sum(1 for r in results if r.get("verdict") == "ACHAT VALIDÉ"),
-        "pending_breakouts_count": sum(1 for r in results if "ATTENDRE" in (r.get("verdict") or "")),
+        "validated_buys_count": sum(
+            1 for r in results if r.get("verdict") == "ACHAT VALIDÉ"
+        ),
+        "pending_breakouts_count": sum(
+            1 for r in results if "ATTENDRE" in (r.get("verdict") or "")
+        ),
         "results": results,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }

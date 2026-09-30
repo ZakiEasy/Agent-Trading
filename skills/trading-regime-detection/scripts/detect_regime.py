@@ -26,9 +26,7 @@ import pandas as pd
 
 # ── Configuration ───────────────────────────────────────────────────
 BIRDEYE_API_KEY = os.getenv("BIRDEYE_API_KEY", "")
-DEFAULT_MINT = os.getenv(
-    "TOKEN_MINT", "So11111111111111111111111111111111111111112"
-)
+DEFAULT_MINT = os.getenv("TOKEN_MINT", "So11111111111111111111111111111111111111112")
 
 # Regime detection parameters
 ATR_PERIOD = 14
@@ -98,13 +96,15 @@ def generate_demo_data(n_bars: int = 300) -> pd.DataFrame:
     opens = np.roll(prices_arr, 1)
     opens[0] = prices_arr[0]
 
-    return pd.DataFrame({
-        "open": opens,
-        "high": highs,
-        "low": lows,
-        "close": prices_arr,
-        "volume": volumes,
-    })
+    return pd.DataFrame(
+        {
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": prices_arr,
+            "volume": volumes,
+        }
+    )
 
 
 # ── Data Fetching (Live Mode) ──────────────────────────────────────
@@ -136,8 +136,12 @@ def fetch_ohlcv(
 
     time_to = int(time.time())
     tf_seconds = {
-        "1m": 60, "5m": 300, "15m": 900,
-        "1H": 3600, "4H": 14400, "1D": 86400,
+        "1m": 60,
+        "5m": 300,
+        "15m": 900,
+        "1H": 3600,
+        "4H": 14400,
+        "1D": 86400,
     }
     seconds = tf_seconds.get(timeframe, 900)
     time_from = time_to - (limit * seconds)
@@ -167,9 +171,15 @@ def fetch_ohlcv(
         sys.exit(1)
 
     df = pd.DataFrame(items)
-    df = df.rename(columns={
-        "o": "open", "h": "high", "l": "low", "c": "close", "v": "volume",
-    })
+    df = df.rename(
+        columns={
+            "o": "open",
+            "h": "high",
+            "l": "low",
+            "c": "close",
+            "v": "volume",
+        }
+    )
     for col in ["open", "high", "low", "close", "volume"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df = df.dropna(subset=["close"])
@@ -192,17 +202,23 @@ def compute_atr(
     Returns:
         ATR series.
     """
-    tr = pd.concat([
-        high - low,
-        (high - close.shift(1)).abs(),
-        (low - close.shift(1)).abs(),
-    ], axis=1).max(axis=1)
+    tr = pd.concat(
+        [
+            high - low,
+            (high - close.shift(1)).abs(),
+            (low - close.shift(1)).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
     return tr.rolling(period).mean()
 
 
 def compute_atr_percentile(
-    high: pd.Series, low: pd.Series, close: pd.Series,
-    atr_period: int = 14, lookback: int = 100
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    atr_period: int = 14,
+    lookback: int = 100,
 ) -> pd.Series:
     """ATR percentile rank over a rolling window.
 
@@ -245,11 +261,14 @@ def compute_adx(
     plus_dm[mask_plus] = 0
     minus_dm[mask_minus] = 0
 
-    tr = pd.concat([
-        high - low,
-        (high - close.shift(1)).abs(),
-        (low - close.shift(1)).abs(),
-    ], axis=1).max(axis=1)
+    tr = pd.concat(
+        [
+            high - low,
+            (high - close.shift(1)).abs(),
+            (low - close.shift(1)).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
 
     atr = tr.ewm(span=period, adjust=False).mean()
     plus_di = 100 * plus_dm.ewm(span=period, adjust=False).mean() / atr
@@ -280,8 +299,7 @@ def compute_trend_direction(close: pd.Series, period: int = 20) -> pd.Series:
 
 
 def compute_bb_width_percentile(
-    close: pd.Series, period: int = 20,
-    std_dev: float = 2.0, lookback: int = 100
+    close: pd.Series, period: int = 20, std_dev: float = 2.0, lookback: int = 100
 ) -> pd.Series:
     """Bollinger Band width percentile.
 
@@ -324,7 +342,7 @@ def compute_hurst(series: pd.Series, max_lag: int = 50) -> float:
             continue
         rs_list = []
         for c in range(n_chunks):
-            chunk = values[c * lag:(c + 1) * lag]
+            chunk = values[c * lag : (c + 1) * lag]
             if len(chunk) < lag:
                 continue
             mean_c = np.mean(chunk)
@@ -365,7 +383,7 @@ def compute_rolling_hurst(
     hurst_values = pd.Series(np.nan, index=close.index)
 
     for i in range(window, len(log_returns)):
-        segment = log_returns.iloc[i - window:i]
+        segment = log_returns.iloc[i - window : i]
         hurst_values.iloc[i + 1] = compute_hurst(segment, max_lag)
 
     return hurst_values
@@ -386,24 +404,16 @@ def classify_regime(
     Returns:
         Dict with volatility, trend, direction, hurst, and quadrant keys.
     """
-    vol_regime = (
-        "low" if vol_pct < 0.30
-        else "high" if vol_pct > 0.70
-        else "normal"
-    )
+    vol_regime = "low" if vol_pct < 0.30 else "high" if vol_pct > 0.70 else "normal"
     trend_regime = (
-        "trending" if adx_val > 25
-        else "ranging" if adx_val < 20
-        else "transitional"
+        "trending" if adx_val > 25 else "ranging" if adx_val < 20 else "transitional"
     )
-    direction = (
-        "up" if trend_dir > 0
-        else "down" if trend_dir < 0
-        else "neutral"
-    )
+    direction = "up" if trend_dir > 0 else "down" if trend_dir < 0 else "neutral"
     hurst_regime = (
-        "mean_reverting" if hurst_val < 0.4
-        else "trending" if hurst_val > 0.6
+        "mean_reverting"
+        if hurst_val < 0.4
+        else "trending"
+        if hurst_val > 0.6
         else "random_walk"
     )
 
@@ -489,9 +499,13 @@ def display_current_regime(
     # Get latest valid values
     latest_vol = vol_pct.dropna().iloc[-1] if not vol_pct.dropna().empty else 0.5
     latest_adx = adx.dropna().iloc[-1] if not adx.dropna().empty else 20.0
-    latest_trend = int(trend_dir.dropna().iloc[-1]) if not trend_dir.dropna().empty else 0
+    latest_trend = (
+        int(trend_dir.dropna().iloc[-1]) if not trend_dir.dropna().empty else 0
+    )
     latest_bb = bb_pct.dropna().iloc[-1] if not bb_pct.dropna().empty else 0.5
-    latest_hurst = hurst_series.dropna().iloc[-1] if not hurst_series.dropna().empty else 0.5
+    latest_hurst = (
+        hurst_series.dropna().iloc[-1] if not hurst_series.dropna().empty else 0.5
+    )
     latest_close = df["close"].iloc[-1]
 
     regime = classify_regime(latest_vol, latest_adx, latest_hurst, latest_trend)
@@ -517,8 +531,12 @@ def display_current_regime(
     print("\n" + "-" * 60)
     print("  REGIME HISTORY (last 20 bars)")
     print("-" * 60)
-    print(f"  {'Bar':>5}  {'Close':>10}  {'Vol%':>6}  {'ADX':>6}  {'Dir':>5}  {'Regime':<18}")
-    print(f"  {'---':>5}  {'-----':>10}  {'----':>6}  {'---':>6}  {'---':>5}  {'------':<18}")
+    print(
+        f"  {'Bar':>5}  {'Close':>10}  {'Vol%':>6}  {'ADX':>6}  {'Dir':>5}  {'Regime':<18}"
+    )
+    print(
+        f"  {'---':>5}  {'-----':>10}  {'----':>6}  {'---':>6}  {'---':>5}  {'------':<18}"
+    )
 
     start_idx = max(0, len(df) - 20)
     for i in range(start_idx, len(df)):
@@ -553,7 +571,9 @@ def main() -> None:
     else:
         mint = args.mint or DEFAULT_MINT
         if not BIRDEYE_API_KEY:
-            print("No BIRDEYE_API_KEY set. Use --demo for demo mode, or set the env var.")
+            print(
+                "No BIRDEYE_API_KEY set. Use --demo for demo mode, or set the env var."
+            )
             sys.exit(1)
         print(f"Fetching data for {mint[:8]}...{mint[-4:]} ({args.timeframe})...")
         df = fetch_ohlcv(mint, BIRDEYE_API_KEY, args.timeframe)

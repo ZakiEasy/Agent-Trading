@@ -8,7 +8,7 @@ from src.config import (
     GOOGLE_SPREADSHEET_ID,
     GOOGLE_SHEET_NAME_WATCHLIST,
     GOOGLE_SHEET_NAME_SIGNALS,
-    DEFAULT_WATCHLIST
+    DEFAULT_WATCHLIST,
 )
 
 # Nom de la feuille pour le suivi du portefeuille en direct
@@ -22,6 +22,7 @@ _POSITIONS_SHEETS_CACHE = {"data": [], "ts": 0}
 _JOURNAL_SHEETS_CACHE = {"data": [], "ts": 0}
 SHEETS_CACHE_TTL = 300  # 5 minutes de cache pour les lectures Google Sheets
 
+
 def get_sheets_client():
     """
     Initialise et authentifie le client Google Sheets.
@@ -33,7 +34,7 @@ def get_sheets_client():
 
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/drive",
     ]
 
     env_creds = os.getenv("GOOGLE_CREDENTIALS_JSON")
@@ -44,17 +45,26 @@ def get_sheets_client():
             client = gspread.authorize(creds)
             return client, None
         except Exception as e:
-            return None, f"Erreur d'authentification via GOOGLE_CREDENTIALS_JSON : {str(e)}"
+            return (
+                None,
+                f"Erreur d'authentification via GOOGLE_CREDENTIALS_JSON : {str(e)}",
+            )
 
     if not os.path.exists(GOOGLE_CREDENTIALS_FILE):
-        return None, f"Identifiants de connexion introuvables (pas de fichier credentials.json ni de variable GOOGLE_CREDENTIALS_JSON)."
+        return (
+            None,
+            f"Identifiants de connexion introuvables (pas de fichier credentials.json ni de variable GOOGLE_CREDENTIALS_JSON).",
+        )
 
     try:
-        creds = Credentials.from_service_account_file(GOOGLE_CREDENTIALS_FILE, scopes=scopes)
+        creds = Credentials.from_service_account_file(
+            GOOGLE_CREDENTIALS_FILE, scopes=scopes
+        )
         client = gspread.authorize(creds)
         return client, None
     except Exception as e:
         return None, f"Erreur d'authentification Google Sheets via fichier : {str(e)}"
+
 
 def format_sharia_to_checkbox(status_val):
     """
@@ -64,13 +74,14 @@ def format_sharia_to_checkbox(status_val):
         return "TRUE"
     if status_val is False:
         return "FALSE"
-        
+
     s = str(status_val or "").strip().upper()
     if s in ["CONFORME", "HALAL", "TRUE", "VRAI", "1", "YES", "OUI"]:
         return "TRUE"
     elif s in ["NON CONFORME", "HARAM", "FALSE", "FAUX", "0", "NO", "NON"]:
         return "FALSE"
     return ""
+
 
 def parse_checkbox_to_sharia(cell_val):
     """
@@ -83,9 +94,11 @@ def parse_checkbox_to_sharia(cell_val):
         return "NON CONFORME"
     return "À VÉRIFIER"
 
+
 _WATCHLIST_SHEETS_CACHE = {"data": [], "ts": 0}
 _SHARIA_STATUSES_SHEETS_CACHE = {"data": {}, "ts": 0}
 SHEETS_CACHE_TTL = 180  # 3 minutes
+
 
 def read_watchlist_from_sheets(force_refresh=False):
     """
@@ -93,8 +106,13 @@ def read_watchlist_from_sheets(force_refresh=False):
     """
     global _local_watchlist_cache, _WATCHLIST_SHEETS_CACHE
     import time
+
     now = time.time()
-    if not force_refresh and _WATCHLIST_SHEETS_CACHE["data"] and (now - _WATCHLIST_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+    if (
+        not force_refresh
+        and _WATCHLIST_SHEETS_CACHE["data"]
+        and (now - _WATCHLIST_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL
+    ):
         return _WATCHLIST_SHEETS_CACHE["data"]
 
     client, error = get_sheets_client()
@@ -106,10 +124,32 @@ def read_watchlist_from_sheets(force_refresh=False):
         try:
             worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="8")
-            worksheet.append_row(["Ticker", "Nom", "Conformité Shariah", "Source Vérification", "Catégorie", "Type de Compte", "Prix"])
+            worksheet = sheet.add_worksheet(
+                title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="8"
+            )
+            worksheet.append_row(
+                [
+                    "Ticker",
+                    "Nom",
+                    "Conformité Shariah",
+                    "Source Vérification",
+                    "Catégorie",
+                    "Type de Compte",
+                    "Prix",
+                ]
+            )
             for ticker in _local_watchlist_cache:
-                worksheet.append_row([ticker, "", "TRUE", "AAOIFI", "Tech & IA", "PEA" if ".PA" in ticker else "Compte Dollar (CTO)", ""])
+                worksheet.append_row(
+                    [
+                        ticker,
+                        "",
+                        "TRUE",
+                        "AAOIFI",
+                        "Tech & IA",
+                        "PEA" if ".PA" in ticker else "Compte Dollar (CTO)",
+                        "",
+                    ]
+                )
             _WATCHLIST_SHEETS_CACHE = {"data": _local_watchlist_cache, "ts": now}
             return _local_watchlist_cache
 
@@ -128,28 +168,42 @@ def read_watchlist_from_sheets(force_refresh=False):
                     break
 
             if header_row_idx != -1 and ticker_col_idx != -1:
-                for row in all_rows[header_row_idx + 1:]:
+                for row in all_rows[header_row_idx + 1 :]:
                     if len(row) > ticker_col_idx:
                         ticker = str(row[ticker_col_idx]).strip().upper()
-                        if ticker and not ticker.startswith("TOTAL") and not ticker.startswith("MOYENNE") and not ticker.startswith("TABLEAU"):
+                        if (
+                            ticker
+                            and not ticker.startswith("TOTAL")
+                            and not ticker.startswith("MOYENNE")
+                            and not ticker.startswith("TABLEAU")
+                        ):
                             tickers.append(ticker)
             else:
                 for row in all_rows:
                     if row:
                         ticker = str(row[0]).strip().upper()
-                        if ticker and ticker != "TICKER" and not ticker.startswith("TABLEAU"):
+                        if (
+                            ticker
+                            and ticker != "TICKER"
+                            and not ticker.startswith("TABLEAU")
+                        ):
                             tickers.append(ticker)
-            
+
         if tickers:
-            _local_watchlist_cache = list(dict.fromkeys(tickers)) # Déduplication
+            _local_watchlist_cache = list(dict.fromkeys(tickers))  # Déduplication
             _WATCHLIST_SHEETS_CACHE = {"data": _local_watchlist_cache, "ts": now}
             return _local_watchlist_cache
-            
+
         _WATCHLIST_SHEETS_CACHE = {"data": _local_watchlist_cache, "ts": now}
         return _local_watchlist_cache
     except Exception as e:
         print(f"Warning: read_watchlist_from_sheets failed: {e}")
-        return _WATCHLIST_SHEETS_CACHE["data"] if _WATCHLIST_SHEETS_CACHE["data"] else _local_watchlist_cache
+        return (
+            _WATCHLIST_SHEETS_CACHE["data"]
+            if _WATCHLIST_SHEETS_CACHE["data"]
+            else _local_watchlist_cache
+        )
+
 
 def read_sharia_statuses_from_sheets(force_refresh=False):
     """
@@ -157,8 +211,13 @@ def read_sharia_statuses_from_sheets(force_refresh=False):
     """
     global _SHARIA_STATUSES_SHEETS_CACHE
     import time
+
     now = time.time()
-    if not force_refresh and _SHARIA_STATUSES_SHEETS_CACHE["data"] and (now - _SHARIA_STATUSES_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+    if (
+        not force_refresh
+        and _SHARIA_STATUSES_SHEETS_CACHE["data"]
+        and (now - _SHARIA_STATUSES_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL
+    ):
         return _SHARIA_STATUSES_SHEETS_CACHE["data"]
 
     client, error = get_sheets_client()
@@ -182,7 +241,10 @@ def read_sharia_statuses_from_sheets(force_refresh=False):
                 if cell_clean == "ticker":
                     header_row_idx = r_idx
                     ticker_col_idx = c_idx
-                elif any(k in cell_clean for k in ["sharia", "shariah", "conformité", "statut sharia"]):
+                elif any(
+                    k in cell_clean
+                    for k in ["sharia", "shariah", "conformité", "statut sharia"]
+                ):
                     sharia_col_idx = c_idx
             if header_row_idx != -1 and sharia_col_idx != -1:
                 break
@@ -191,20 +253,29 @@ def read_sharia_statuses_from_sheets(force_refresh=False):
             return _SHARIA_STATUSES_SHEETS_CACHE["data"]
 
         statuses = {}
-        for row in all_rows[header_row_idx + 1:]:
+        for row in all_rows[header_row_idx + 1 :]:
             if len(row) > max(ticker_col_idx, sharia_col_idx):
                 t = str(row[ticker_col_idx]).strip().upper()
                 s_cell = str(row[sharia_col_idx]).strip()
                 if t:
                     statuses[t] = parse_checkbox_to_sharia(s_cell)
-                    
+
         _SHARIA_STATUSES_SHEETS_CACHE = {"data": statuses, "ts": now}
         return statuses
     except Exception as e:
         print(f"Warning: read_sharia_statuses_from_sheets failed: {e}")
         return _SHARIA_STATUSES_SHEETS_CACHE["data"]
 
-def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, sharia_status="", source_verif="AAOIFI (Agent Trading)", current_price_str=""):
+
+def add_ticker_to_sheets(
+    ticker_symbol,
+    name="",
+    category="",
+    is_pea=False,
+    sharia_status="",
+    source_verif="AAOIFI (Agent Trading)",
+    current_price_str="",
+):
     """
     Ajoute ou met à jour un ticker dans la feuille 'Watchlist' de Google Sheets
     avec une case à cocher pour la conformité Sharia (TRUE / FALSE) et un alignement dynamique des colonnes.
@@ -221,18 +292,33 @@ def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, shar
 
     client, error = get_sheets_client()
     if error:
-        return True, f"Action {ticker_symbol} ajoutée à la watchlist active (Mode local)."
+        return (
+            True,
+            f"Action {ticker_symbol} ajoutée à la watchlist active (Mode local).",
+        )
 
     try:
         sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
         try:
             worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="8")
-            worksheet.append_row(["Ticker", "Nom", "Conformité Shariah", "Source Vérification", "Catégorie", "Type de Compte", "Prix"])
+            worksheet = sheet.add_worksheet(
+                title=GOOGLE_SHEET_NAME_WATCHLIST, rows="100", cols="8"
+            )
+            worksheet.append_row(
+                [
+                    "Ticker",
+                    "Nom",
+                    "Conformité Shariah",
+                    "Source Vérification",
+                    "Catégorie",
+                    "Type de Compte",
+                    "Prix",
+                ]
+            )
 
         all_rows = worksheet.get_all_values()
-        
+
         # 1. Identifier la ligne d'en-tête (cherche 'ticker')
         header_row_idx = -1
         headers = []
@@ -246,7 +332,15 @@ def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, shar
                 break
 
         if header_row_idx == -1:
-            headers = ["Ticker", "Nom", "Conformité Shariah", "Source Vérification", "Catégorie", "Type de Compte", "Prix"]
+            headers = [
+                "Ticker",
+                "Nom",
+                "Conformité Shariah",
+                "Source Vérification",
+                "Catégorie",
+                "Type de Compte",
+                "Prix",
+            ]
             worksheet.append_row(headers)
             header_row_idx = len(all_rows)
 
@@ -263,15 +357,34 @@ def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, shar
             h_clean = str(h).strip().lower()
             if h_clean == "ticker" or h_clean == "symbole":
                 col_ticker = c_idx
-            elif any(k == h_clean for k in ["nom", "name", "société", "entreprise", "nom de l'entreprise"]):
+            elif any(
+                k == h_clean
+                for k in ["nom", "name", "société", "entreprise", "nom de l'entreprise"]
+            ):
                 col_name = c_idx
-            elif any(k in h_clean for k in ["conformité", "shariah", "sharia", "statut sharia"]):
+            elif any(
+                k in h_clean
+                for k in ["conformité", "shariah", "sharia", "statut sharia"]
+            ):
                 col_sharia = c_idx
-            elif any(k in h_clean for k in ["source", "vérification", "source vérification", "source verif"]):
+            elif any(
+                k in h_clean
+                for k in [
+                    "source",
+                    "vérification",
+                    "source vérification",
+                    "source verif",
+                ]
+            ):
                 col_source = c_idx
-            elif any(k in h_clean for k in ["catégorie", "categorie", "category", "secteur"]):
+            elif any(
+                k in h_clean for k in ["catégorie", "categorie", "category", "secteur"]
+            ):
                 col_category = c_idx
-            elif any(k in h_clean for k in ["type de compte", "compte", "account", "type compte"]):
+            elif any(
+                k in h_clean
+                for k in ["type de compte", "compte", "account", "type compte"]
+            ):
                 col_account = c_idx
             elif any(k in h_clean for k in ["prix", "cours", "price"]):
                 col_price = c_idx
@@ -282,7 +395,10 @@ def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, shar
         # 3. Déterminer le type de compte
         if is_pea:
             account_val = "PEA"
-        elif any(ticker_symbol.endswith(sfx) for sfx in [".PA", ".DE", ".AS", ".BR", ".MC", ".MI"]):
+        elif any(
+            ticker_symbol.endswith(sfx)
+            for sfx in [".PA", ".DE", ".AS", ".BR", ".MC", ".MI"]
+        ):
             account_val = "Compte Euro"
         else:
             account_val = "Compte Dollar (CTO)"
@@ -291,17 +407,22 @@ def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, shar
         existing_row_idx = -1
         for r_idx in range(header_row_idx + 1, len(all_rows)):
             row = all_rows[r_idx]
-            if len(row) > col_ticker and str(row[col_ticker]).strip().upper() == ticker_symbol:
+            if (
+                len(row) > col_ticker
+                and str(row[col_ticker]).strip().upper() == ticker_symbol
+            ):
                 existing_row_idx = r_idx
                 break
 
         if existing_row_idx != -1:
             # Mettre à jour la ligne existante
-            sheet_row_num = existing_row_idx + 1 # 1-indexed pour gspread
+            sheet_row_num = existing_row_idx + 1  # 1-indexed pour gspread
             if col_name != -1 and name:
                 worksheet.update_cell(sheet_row_num, col_name + 1, name)
             if col_sharia != -1:
-                worksheet.update_cell(sheet_row_num, col_sharia + 1, sharia_checkbox_val)
+                worksheet.update_cell(
+                    sheet_row_num, col_sharia + 1, sharia_checkbox_val
+                )
             if col_source != -1 and source_verif:
                 worksheet.update_cell(sheet_row_num, col_source + 1, source_verif)
             if col_category != -1 and category:
@@ -310,54 +431,85 @@ def add_ticker_to_sheets(ticker_symbol, name="", category="", is_pea=False, shar
                 worksheet.update_cell(sheet_row_num, col_account + 1, account_val)
             if col_price != -1 and current_price_str:
                 worksheet.update_cell(sheet_row_num, col_price + 1, current_price_str)
-                
-            return True, f"Action {ticker_symbol} ({name or 'N/A'}) mise à jour avec succès dans votre Google Sheet (Sharia: {'Coché ☑️' if sharia_checkbox_val == 'TRUE' else 'Décoché ☐'}) !"
+
+            return (
+                True,
+                f"Action {ticker_symbol} ({name or 'N/A'}) mise à jour avec succès dans votre Google Sheet (Sharia: {'Coché ☑️' if sharia_checkbox_val == 'TRUE' else 'Décoché ☐'}) !",
+            )
 
         # 5. Créer et insérer la nouvelle ligne parfaitement alignée
         num_cols = max(len(headers), 7)
         new_row = [""] * num_cols
         new_row[col_ticker] = ticker_symbol
-        if col_name != -1: new_row[col_name] = name
-        if col_sharia != -1: new_row[col_sharia] = sharia_checkbox_val
-        if col_source != -1: new_row[col_source] = source_verif
-        if col_category != -1: new_row[col_category] = category
-        if col_account != -1: new_row[col_account] = account_val
-        if col_price != -1 and current_price_str: new_row[col_price] = current_price_str
+        if col_name != -1:
+            new_row[col_name] = name
+        if col_sharia != -1:
+            new_row[col_sharia] = sharia_checkbox_val
+        if col_source != -1:
+            new_row[col_source] = source_verif
+        if col_category != -1:
+            new_row[col_category] = category
+        if col_account != -1:
+            new_row[col_account] = account_val
+        if col_price != -1 and current_price_str:
+            new_row[col_price] = current_price_str
 
         worksheet.append_row(new_row)
-        print(f"✅ Action {ticker_symbol} ajoutée avec succès dans la feuille '{GOOGLE_SHEET_NAME_WATCHLIST}'.")
-        return True, f"Action {ticker_symbol} ({name or 'N/A'}) ajoutée avec succès dans votre Google Sheet (Sharia: {'Coché ☑️' if sharia_checkbox_val == 'TRUE' else 'Décoché ☐'}) !"
+        print(
+            f"✅ Action {ticker_symbol} ajoutée avec succès dans la feuille '{GOOGLE_SHEET_NAME_WATCHLIST}'."
+        )
+        return (
+            True,
+            f"Action {ticker_symbol} ({name or 'N/A'}) ajoutée avec succès dans votre Google Sheet (Sharia: {'Coché ☑️' if sharia_checkbox_val == 'TRUE' else 'Décoché ☐'}) !",
+        )
     except Exception as e:
         print(f"⚠️ Erreur lors de l'écriture sur Google Sheets : {str(e)}")
-        return True, f"Action {ticker_symbol} ajoutée à la watchlist active (Erreur écriture Google Sheets: {str(e)})."
+        return (
+            True,
+            f"Action {ticker_symbol} ajoutée à la watchlist active (Erreur écriture Google Sheets: {str(e)}).",
+        )
+
 
 def delete_ticker_from_sheets(ticker_symbol):
     """
     Supprime un ticker de la feuille 'Watchlist' de Google Sheets et met à jour les caches locaux.
     """
-    global _local_watchlist_cache, _WATCHLIST_SHEETS_CACHE, _SHARIA_STATUSES_SHEETS_CACHE
+    global \
+        _local_watchlist_cache, \
+        _WATCHLIST_SHEETS_CACHE, \
+        _SHARIA_STATUSES_SHEETS_CACHE
     ticker_symbol = ticker_symbol.upper().strip()
     if not ticker_symbol:
         return False, "Le symbole de l'action ne peut pas être vide."
 
     # 1. Mise à jour du cache local en mémoire
     if ticker_symbol in _local_watchlist_cache:
-        _local_watchlist_cache[:] = [t for t in _local_watchlist_cache if t != ticker_symbol]
-    
+        _local_watchlist_cache[:] = [
+            t for t in _local_watchlist_cache if t != ticker_symbol
+        ]
+
     _WATCHLIST_SHEETS_CACHE = {"data": list(_local_watchlist_cache), "ts": 0}
-    if "data" in _SHARIA_STATUSES_SHEETS_CACHE and isinstance(_SHARIA_STATUSES_SHEETS_CACHE["data"], dict):
+    if "data" in _SHARIA_STATUSES_SHEETS_CACHE and isinstance(
+        _SHARIA_STATUSES_SHEETS_CACHE["data"], dict
+    ):
         _SHARIA_STATUSES_SHEETS_CACHE["data"].pop(ticker_symbol, None)
 
     client, error = get_sheets_client()
     if error or not client:
-        return True, f"Action {ticker_symbol} retirée de la watchlist active (Mode local)."
+        return (
+            True,
+            f"Action {ticker_symbol} retirée de la watchlist active (Mode local).",
+        )
 
     try:
         sheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
         try:
             worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_WATCHLIST)
         except gspread.exceptions.WorksheetNotFound:
-            return True, f"Action {ticker_symbol} retirée du cache local (Feuille Watchlist introuvable sur Sheets)."
+            return (
+                True,
+                f"Action {ticker_symbol} retirée du cache local (Feuille Watchlist introuvable sur Sheets).",
+            )
 
         all_rows = worksheet.get_all_values()
         if not all_rows:
@@ -380,16 +532,28 @@ def delete_ticker_from_sheets(ticker_symbol):
         start_search_idx = header_row_idx + 1 if header_row_idx != -1 else 0
         for r_idx in range(len(all_rows) - 1, start_search_idx - 1, -1):
             row = all_rows[r_idx]
-            if len(row) > col_ticker and str(row[col_ticker]).strip().upper() == ticker_symbol:
+            if (
+                len(row) > col_ticker
+                and str(row[col_ticker]).strip().upper() == ticker_symbol
+            ):
                 sheet_row_num = r_idx + 1  # 1-indexed pour gspread
                 worksheet.delete_rows(sheet_row_num)
                 deleted_count += 1
 
-        print(f"🗑️ Action {ticker_symbol} supprimée de la feuille '{GOOGLE_SHEET_NAME_WATCHLIST}' ({deleted_count} ligne(s)).")
-        return True, f"Action {ticker_symbol} retirée avec succès de votre Watchlist Google Sheets !"
+        print(
+            f"🗑️ Action {ticker_symbol} supprimée de la feuille '{GOOGLE_SHEET_NAME_WATCHLIST}' ({deleted_count} ligne(s))."
+        )
+        return (
+            True,
+            f"Action {ticker_symbol} retirée avec succès de votre Watchlist Google Sheets !",
+        )
     except Exception as e:
         print(f"⚠️ Erreur lors de la suppression sur Google Sheets : {str(e)}")
-        return True, f"Action {ticker_symbol} retirée du cache local (Erreur Google Sheets: {str(e)})."
+        return (
+            True,
+            f"Action {ticker_symbol} retirée du cache local (Erreur Google Sheets: {str(e)}).",
+        )
+
 
 def write_signals_to_sheets(signals):
     """
@@ -407,12 +571,26 @@ def write_signals_to_sheets(signals):
         try:
             worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_SIGNALS)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_SIGNALS, rows="500", cols="16")
+            worksheet = sheet.add_worksheet(
+                title=GOOGLE_SHEET_NAME_SIGNALS, rows="500", cols="16"
+            )
             headers = [
-                "Date / Heure", "Ticker", "Catégorie", "Compte", "Conformité Shariah", "Régime Macro",
-                "Prix Entrée", "Repli (%)", "Support Technique", "Take Profit 1 (+1.25%)",
-                "Take Profit 2 (+2.25%)", "Stop-Loss (Invalidation)", "R-Max (€)",
-                "Taille Suggérée (€)", "Score Confluence", "Verdict"
+                "Date / Heure",
+                "Ticker",
+                "Catégorie",
+                "Compte",
+                "Conformité Shariah",
+                "Régime Macro",
+                "Prix Entrée",
+                "Repli (%)",
+                "Support Technique",
+                "Take Profit 1 (+1.50%)",
+                "Take Profit 2 (+2.25%)",
+                "Stop-Loss (Invalidation)",
+                "R-Max (€)",
+                "Taille Suggérée (€)",
+                "Score Confluence",
+                "Verdict",
             ]
             worksheet.append_row(headers)
 
@@ -434,20 +612,24 @@ def write_signals_to_sheets(signals):
                 round(s.get("r_max_amount", 0), 2),
                 round(s.get("suggested_nominal", 0), 2),
                 s.get("confluence_score", 0),
-                s.get("verdict", "")
+                s.get("verdict", ""),
             ]
             rows_to_append.append(row)
 
         worksheet.append_rows(rows_to_append)
-        print(f"✅ {len(rows_to_append)} signal(aux) écrit(s) par lot dans Google Sheets ('{GOOGLE_SHEET_NAME_SIGNALS}').")
+        print(
+            f"✅ {len(rows_to_append)} signal(aux) écrit(s) par lot dans Google Sheets ('{GOOGLE_SHEET_NAME_SIGNALS}')."
+        )
         return True, f"{len(rows_to_append)} signal(aux) enregistré(s) avec succès !"
     except Exception as e:
         print(f"❌ Erreur lors de l'écriture par lot sur Google Sheets : {str(e)}")
         return False, f"Erreur Google Sheets : {str(e)}"
 
+
 # =============================================================================
 # MODULE GESTION DES POSITIONS & PORTEFEUILLE EN DIRECT (LIVE TRACKING)
 # =============================================================================
+
 
 def get_or_create_positions_sheet():
     """
@@ -462,16 +644,30 @@ def get_or_create_positions_sheet():
         try:
             worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_POSITIONS)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_POSITIONS, rows="200", cols="14")
+            worksheet = sheet.add_worksheet(
+                title=GOOGLE_SHEET_NAME_POSITIONS, rows="200", cols="14"
+            )
             headers = [
-                "ID Position", "Ticker", "Nom Société", "Date d'Entrée", "PRU (Prix d'Achat)",
-                "Quantité", "Capital Engagé", "Stop-Loss", "TP1 (+1.25%)", "TP2 (+2.25%)",
-                "Compte (PEA/CTO)", "Devise", "Statut", "Notes"
+                "ID Position",
+                "Ticker",
+                "Nom Société",
+                "Date d'Entrée",
+                "PRU (Prix d'Achat)",
+                "Quantité",
+                "Capital Engagé",
+                "Stop-Loss",
+                "TP1 (+1.50%)",
+                "TP2 (+3.00%)",
+                "Compte (PEA/CTO)",
+                "Devise",
+                "Statut",
+                "Notes",
             ]
             worksheet.append_row(headers)
         return worksheet, None
     except Exception as e:
         return None, str(e)
+
 
 def read_positions_from_sheets(force_refresh=False):
     """
@@ -480,8 +676,13 @@ def read_positions_from_sheets(force_refresh=False):
     """
     global _local_positions_cache, _POSITIONS_SHEETS_CACHE
     import time
+
     now = time.time()
-    if not force_refresh and _POSITIONS_SHEETS_CACHE["data"] and (now - _POSITIONS_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+    if (
+        not force_refresh
+        and _POSITIONS_SHEETS_CACHE["data"]
+        and (now - _POSITIONS_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL
+    ):
         return _POSITIONS_SHEETS_CACHE["data"]
 
     worksheet, err = get_or_create_positions_sheet()
@@ -495,12 +696,12 @@ def read_positions_from_sheets(force_refresh=False):
 
         header = all_rows[0]
         header_map = {str(h).strip().lower(): idx for idx, h in enumerate(header)}
-        
+
         positions = []
         for r_idx, row in enumerate(all_rows[1:], start=2):
             if not row or not any(row):
                 continue
-                
+
             def get_val(key_candidates, default=""):
                 for k in key_candidates:
                     if k in header_map and len(row) > header_map[k]:
@@ -518,14 +719,30 @@ def read_positions_from_sheets(force_refresh=False):
                 continue
 
             try:
-                pru_str = get_val(["pru", "pru (prix d'achat)", "prix d'achat", "prix entrée", "open price", "prix"])
-                pru_clean = pru_str.replace("€", "").replace("$", "").replace(" ", "").replace(",", ".")
+                pru_str = get_val(
+                    [
+                        "pru",
+                        "pru (prix d'achat)",
+                        "prix d'achat",
+                        "prix entrée",
+                        "open price",
+                        "prix",
+                    ]
+                )
+                pru_clean = (
+                    pru_str.replace("€", "")
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
                 pru = float(pru_clean) if pru_clean else 0.0
             except:
                 pru = 0.0
 
             try:
-                qty_str = get_val(["quantité", "quantite", "qty", "volume", "shares", "lots"])
+                qty_str = get_val(
+                    ["quantité", "quantite", "qty", "volume", "shares", "lots"]
+                )
                 qty_clean = qty_str.replace(" ", "").replace(",", ".")
                 qty = float(qty_clean) if qty_clean else 1.0
             except:
@@ -533,30 +750,56 @@ def read_positions_from_sheets(force_refresh=False):
 
             try:
                 sl_str = get_val(["stop-loss", "stop loss", "sl", "invalidation"])
-                sl_clean = sl_str.replace("€", "").replace("$", "").replace(" ", "").replace(",", ".")
+                sl_clean = (
+                    sl_str.replace("€", "")
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
                 stop_loss = float(sl_clean) if sl_clean else pru * 0.97
             except:
                 stop_loss = pru * 0.97
 
             try:
-                tp1_str = get_val(["tp1", "tp1 (+1.25%)", "tp1 cible", "target 1"])
-                tp1_clean = tp1_str.replace("€", "").replace("$", "").replace(" ", "").replace(",", ".")
+                tp1_str = get_val(["tp1", "tp1 (+1.50%)", "tp1 cible", "target 1"])
+                tp1_clean = (
+                    tp1_str.replace("€", "")
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
                 tp1 = float(tp1_clean) if tp1_clean else pru * 1.0125
             except:
                 tp1 = pru * 1.0125
 
             try:
                 tp2_str = get_val(["tp2", "tp2 (+2.25%)", "tp2 cible", "target 2"])
-                tp2_clean = tp2_str.replace("€", "").replace("$", "").replace(" ", "").replace(",", ".")
+                tp2_clean = (
+                    tp2_str.replace("€", "")
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
                 tp2 = float(tp2_clean) if tp2_clean else pru * 1.0225
             except:
                 tp2 = pru * 1.0225
 
             pos_id = get_val(["id position", "id", "ticket"], f"POS-{ticker}-{r_idx}")
             name = get_val(["nom société", "nom", "name"], ticker)
-            entry_date = get_val(["date d'entrée", "date achat", "date", "open time"], datetime.now().strftime("%Y-%m-%d"))
-            account = get_val(["compte (pea/cto)", "compte", "account", "type de compte"], "PEA" if ".PA" in ticker else "CTO")
-            currency = get_val(["devise", "currency"], "EUR" if ("PEA" in account or ".PA" in ticker or ".DE" in ticker) else "USD")
+            entry_date = get_val(
+                ["date d'entrée", "date achat", "date", "open time"],
+                datetime.now().strftime("%Y-%m-%d"),
+            )
+            account = get_val(
+                ["compte (pea/cto)", "compte", "account", "type de compte"],
+                "PEA" if ".PA" in ticker else "CTO",
+            )
+            currency = get_val(
+                ["devise", "currency"],
+                "EUR"
+                if ("PEA" in account or ".PA" in ticker or ".DE" in ticker)
+                else "USD",
+            )
             notes = get_val(["notes", "commentaire", "comment"], "")
 
             pos_obj = {
@@ -574,7 +817,7 @@ def read_positions_from_sheets(force_refresh=False):
                 "account": account,
                 "currency": currency,
                 "status": "OUVERT",
-                "notes": notes
+                "notes": notes,
             }
             positions.append(pos_obj)
 
@@ -585,13 +828,14 @@ def read_positions_from_sheets(force_refresh=False):
         print(f"⚠️ Erreur lors de la lecture des positions : {e}")
         return _POSITIONS_SHEETS_CACHE["data"] or _local_positions_cache
 
+
 def add_position_to_sheets(position_data):
     """
     Enregistre une nouvelle position dans la feuille 'Positions' de Google Sheets.
     """
     global _local_positions_cache
     worksheet, err = get_or_create_positions_sheet()
-    
+
     ticker = position_data.get("symbol", "").upper().strip()
     name = position_data.get("name", ticker)
     entry_date = position_data.get("entry_date") or datetime.now().strftime("%Y-%m-%d")
@@ -620,24 +864,41 @@ def add_position_to_sheets(position_data):
         "account": account,
         "currency": currency,
         "status": "OUVERT",
-        "notes": notes
+        "notes": notes,
     }
     _local_positions_cache.append(new_pos)
 
     if worksheet is not None:
         try:
             row = [
-                pos_id, ticker, name, entry_date, round(pru, 2),
+                pos_id,
+                ticker,
+                name,
+                entry_date,
+                round(pru, 2),
                 round(qty, 4) if qty % 1 != 0 else int(qty),
-                round(invested, 2), round(sl, 2), round(tp1, 2), round(tp2, 2),
-                account, currency, "OUVERT", notes
+                round(invested, 2),
+                round(sl, 2),
+                round(tp1, 2),
+                round(tp2, 2),
+                account,
+                currency,
+                "OUVERT",
+                notes,
             ]
             worksheet.append_row(row)
-            return True, f"Position {ticker} ({qty} actions à {pru} {currency}) enregistrée avec succès !"
+            return (
+                True,
+                f"Position {ticker} ({qty} actions à {pru} {currency}) enregistrée avec succès !",
+            )
         except Exception as e:
-            return True, f"Position {ticker} ajoutée au suivi live local (Erreur Google Sheet: {e})."
-            
+            return (
+                True,
+                f"Position {ticker} ajoutée au suivi live local (Erreur Google Sheet: {e}).",
+            )
+
     return True, f"Position {ticker} enregistrée avec succès (Mode local)."
+
 
 def close_position_in_sheets(pos_id_or_symbol, exit_price, exit_date=None, notes=""):
     """
@@ -646,15 +907,18 @@ def close_position_in_sheets(pos_id_or_symbol, exit_price, exit_date=None, notes
     global _local_positions_cache
     if not exit_date:
         exit_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-        
+
     worksheet, err = get_or_create_positions_sheet()
-    
+
     if not _local_positions_cache:
         read_positions_from_sheets()
 
     target_pos = None
     for pos in _local_positions_cache:
-        if pos.get("id") == pos_id_or_symbol or pos.get("symbol") == str(pos_id_or_symbol).upper():
+        if (
+            pos.get("id") == pos_id_or_symbol
+            or pos.get("symbol") == str(pos_id_or_symbol).upper()
+        ):
             target_pos = pos
             pos["status"] = "FERMÉ"
             pos["exit_price"] = exit_price
@@ -678,32 +942,70 @@ def close_position_in_sheets(pos_id_or_symbol, exit_price, exit_date=None, notes
             try:
                 journal_ws = sheet.worksheet(GOOGLE_SHEET_NAME_JOURNAL)
             except gspread.exceptions.WorksheetNotFound:
-                journal_ws = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_JOURNAL, rows="500", cols="15")
-                journal_ws.append_row([
-                    "ID Position", "Ticker", "Nom", "Date Achat", "Date Clôture",
-                    "PRU", "Prix Sortie", "Quantité", "Capital Investi",
-                    "P&L (€/$)", "P&L (%)", "Résultat", "Compte", "Notes"
-                ])
+                journal_ws = sheet.add_worksheet(
+                    title=GOOGLE_SHEET_NAME_JOURNAL, rows="500", cols="15"
+                )
+                journal_ws.append_row(
+                    [
+                        "ID Position",
+                        "Ticker",
+                        "Nom",
+                        "Date Achat",
+                        "Date Clôture",
+                        "PRU",
+                        "Prix Sortie",
+                        "Quantité",
+                        "Capital Investi",
+                        "P&L (€/$)",
+                        "P&L (%)",
+                        "Résultat",
+                        "Compte",
+                        "Notes",
+                    ]
+                )
 
-            journal_ws.append_row([
-                target_pos.get("id", ""), target_pos.get("symbol", ""), target_pos.get("name", ""),
-                target_pos.get("entry_date", ""), exit_date, round(pru, 2), round(exit_price, 2),
-                qty, round(pru * qty, 2), round(pnl_amount, 2), f"{pnl_pct:+.2f}%",
-                "GAIN 🟢" if pnl_amount >= 0 else "PERTE 🔴", target_pos.get("account", ""), notes
-            ])
+            journal_ws.append_row(
+                [
+                    target_pos.get("id", ""),
+                    target_pos.get("symbol", ""),
+                    target_pos.get("name", ""),
+                    target_pos.get("entry_date", ""),
+                    exit_date,
+                    round(pru, 2),
+                    round(exit_price, 2),
+                    qty,
+                    round(pru * qty, 2),
+                    round(pnl_amount, 2),
+                    f"{pnl_pct:+.2f}%",
+                    "GAIN 🟢" if pnl_amount >= 0 else "PERTE 🔴",
+                    target_pos.get("account", ""),
+                    notes,
+                ]
+            )
 
             # 2. Mettre à jour le statut dans la feuille Positions
             if worksheet and target_pos.get("row_index"):
                 worksheet.update_cell(target_pos["row_index"], 13, "FERMÉ")
-                
-            return True, f"Position {target_pos['symbol']} clôturée avec succès ! P&L : {pnl_amount:+.2f} € ({pnl_pct:+.2f}%)"
-        except Exception as e:
-            return True, f"Position {target_pos['symbol']} clôturée en local (Erreur Google Sheets: {e})."
 
-    return True, f"Position {target_pos['symbol']} clôturée avec succès ! P&L : {pnl_amount:+.2f} € ({pnl_pct:+.2f}%)"
+            return (
+                True,
+                f"Position {target_pos['symbol']} clôturée avec succès ! P&L : {pnl_amount:+.2f} € ({pnl_pct:+.2f}%)",
+            )
+        except Exception as e:
+            return (
+                True,
+                f"Position {target_pos['symbol']} clôturée en local (Erreur Google Sheets: {e}).",
+            )
+
+    return (
+        True,
+        f"Position {target_pos['symbol']} clôturée avec succès ! P&L : {pnl_amount:+.2f} € ({pnl_pct:+.2f}%)",
+    )
+
 
 # Cache mémoire pour le journal de trading
 _local_journal_cache = []
+
 
 def batch_import_journal_to_sheets(closed_trades):
     """
@@ -725,42 +1027,74 @@ def batch_import_journal_to_sheets(closed_trades):
         try:
             journal_ws = sheet.worksheet(GOOGLE_SHEET_NAME_JOURNAL)
         except gspread.exceptions.WorksheetNotFound:
-            journal_ws = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_JOURNAL, rows=str(max(500, len(closed_trades) + 50)), cols="15")
+            journal_ws = sheet.add_worksheet(
+                title=GOOGLE_SHEET_NAME_JOURNAL,
+                rows=str(max(500, len(closed_trades) + 50)),
+                cols="15",
+            )
 
         headers = [
-            "ID Position", "Ticker", "Nom", "Date Achat", "Date Clôture",
-            "PRU", "Prix Sortie", "Quantité", "Capital Investi",
-            "P&L (€/$)", "P&L (%)", "Résultat", "Compte", "Devise", "Commentaire"
+            "ID Position",
+            "Ticker",
+            "Nom",
+            "Date Achat",
+            "Date Clôture",
+            "PRU",
+            "Prix Sortie",
+            "Quantité",
+            "Capital Investi",
+            "P&L (€/$)",
+            "P&L (%)",
+            "Résultat",
+            "Compte",
+            "Devise",
+            "Commentaire",
         ]
 
         rows_to_write = [headers]
         for t in closed_trades:
-            rows_to_write.append([
-                str(t.get("id", "")),
-                str(t.get("symbol", "")),
-                str(t.get("name", "")),
-                str(t.get("open_time", t.get("entry_date", ""))),
-                str(t.get("close_time", t.get("exit_date", ""))),
-                float(t.get("pru", 0.0)),
-                float(t.get("exit_price", 0.0)),
-                float(t.get("quantity", 1.0)),
-                float(t.get("invested_amount", 0.0)),
-                float(t.get("pnl_amount", 0.0)),
-                f"{float(t.get('pnl_pct', 0.0)):+.2f}%",
-                str(t.get("result", "GAIN 🟢" if t.get("pnl_amount", 0) >= 0 else "PERTE 🔴")),
-                str(t.get("account", "")),
-                str(t.get("currency", "EUR")),
-                str(t.get("comment", ""))
-            ])
+            rows_to_write.append(
+                [
+                    str(t.get("id", "")),
+                    str(t.get("symbol", "")),
+                    str(t.get("name", "")),
+                    str(t.get("open_time", t.get("entry_date", ""))),
+                    str(t.get("close_time", t.get("exit_date", ""))),
+                    float(t.get("pru", 0.0)),
+                    float(t.get("exit_price", 0.0)),
+                    float(t.get("quantity", 1.0)),
+                    float(t.get("invested_amount", 0.0)),
+                    float(t.get("pnl_amount", 0.0)),
+                    f"{float(t.get('pnl_pct', 0.0)):+.2f}%",
+                    str(
+                        t.get(
+                            "result",
+                            "GAIN 🟢" if t.get("pnl_amount", 0) >= 0 else "PERTE 🔴",
+                        )
+                    ),
+                    str(t.get("account", "")),
+                    str(t.get("currency", "EUR")),
+                    str(t.get("comment", "")),
+                ]
+            )
 
         # Batch update unique
         journal_ws.clear()
-        journal_ws.update('A1', rows_to_write)
-        print(f"✅ {len(closed_trades)} trades écrits en batch dans '{GOOGLE_SHEET_NAME_JOURNAL}'.")
-        return True, f"{len(closed_trades)} trades importés avec succès dans votre Journal de Trading Google Sheets !"
+        journal_ws.update("A1", rows_to_write)
+        print(
+            f"✅ {len(closed_trades)} trades écrits en batch dans '{GOOGLE_SHEET_NAME_JOURNAL}'."
+        )
+        return (
+            True,
+            f"{len(closed_trades)} trades importés avec succès dans votre Journal de Trading Google Sheets !",
+        )
     except Exception as e:
         print(f"⚠️ Erreur batch update Journal Google Sheets : {e}")
-        return True, f"{len(closed_trades)} trades importés en local (Erreur Google Sheets: {e})."
+        return (
+            True,
+            f"{len(closed_trades)} trades importés en local (Erreur Google Sheets: {e}).",
+        )
+
 
 def read_journal_from_sheets(force_refresh=False):
     """
@@ -768,8 +1102,13 @@ def read_journal_from_sheets(force_refresh=False):
     """
     global _local_journal_cache, _JOURNAL_SHEETS_CACHE
     import time
+
     now = time.time()
-    if not force_refresh and _JOURNAL_SHEETS_CACHE["data"] and (now - _JOURNAL_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+    if (
+        not force_refresh
+        and _JOURNAL_SHEETS_CACHE["data"]
+        and (now - _JOURNAL_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL
+    ):
         return _JOURNAL_SHEETS_CACHE["data"]
 
     client, error = get_sheets_client()
@@ -793,12 +1132,24 @@ def read_journal_from_sheets(force_refresh=False):
                 return r[idx].strip() if len(r) > idx else default
 
             try:
-                pru = float(get_val(5, "0").replace("€", "").replace("$", "").replace(" ", "").replace(",", "."))
+                pru = float(
+                    get_val(5, "0")
+                    .replace("€", "")
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
             except:
                 pru = 0.0
 
             try:
-                exit_p = float(get_val(6, "0").replace("€", "").replace("$", "").replace(" ", "").replace(",", "."))
+                exit_p = float(
+                    get_val(6, "0")
+                    .replace("€", "")
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
             except:
                 exit_p = 0.0
 
@@ -808,33 +1159,50 @@ def read_journal_from_sheets(force_refresh=False):
                 qty = 1.0
 
             try:
-                pnl = float(get_val(9, "0").replace("€", "").replace("$", "").replace(" ", "").replace(",", "."))
+                pnl = float(
+                    get_val(9, "0")
+                    .replace("€", "")
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
             except:
                 pnl = (exit_p - pru) * qty
 
             try:
-                pnl_pct_str = get_val(10, "0").replace("%", "").replace("+", "").replace(" ", "").replace(",", ".")
+                pnl_pct_str = (
+                    get_val(10, "0")
+                    .replace("%", "")
+                    .replace("+", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
                 pnl_pct = float(pnl_pct_str)
             except:
                 pnl_pct = (pnl / (pru * qty) * 100) if (pru * qty) > 0 else 0.0
 
-            trades.append({
-                "id": get_val(0),
-                "symbol": get_val(1).upper(),
-                "name": get_val(2),
-                "open_time": get_val(3),
-                "close_time": get_val(4),
-                "pru": pru,
-                "exit_price": exit_p,
-                "quantity": qty,
-                "invested_amount": pru * qty,
-                "pnl_amount": pnl,
-                "pnl_pct": pnl_pct,
-                "result": get_val(11, "GAIN 🟢" if pnl >= 0 else "PERTE 🔴"),
-                "account": get_val(12, "CTO"),
-                "currency": get_val(13, "EUR" if "PEA" in get_val(12) or ".PA" in get_val(1) else "USD"),
-                "comment": get_val(14)
-            })
+            trades.append(
+                {
+                    "id": get_val(0),
+                    "symbol": get_val(1).upper(),
+                    "name": get_val(2),
+                    "open_time": get_val(3),
+                    "close_time": get_val(4),
+                    "pru": pru,
+                    "exit_price": exit_p,
+                    "quantity": qty,
+                    "invested_amount": pru * qty,
+                    "pnl_amount": pnl,
+                    "pnl_pct": pnl_pct,
+                    "result": get_val(11, "GAIN 🟢" if pnl >= 0 else "PERTE 🔴"),
+                    "account": get_val(12, "CTO"),
+                    "currency": get_val(
+                        13,
+                        "EUR" if "PEA" in get_val(12) or ".PA" in get_val(1) else "USD",
+                    ),
+                    "comment": get_val(14),
+                }
+            )
 
         _local_journal_cache = trades
         _JOURNAL_SHEETS_CACHE = {"data": trades, "ts": now}
@@ -842,6 +1210,7 @@ def read_journal_from_sheets(force_refresh=False):
     except Exception as e:
         print(f"⚠️ Erreur lecture Journal Google Sheets : {e}")
         return _JOURNAL_SHEETS_CACHE["data"] or _local_journal_cache
+
 
 def batch_import_positions_to_sheets(open_positions):
     """
@@ -858,40 +1227,60 @@ def batch_import_positions_to_sheets(open_positions):
 
     try:
         headers = [
-            "ID Position", "Ticker", "Nom", "Date Achat", "PRU",
-            "Quantité", "Capital Investi", "Stop-Loss", "Take Profit 1", "Take Profit 2",
-            "Compte", "Devise", "Statut", "Notes"
+            "ID Position",
+            "Ticker",
+            "Nom",
+            "Date Achat",
+            "PRU",
+            "Quantité",
+            "Capital Investi",
+            "Stop-Loss",
+            "Take Profit 1",
+            "Take Profit 2",
+            "Compte",
+            "Devise",
+            "Statut",
+            "Notes",
         ]
 
         rows_to_write = [headers]
         for p in open_positions:
-            rows_to_write.append([
-                str(p.get("id", "")),
-                str(p.get("symbol", "")),
-                str(p.get("name", "")),
-                str(p.get("entry_date", "")),
-                float(p.get("pru", 0.0)),
-                float(p.get("quantity", 1.0)),
-                float(p.get("pru", 0.0) * p.get("quantity", 1.0)),
-                float(p.get("stop_loss", p.get("pru", 0.0) * 0.97)),
-                float(p.get("tp1", p.get("pru", 0.0) * 1.0125)),
-                float(p.get("tp2", p.get("pru", 0.0) * 1.0225)),
-                str(p.get("account", "")),
-                str(p.get("currency", "EUR")),
-                str(p.get("status", "OUVERT")),
-                str(p.get("notes", ""))
-            ])
+            rows_to_write.append(
+                [
+                    str(p.get("id", "")),
+                    str(p.get("symbol", "")),
+                    str(p.get("name", "")),
+                    str(p.get("entry_date", "")),
+                    float(p.get("pru", 0.0)),
+                    float(p.get("quantity", 1.0)),
+                    float(p.get("pru", 0.0) * p.get("quantity", 1.0)),
+                    float(p.get("stop_loss", p.get("pru", 0.0) * 0.97)),
+                    float(p.get("tp1", p.get("pru", 0.0) * 1.0125)),
+                    float(p.get("tp2", p.get("pru", 0.0) * 1.0225)),
+                    str(p.get("account", "")),
+                    str(p.get("currency", "EUR")),
+                    str(p.get("status", "OUVERT")),
+                    str(p.get("notes", "")),
+                ]
+            )
 
         worksheet.clear()
-        worksheet.update('A1', rows_to_write)
-        print(f"✅ {len(open_positions)} positions actives écrites en batch dans '{GOOGLE_SHEET_NAME_POSITIONS}'.")
-        return True, f"{len(open_positions)} positions actives synchronisées dans Google Sheets !"
+        worksheet.update("A1", rows_to_write)
+        print(
+            f"✅ {len(open_positions)} positions actives écrites en batch dans '{GOOGLE_SHEET_NAME_POSITIONS}'."
+        )
+        return (
+            True,
+            f"{len(open_positions)} positions actives synchronisées dans Google Sheets !",
+        )
     except Exception as e:
         print(f"⚠️ Erreur batch update Positions Google Sheets : {e}")
         return True, f"{len(open_positions)} positions enregistrées en local."
 
+
 _TREASURY_SHEETS_CACHE = {"data": [], "ts": 0}
 GOOGLE_SHEET_NAME_TREASURY = "Trésorerie"
+
 
 def get_or_create_treasury_sheet():
     """
@@ -906,12 +1295,25 @@ def get_or_create_treasury_sheet():
         try:
             worksheet = sheet.worksheet(GOOGLE_SHEET_NAME_TREASURY)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=GOOGLE_SHEET_NAME_TREASURY, rows="1500", cols="10")
-            headers = ["ID Opération", "Type", "Instrument", "Ticker", "Date/Heure", "Montant", "Compte", "Devise", "Commentaire"]
+            worksheet = sheet.add_worksheet(
+                title=GOOGLE_SHEET_NAME_TREASURY, rows="1500", cols="10"
+            )
+            headers = [
+                "ID Opération",
+                "Type",
+                "Instrument",
+                "Ticker",
+                "Date/Heure",
+                "Montant",
+                "Compte",
+                "Devise",
+                "Commentaire",
+            ]
             worksheet.append_row(headers)
         return worksheet, None
     except Exception as e:
         return None, f"Erreur accès feuille Trésorerie: {str(e)}"
+
 
 def batch_import_treasury_to_sheets(cash_operations):
     """
@@ -919,39 +1321,61 @@ def batch_import_treasury_to_sheets(cash_operations):
     """
     global _TREASURY_SHEETS_CACHE
     import time
+
     if not cash_operations:
         return True, "Aucune opération de trésorerie à écrire."
 
     worksheet, err = get_or_create_treasury_sheet()
     if err or not worksheet:
         _TREASURY_SHEETS_CACHE = {"data": cash_operations, "ts": time.time()}
-        return True, f"{len(cash_operations)} opérations de trésorerie enregistrées en local."
+        return (
+            True,
+            f"{len(cash_operations)} opérations de trésorerie enregistrées en local.",
+        )
 
     try:
-        headers = ["ID Opération", "Type", "Instrument", "Ticker", "Date/Heure", "Montant", "Compte", "Devise", "Commentaire"]
+        headers = [
+            "ID Opération",
+            "Type",
+            "Instrument",
+            "Ticker",
+            "Date/Heure",
+            "Montant",
+            "Compte",
+            "Devise",
+            "Commentaire",
+        ]
         rows_to_write = [headers]
         for op in cash_operations:
-            rows_to_write.append([
-                str(op.get("id", "")),
-                str(op.get("type", "")),
-                str(op.get("instrument", "")),
-                str(op.get("symbol", "")),
-                str(op.get("time", "")),
-                float(op.get("amount", 0.0)),
-                str(op.get("account", "")),
-                str(op.get("currency", "EUR")),
-                str(op.get("comment", ""))
-            ])
+            rows_to_write.append(
+                [
+                    str(op.get("id", "")),
+                    str(op.get("type", "")),
+                    str(op.get("instrument", "")),
+                    str(op.get("symbol", "")),
+                    str(op.get("time", "")),
+                    float(op.get("amount", 0.0)),
+                    str(op.get("account", "")),
+                    str(op.get("currency", "EUR")),
+                    str(op.get("comment", "")),
+                ]
+            )
 
         worksheet.clear()
-        worksheet.update('A1', rows_to_write)
+        worksheet.update("A1", rows_to_write)
         _TREASURY_SHEETS_CACHE = {"data": cash_operations, "ts": time.time()}
-        print(f"✅ {len(cash_operations)} opérations de trésorerie écrites en batch dans '{GOOGLE_SHEET_NAME_TREASURY}'.")
-        return True, f"{len(cash_operations)} opérations de trésorerie synchronisées dans Google Sheets !"
+        print(
+            f"✅ {len(cash_operations)} opérations de trésorerie écrites en batch dans '{GOOGLE_SHEET_NAME_TREASURY}'."
+        )
+        return (
+            True,
+            f"{len(cash_operations)} opérations de trésorerie synchronisées dans Google Sheets !",
+        )
     except Exception as e:
         print(f"⚠️ Erreur batch update Trésorerie Google Sheets : {e}")
         _TREASURY_SHEETS_CACHE = {"data": cash_operations, "ts": time.time()}
         return True, f"{len(cash_operations)} opérations enregistrées en local."
+
 
 def read_treasury_from_sheets(force_refresh=False):
     """
@@ -959,8 +1383,13 @@ def read_treasury_from_sheets(force_refresh=False):
     """
     global _TREASURY_SHEETS_CACHE
     import time
+
     now = time.time()
-    if not force_refresh and _TREASURY_SHEETS_CACHE["data"] and (now - _TREASURY_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL:
+    if (
+        not force_refresh
+        and _TREASURY_SHEETS_CACHE["data"]
+        and (now - _TREASURY_SHEETS_CACHE["ts"]) < SHEETS_CACHE_TTL
+    ):
         return _TREASURY_SHEETS_CACHE["data"]
 
     worksheet, err = get_or_create_treasury_sheet()
@@ -984,7 +1413,8 @@ def read_treasury_from_sheets(force_refresh=False):
                 for k in keys:
                     if k in col_map and len(r) > col_map[k]:
                         val = str(r[col_map[k]]).strip()
-                        if val: return val
+                        if val:
+                            return val
                 return default
 
             op_id = get_val(["id opération", "id", "id operation"])
@@ -992,7 +1422,13 @@ def read_treasury_from_sheets(force_refresh=False):
             instrument = get_val(["instrument", "nom"])
             ticker = get_val(["ticker", "symbole"])
             time_val = get_val(["date/heure", "date", "time"])
-            amt_str = get_val(["montant", "amount"]).replace("€", "").replace("$", "").replace(" ", "").replace(",", ".")
+            amt_str = (
+                get_val(["montant", "amount"])
+                .replace("€", "")
+                .replace("$", "")
+                .replace(" ", "")
+                .replace(",", ".")
+            )
             try:
                 amt = float(amt_str) if amt_str else 0.0
             except:
@@ -1001,21 +1437,22 @@ def read_treasury_from_sheets(force_refresh=False):
             currency = get_val(["devise", "currency"], "EUR")
             comment = get_val(["commentaire", "comment", "notes"])
 
-            ops.append({
-                "id": op_id,
-                "type": op_type,
-                "instrument": instrument,
-                "symbol": ticker,
-                "time": time_val,
-                "amount": amt,
-                "account": account,
-                "currency": currency,
-                "comment": comment
-            })
+            ops.append(
+                {
+                    "id": op_id,
+                    "type": op_type,
+                    "instrument": instrument,
+                    "symbol": ticker,
+                    "time": time_val,
+                    "amount": amt,
+                    "account": account,
+                    "currency": currency,
+                    "comment": comment,
+                }
+            )
 
         _TREASURY_SHEETS_CACHE = {"data": ops, "ts": now}
         return ops
     except Exception as e:
         print(f"⚠️ Erreur lecture Trésorerie Google Sheets : {e}")
         return _TREASURY_SHEETS_CACHE["data"]
-

@@ -283,17 +283,19 @@ class GARCHModel:
         sample_var = np.var(r)
 
         # Initial guess: typical crypto parameters
-        x0 = np.array([
-            sample_var * 0.04,  # omega
-            0.08,               # alpha
-            0.88,               # beta
-        ])
+        x0 = np.array(
+            [
+                sample_var * 0.04,  # omega
+                0.08,  # alpha
+                0.88,  # beta
+            ]
+        )
 
         # Bounds
         bounds = [
             (1e-10, sample_var * 10),  # omega
-            (1e-4, 0.5),               # alpha
-            (0.3, 0.999),              # beta
+            (1e-4, 0.5),  # alpha
+            (0.3, 0.999),  # beta
         ]
 
         # Constraint: alpha + beta < 1
@@ -371,7 +373,7 @@ class GARCHModel:
             if persistence >= 1.0:
                 forecast_var = self.current_var
             else:
-                forecast_var = vl + (persistence ** h) * (self.current_var - vl)
+                forecast_var = vl + (persistence**h) * (self.current_var - vl)
             forecast_var = max(forecast_var, 1e-12)
             ann_vol = np.sqrt(forecast_var) * np.sqrt(ANNUALIZATION_FACTOR)
             forecasts[h] = ann_vol
@@ -394,7 +396,9 @@ def print_model_params(ewma: EWMAModel, garch: GARCHModel) -> None:
     print("\n  EWMA:")
     print(f"    Lambda:          {ewma.lam:.4f}")
     print(f"    Half-life:       {ewma.half_life:.1f} days")
-    print(f"    Current vol:     {np.sqrt(ewma.current_var) * np.sqrt(ANNUALIZATION_FACTOR) * 100:.1f}% ann.")
+    print(
+        f"    Current vol:     {np.sqrt(ewma.current_var) * np.sqrt(ANNUALIZATION_FACTOR) * 100:.1f}% ann."
+    )
 
     print("\n  GARCH(1,1):")
     print(f"    omega:           {garch.omega:.8f}")
@@ -403,7 +407,9 @@ def print_model_params(ewma: EWMAModel, garch: GARCHModel) -> None:
     print(f"    Persistence:     {garch.persistence:.4f}")
     print(f"    Half-life:       {garch.half_life:.1f} days")
     print(f"    Long-run vol:    {garch.long_run_vol_annual * 100:.1f}% ann.")
-    print(f"    Current vol:     {np.sqrt(garch.current_var) * np.sqrt(ANNUALIZATION_FACTOR) * 100:.1f}% ann.")
+    print(
+        f"    Current vol:     {np.sqrt(garch.current_var) * np.sqrt(ANNUALIZATION_FACTOR) * 100:.1f}% ann."
+    )
     print(f"    Log-likelihood:  {garch.log_likelihood:.2f}")
 
 
@@ -491,17 +497,23 @@ def print_diagnostics(returns: pd.Series, garch: GARCHModel) -> None:
     print(f"    Mean:            {np.mean(std_resid):.4f} (should be ~0)")
     print(f"    Std dev:         {np.std(std_resid):.4f} (should be ~1)")
     print(f"    Skewness:        {pd.Series(std_resid).skew():.3f}")
-    print(f"    Kurtosis:        {pd.Series(std_resid).kurtosis():.3f} (excess, >0 = fat tails)")
+    print(
+        f"    Kurtosis:        {pd.Series(std_resid).kurtosis():.3f} (excess, >0 = fat tails)"
+    )
 
 
 # ── Main ────────────────────────────────────────────────────────────
 def main() -> None:
     """Run EWMA and GARCH volatility forecasting."""
-    parser = argparse.ArgumentParser(description="Volatility forecasting with EWMA and GARCH")
+    parser = argparse.ArgumentParser(
+        description="Volatility forecasting with EWMA and GARCH"
+    )
     parser.add_argument("--live", action="store_true", help="Use live Birdeye data")
     parser.add_argument("--mint", type=str, default=DEFAULT_MINT, help="Token mint")
     parser.add_argument("--days", type=int, default=500, help="Days of history")
-    parser.add_argument("--lambda_", type=float, default=EWMA_LAMBDA, help="EWMA lambda")
+    parser.add_argument(
+        "--lambda_", type=float, default=EWMA_LAMBDA, help="EWMA lambda"
+    )
     args = parser.parse_args()
 
     # Load data

@@ -37,7 +37,7 @@ STRATEGY_GRID_PROFILES = {
         "step_stop_be": 0.00,  # Remontée Stop au PRU
         "tp2_pct": +2.50,  # ou MM20
         "time_stop_days": 10,
-        "description": "Retour à la moyenne sur repli MM20/VWAP (Dips sains Sharia)."
+        "description": "Retour à la moyenne sur repli MM20/VWAP (Dips sains Sharia).",
     },
     "Sniper": {
         "name": "Sniper (Intraday & Breakout Rapide)",
@@ -47,7 +47,7 @@ STRATEGY_GRID_PROFILES = {
         "step_stop_be": 0.00,
         "tp2_pct": +2.20,
         "time_stop_days": 4,
-        "description": "Exécution rapide sur catalyseur court terme et Order Flow H1."
+        "description": "Exécution rapide sur catalyseur court terme et Order Flow H1.",
     },
     "Sneak": {
         "name": "Sneak (Swing Retracement Fibo)",
@@ -57,8 +57,8 @@ STRATEGY_GRID_PROFILES = {
         "step_stop_be": 0.00,
         "tp2_pct": +4.50,
         "time_stop_days": 15,
-        "description": "Capture de vague swing sur creux de retracement Fibonacci 50-61.8%."
-    }
+        "description": "Capture de vague swing sur creux de retracement Fibonacci 50-61.8%.",
+    },
 }
 
 
@@ -67,32 +67,38 @@ class OrderGuardrailsEngine:
 
     def __init__(self):
         # 1. Double Enveloppe de Capital Dédiée EXCLUSIVEMENT à l'automate (Valeurs par défaut)
-        self.allocated_automate_capital_ceiling_eur = float(os.getenv("AUTOMATE_CAPITAL_CEILING_EUR", 0.0))
-        self.allocated_automate_capital_ceiling_usd = float(os.getenv("AUTOMATE_CAPITAL_CEILING_USD", 0.0))
-        
+        self.allocated_automate_capital_ceiling_eur = float(
+            os.getenv("AUTOMATE_CAPITAL_CEILING_EUR", 0.0)
+        )
+        self.allocated_automate_capital_ceiling_usd = float(
+            os.getenv("AUTOMATE_CAPITAL_CEILING_USD", 0.0)
+        )
+
         # 2. Toggle Activation Marché US (Actif par défaut)
-        self.us_trading_enabled = os.getenv("AUTOMATE_US_TRADING_ENABLED", "true").lower() in ["true", "1", "yes"]
+        self.us_trading_enabled = os.getenv(
+            "AUTOMATE_US_TRADING_ENABLED", "true"
+        ).lower() in ["true", "1", "yes"]
         self.europe_trading_enabled = True
 
         # 3. Risque monétaire par trade R-Max (<= 1.0% de l'enveloppe respective)
         self.max_risk_per_trade_pct = 1.0
-        
+
         # 4. Allocation max par ligne (% de l'enveloppe respective)
         self.max_position_allocation_pct = 20.0
-        
+
         # 5. Limites de gestion
         self.max_open_positions = 8
         self.max_consecutive_errors = 3
-        
+
         # État en mémoire
         self.is_kill_switch_active = False
         self.kill_switch_reason = ""
         self.consecutive_errors_count = 0
-        
+
         # Hashes d'ordres d'entrée pour bloquer les doubles clics accidentels
         self.submitted_entry_hashes = set()
         self.recent_order_timestamps = []
-        
+
         # Positions actives sous gestion de l'automate (ventilées par devise)
         self.active_automate_positions = {}  # { symbol: { nominal_invested, currency, ... } }
 
@@ -109,37 +115,48 @@ class OrderGuardrailsEngine:
         if not data or not isinstance(data, dict):
             return
         if "allocated_automate_capital_ceiling_eur" in data:
-            self.allocated_automate_capital_ceiling_eur = float(data["allocated_automate_capital_ceiling_eur"])
+            self.allocated_automate_capital_ceiling_eur = float(
+                data["allocated_automate_capital_ceiling_eur"]
+            )
         elif "max_total_capital_ceiling" in data:
-            self.allocated_automate_capital_ceiling_eur = float(data["max_total_capital_ceiling"])
-            
+            self.allocated_automate_capital_ceiling_eur = float(
+                data["max_total_capital_ceiling"]
+            )
+
         if "allocated_automate_capital_ceiling_usd" in data:
-            self.allocated_automate_capital_ceiling_usd = float(data["allocated_automate_capital_ceiling_usd"])
-            
+            self.allocated_automate_capital_ceiling_usd = float(
+                data["allocated_automate_capital_ceiling_usd"]
+            )
+
         if "us_trading_enabled" in data:
             self.us_trading_enabled = bool(data["us_trading_enabled"])
-            
+
         if "max_risk_per_trade_pct" in data:
             self.max_risk_per_trade_pct = float(data["max_risk_per_trade_pct"])
-            
+
         if "max_position_allocation_pct" in data:
-            self.max_position_allocation_pct = float(data["max_position_allocation_pct"])
+            self.max_position_allocation_pct = float(
+                data["max_position_allocation_pct"]
+            )
 
     def load_persisted_settings(self):
-        """Charge les paramètres persistants depuis Supabase (table app_settings) avec fallback local JSON."""
+        """Charge les paramètres persistants depuis la base de données (table app_settings) avec fallback local JSON."""
         loaded = False
         try:
-            from src.supabase_connector import get_app_setting
+            from src.db_connector import get_app_setting
+
             data = get_app_setting(self.SETTINGS_KEY)
             if data and isinstance(data, dict):
                 self._apply_settings_dict(data)
                 logger.info(
-                    f"💾 Paramètres robot restaurés depuis Supabase : EUR {self.allocated_automate_capital_ceiling_eur}€ | "
+                    f"💾 Paramètres robot restaurés depuis la base de données : EUR {self.allocated_automate_capital_ceiling_eur}€ | "
                     f"USD {self.allocated_automate_capital_ceiling_usd}$ | Marché US {'ACTIF' if self.us_trading_enabled else 'DÉSACTIVÉ'}"
                 )
                 loaded = True
         except Exception as e:
-            logger.warning(f"Impossible de charger les réglages robot depuis Supabase : {e}")
+            logger.warning(
+                f"Impossible de charger les réglages robot depuis la base de données : {e}"
+            )
 
         if not loaded:
             # Fallback fichier local
@@ -165,15 +182,16 @@ class OrderGuardrailsEngine:
             "us_trading_enabled": self.us_trading_enabled,
             "max_risk_per_trade_pct": self.max_risk_per_trade_pct,
             "max_position_allocation_pct": self.max_position_allocation_pct,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.utcnow().isoformat(),
         }
         # 1. Supabase (Centralisé cloud multi-sessions et multi-déploiements)
         try:
-            from src.supabase_connector import save_app_setting
+            from src.db_connector import save_app_setting
+
             save_app_setting(
                 self.SETTINGS_KEY,
                 payload,
-                "Paramètres d'enveloppes et garde-fous du robot Trading 212"
+                "Paramètres d'enveloppes et garde-fous du robot Trading 212",
             )
         except Exception as e:
             logger.warning(f"Erreur sauvegarde réglages robot sur Supabase : {e}")
@@ -193,13 +211,19 @@ class OrderGuardrailsEngine:
         max_total_capital_ceiling=None,
         max_risk_pct=None,
         max_alloc_pct=None,
-        us_trading_enabled=None
+        us_trading_enabled=None,
     ):
         """Met à jour les plafonds de capital EUR/USD, le toggle Marché US et les paramètres de risque avec persistance automatique."""
         if automate_ceiling_eur is not None and float(automate_ceiling_eur) >= 0:
             self.allocated_automate_capital_ceiling_eur = float(automate_ceiling_eur)
-        elif max_total_capital_ceiling is not None and float(max_total_capital_ceiling) >= 0 and automate_ceiling_eur is None:
-            self.allocated_automate_capital_ceiling_eur = float(max_total_capital_ceiling)
+        elif (
+            max_total_capital_ceiling is not None
+            and float(max_total_capital_ceiling) >= 0
+            and automate_ceiling_eur is None
+        ):
+            self.allocated_automate_capital_ceiling_eur = float(
+                max_total_capital_ceiling
+            )
 
         if automate_ceiling_usd is not None and float(automate_ceiling_usd) >= 0:
             self.allocated_automate_capital_ceiling_usd = float(automate_ceiling_usd)
@@ -226,13 +250,13 @@ class OrderGuardrailsEngine:
         """Retourne l'état actuel des garde-fous, ventilé par enveloppe EUR et USD."""
         # Calcul du capital déployé par devise
         deployed_eur = sum(
-            p.get("nominal_invested", 0.0) 
-            for p in self.active_automate_positions.values() 
+            p.get("nominal_invested", 0.0)
+            for p in self.active_automate_positions.values()
             if p.get("currency") == "EUR"
         )
         deployed_usd = sum(
-            p.get("nominal_invested", 0.0) 
-            for p in self.active_automate_positions.values() 
+            p.get("nominal_invested", 0.0)
+            for p in self.active_automate_positions.values()
             if p.get("currency") == "USD"
         )
 
@@ -246,11 +270,15 @@ class OrderGuardrailsEngine:
             "europe_trading_enabled": self.europe_trading_enabled,
             "us_trading_enabled": self.us_trading_enabled,
             # Enveloppe EUR
-            "allocated_automate_capital_ceiling_eur": round(self.allocated_automate_capital_ceiling_eur, 2),
+            "allocated_automate_capital_ceiling_eur": round(
+                self.allocated_automate_capital_ceiling_eur, 2
+            ),
             "deployed_automate_capital_eur": round(deployed_eur, 2),
             "available_automate_capital_eur": round(avail_eur, 2),
             # Enveloppe USD
-            "allocated_automate_capital_ceiling_usd": round(self.allocated_automate_capital_ceiling_usd, 2),
+            "allocated_automate_capital_ceiling_usd": round(
+                self.allocated_automate_capital_ceiling_usd, 2
+            ),
             "deployed_automate_capital_usd": round(deployed_usd, 2),
             "available_automate_capital_usd": round(avail_usd, 2),
             # Paramètres de risque
@@ -259,7 +287,7 @@ class OrderGuardrailsEngine:
             "consecutive_errors_count": self.consecutive_errors_count,
             "active_automate_positions_count": len(self.active_automate_positions),
             "active_automate_symbols": list(self.active_automate_positions.keys()),
-            "strategy_profiles": list(STRATEGY_GRID_PROFILES.keys())
+            "strategy_profiles": list(STRATEGY_GRID_PROFILES.keys()),
         }
 
     def trigger_kill_switch(self, reason="Déclenché manuellement par l'utilisateur"):
@@ -270,7 +298,7 @@ class OrderGuardrailsEngine:
         return {
             "success": True,
             "message": f"Kill-Switch activé : {reason}",
-            "status": self.get_status()
+            "status": self.get_status(),
         }
 
     def reset_kill_switch(self):
@@ -282,7 +310,7 @@ class OrderGuardrailsEngine:
         return {
             "success": True,
             "message": "Kill-Switch désactivé. Le système est de nouveau opérationnel.",
-            "status": self.get_status()
+            "status": self.get_status(),
         }
 
     def compute_entry_idempotency_hash(self, symbol, entry_price, quantity):
@@ -294,7 +322,12 @@ class OrderGuardrailsEngine:
     def get_instrument_currency(self, symbol):
         """Détermine la devise native de l'action (EUR pour PEA/Europe, USD pour US)."""
         sym = str(symbol or "").upper().strip()
-        if sym.endswith(".PA") or sym.endswith(".DE") or sym.endswith(".AS") or sym.endswith(".MC"):
+        if (
+            sym.endswith(".PA")
+            or sym.endswith(".DE")
+            or sym.endswith(".AS")
+            or sym.endswith(".MC")
+        ):
             return "EUR"
         return "USD"
 
@@ -302,14 +335,22 @@ class OrderGuardrailsEngine:
         """Retourne le symbole monétaire (€ ou $)."""
         return "$" if str(currency).upper() == "USD" else "€"
 
-    def calculate_strategy_grid(self, symbol, entry_price, strategy_type="Mean Reversion", custom_sl_pct=None):
+    def calculate_strategy_grid(
+        self, symbol, entry_price, strategy_type="Mean Reversion", custom_sl_pct=None
+    ):
         """
         Calcule les paliers exacts d'entrée et de sortie selon la technique choisie (Mean Reversion, Sniper, Sneak).
         """
-        strat_key = strategy_type if strategy_type in STRATEGY_GRID_PROFILES else "Mean Reversion"
+        strat_key = (
+            strategy_type
+            if strategy_type in STRATEGY_GRID_PROFILES
+            else "Mean Reversion"
+        )
         profile = STRATEGY_GRID_PROFILES[strat_key]
 
-        sl_pct = custom_sl_pct if custom_sl_pct is not None else profile["stop_loss_pct"]
+        sl_pct = (
+            custom_sl_pct if custom_sl_pct is not None else profile["stop_loss_pct"]
+        )
         tp1_pct = profile["tp1_pct"]
         tp2_pct = profile["tp2_pct"]
         time_stop_days = profile["time_stop_days"]
@@ -332,7 +373,7 @@ class OrderGuardrailsEngine:
             "tp2_price": tp2_price,
             "tp2_pct": tp2_pct,
             "time_stop_days": time_stop_days,
-            "description": profile["description"]
+            "description": profile["description"],
         }
 
     def validate_trade_plan(
@@ -346,7 +387,7 @@ class OrderGuardrailsEngine:
         strategy_type="Mean Reversion",
         current_equity=None,
         available_cash=None,
-        action_type="ENTRY_BUY"
+        action_type="ENTRY_BUY",
     ):
         """
         Validation exhaustive des garde-fous pour l'automate.
@@ -354,11 +395,19 @@ class OrderGuardrailsEngine:
         """
         # 1. Vérification Kill-Switch
         if self.is_kill_switch_active:
-            return False, f"🛑 Trading bloqué : Kill-Switch actif ({self.kill_switch_reason})", None
+            return (
+                False,
+                f"🛑 Trading bloqué : Kill-Switch actif ({self.kill_switch_reason})",
+                None,
+            )
 
         # 2. Vérification Circuit Breaker
         if self.consecutive_errors_count >= self.max_consecutive_errors:
-            return False, f"⚠️ Circuit Breaker : {self.consecutive_errors_count} erreurs API consécutives", None
+            return (
+                False,
+                f"⚠️ Circuit Breaker : {self.consecutive_errors_count} erreurs API consécutives",
+                None,
+            )
 
         # 3. Devise de l'instrument & Sélection de l'enveloppe dédiée
         currency = self.get_instrument_currency(symbol)
@@ -366,72 +415,122 @@ class OrderGuardrailsEngine:
         nominal_trade = entry_price * quantity
 
         # Si l'action est une sortie (TP1, Step Stop, TP2, Stop Loss), on autorise immédiatement
-        if action_type in ["TP1_SELL", "STEP_STOP_BE_REPLACE", "TP2_SELL", "STOP_LOSS_CLOSE", "TIME_STOP_CLOSE"]:
-            return True, "Action de gestion de position autorisée", {
-                "symbol": symbol.upper(),
-                "action_type": action_type,
-                "currency": currency
-            }
+        if action_type in [
+            "TP1_SELL",
+            "STEP_STOP_BE_REPLACE",
+            "TP2_SELL",
+            "STOP_LOSS_CLOSE",
+            "TIME_STOP_CLOSE",
+        ]:
+            return (
+                True,
+                "Action de gestion de position autorisée",
+                {
+                    "symbol": symbol.upper(),
+                    "action_type": action_type,
+                    "currency": currency,
+                },
+            )
 
         # 3.1. Blocage Marché US si le toggle est désactivé
         if currency == "USD" and not self.us_trading_enabled:
-            return False, "⏸️ Marché US désactivé : Le robot est actuellement configuré pour trader uniquement sur la Zone Euro (PEA/EUR). Activez le toggle 'Marché US ($)' dans les paramètres pour autoriser les actions américaines.", None
+            return (
+                False,
+                "⏸️ Marché US désactivé : Le robot est actuellement configuré pour trader uniquement sur la Zone Euro (PEA/EUR). Activez le toggle 'Marché US ($)' dans les paramètres pour autoriser les actions américaines.",
+                None,
+            )
 
         # 4. Anti-Doublon d'Entrée : 1 seule position active par symbole
         if symbol.upper() in self.active_automate_positions:
-            return False, f"🚫 Doublon bloqué : Une ligne automate est déjà active sur {symbol}", None
+            return (
+                False,
+                f"🚫 Doublon bloqué : Une ligne automate est déjà active sur {symbol}",
+                None,
+            )
 
         # 5. Idempotence d'entrée
         entry_hash = self.compute_entry_idempotency_hash(symbol, entry_price, quantity)
         if entry_hash in self.submitted_entry_hashes:
-            return False, f"🚫 Ordre d'entrée identique déjà émis pour {symbol} dans l'heure", None
+            return (
+                False,
+                f"🚫 Ordre d'entrée identique déjà émis pour {symbol} dans l'heure",
+                None,
+            )
 
         # 6. Rate Limiter (Max 1 ordre toutes les 3s, max 10 par heure)
         now = time.time()
-        self.recent_order_timestamps = [t for t in self.recent_order_timestamps if now - t < 3600]
+        self.recent_order_timestamps = [
+            t for t in self.recent_order_timestamps if now - t < 3600
+        ]
         if self.recent_order_timestamps:
             if now - self.recent_order_timestamps[-1] < 3.0:
-                return False, "⏳ Rate Limiter : Veuillez patienter 3 secondes entre deux ordres", None
+                return (
+                    False,
+                    "⏳ Rate Limiter : Veuillez patienter 3 secondes entre deux ordres",
+                    None,
+                )
         if len(self.recent_order_timestamps) >= 10:
-            return False, "⏳ Rate Limiter : Limite maximale de 10 ordres par heure atteinte", None
+            return (
+                False,
+                "⏳ Rate Limiter : Limite maximale de 10 ordres par heure atteinte",
+                None,
+            )
 
         # 7. Filtre Sharia AAOIFI
         sharia_res = screen_ticker(symbol)
-        is_compliant = (sharia_res.get("status") == "CONFORME") or (sharia_res.get("compliant") is True)
+        is_compliant = (sharia_res.get("status") == "CONFORME") or (
+            sharia_res.get("compliant") is True
+        )
         if not is_compliant:
             reason = sharia_res.get("reason", "Non conforme AAOIFI")
-            return False, f"🕋 Rejet Sharia : {symbol} n'est pas éligible ({reason})", None
+            return (
+                False,
+                f"🕋 Rejet Sharia : {symbol} n'est pas éligible ({reason})",
+                None,
+            )
 
         # 8. Respect de l'Enveloppe Dédiée Spécifique (EUR vs USD)
         if currency == "USD":
             ceiling = self.allocated_automate_capital_ceiling_usd
             deployed_cap = sum(
-                p.get("nominal_invested", 0.0) 
-                for p in self.active_automate_positions.values() 
+                p.get("nominal_invested", 0.0)
+                for p in self.active_automate_positions.values()
                 if p.get("currency") == "USD"
             )
         else:
             ceiling = self.allocated_automate_capital_ceiling_eur
             deployed_cap = sum(
-                p.get("nominal_invested", 0.0) 
-                for p in self.active_automate_positions.values() 
+                p.get("nominal_invested", 0.0)
+                for p in self.active_automate_positions.values()
                 if p.get("currency") == "EUR"
             )
 
         if (deployed_cap + nominal_trade) > ceiling * 1.02:  # Tolérance 2% arrondis
             avail = max(0.0, ceiling - deployed_cap)
-            return False, f"💰 Plafond Enveloppe {currency} dépassé : {nominal_trade:.2f}{curr_sign} requis vs {avail:.2f}{curr_sign} restant sur le plafond dédié ({ceiling:.2f}{curr_sign})", None
+            return (
+                False,
+                f"💰 Plafond Enveloppe {currency} dépassé : {nominal_trade:.2f}{curr_sign} requis vs {avail:.2f}{curr_sign} restant sur le plafond dédié ({ceiling:.2f}{curr_sign})",
+                None,
+            )
 
         # 9. Limite d'allocation par ligne (Max 20% de l'enveloppe respective)
         max_line_alloc = ceiling * (self.max_position_allocation_pct / 100.0)
         if nominal_trade > max_line_alloc * 1.05:
-            return False, f"⚠️ Ligne excessive : {nominal_trade:.2f}{curr_sign} dépasse l'allocation maximale autorisée par ligne ({max_line_alloc:.2f}{curr_sign} = {self.max_position_allocation_pct}% de l'enveloppe {currency})", None
+            return (
+                False,
+                f"⚠️ Ligne excessive : {nominal_trade:.2f}{curr_sign} dépasse l'allocation maximale autorisée par ligne ({max_line_alloc:.2f}{curr_sign} = {self.max_position_allocation_pct}% de l'enveloppe {currency})",
+                None,
+            )
 
         # 10. Risque R-Max (<= 1.0% de l'enveloppe respective)
         risk_monetary = (entry_price - stop_loss_price) * quantity
-        risk_pct = (risk_monetary / ceiling * 100.0)
+        risk_pct = risk_monetary / ceiling * 100.0
         if risk_pct > self.max_risk_per_trade_pct * 1.05:
-            return False, f"⚠️ R-Max dépassé : Perte potentielle de {risk_monetary:.2f}{curr_sign} ({risk_pct:.2f}% de l'enveloppe {currency} max autorisant {self.max_risk_per_trade_pct}%)", None
+            return (
+                False,
+                f"⚠️ R-Max dépassé : Perte potentielle de {risk_monetary:.2f}{curr_sign} ({risk_pct:.2f}% de l'enveloppe {currency} max autorisant {self.max_risk_per_trade_pct}%)",
+                None,
+            )
 
         # Construction du plan détaillé
         pnl_tp1 = (tp1_price - entry_price) * (quantity * 0.5)
@@ -440,13 +539,21 @@ class OrderGuardrailsEngine:
         rr_ratio = round(total_gain / risk_monetary, 2) if risk_monetary > 0 else 0.0
 
         if rr_ratio < 1.2:
-            return False, f"⚠️ Rejet R:R : Le ratio Risque/Rendement global calculé ({rr_ratio}) est inférieur au minimum tolérable (1.2). Le LLM a probablement halluciné les cibles.", None
+            return (
+                False,
+                f"⚠️ Rejet R:R : Le ratio Risque/Rendement global calculé ({rr_ratio}) est inférieur au minimum tolérable (1.2). Le LLM a probablement halluciné les cibles.",
+                None,
+            )
 
         # 11. Vérification de la réserve de liquidités (min 25%)
         cash_reserve_required = ceiling * 0.25
         avail = max(0.0, ceiling - deployed_cap)
         if (avail - nominal_trade) < cash_reserve_required:
-            return False, f"⚠️ Rejet Trésorerie : L'exécution de ce trade entamerait la réserve de cash minimale obligatoire de {cash_reserve_required:.2f}{curr_sign}.", None
+            return (
+                False,
+                f"⚠️ Rejet Trésorerie : L'exécution de ce trade entamerait la réserve de cash minimale obligatoire de {cash_reserve_required:.2f}{curr_sign}.",
+                None,
+            )
 
         trade_plan = {
             "symbol": symbol.upper(),
@@ -455,7 +562,9 @@ class OrderGuardrailsEngine:
             "currency_symbol": curr_sign,
             "entry_price": round(entry_price, 2),
             "stop_loss_price": round(stop_loss_price, 2),
-            "stop_loss_pct": round((stop_loss_price - entry_price) / entry_price * 100.0, 2),
+            "stop_loss_pct": round(
+                (stop_loss_price - entry_price) / entry_price * 100.0, 2
+            ),
             "tp1_price": round(tp1_price, 2),
             "tp1_pct": round((tp1_price - entry_price) / entry_price * 100.0, 2),
             "step_stop_be_price": round(entry_price, 2),
@@ -469,28 +578,34 @@ class OrderGuardrailsEngine:
             "total_potential_gain": round(total_gain, 2),
             "risk_reward_ratio": rr_ratio,
             "idempotency_hash": entry_hash,
-            "sharia_compliant": True
+            "sharia_compliant": True,
         }
 
         return True, "Validation garde-fous réussie", trade_plan
 
-    def register_entry_order_submitted(self, symbol, idempotency_hash, nominal_invested, currency="EUR"):
+    def register_entry_order_submitted(
+        self, symbol, idempotency_hash, nominal_invested, currency="EUR"
+    ):
         """Enregistre une nouvelle ligne ouverte dans l'enveloppe respective (EUR ou USD)."""
         self.submitted_entry_hashes.add(idempotency_hash)
         self.recent_order_timestamps.append(time.time())
         self.active_automate_positions[symbol.upper()] = {
             "nominal_invested": float(nominal_invested),
             "currency": currency,
-            "opened_at": time.time()
+            "opened_at": time.time(),
         }
         self.consecutive_errors_count = 0
 
     def register_order_error(self, reason=""):
         """Enregistre une erreur API et incrémente le circuit breaker."""
         self.consecutive_errors_count += 1
-        logger.warning(f"⚠️ Erreur API enregistrée ({self.consecutive_errors_count}/{self.max_consecutive_errors}): {reason}")
+        logger.warning(
+            f"⚠️ Erreur API enregistrée ({self.consecutive_errors_count}/{self.max_consecutive_errors}): {reason}"
+        )
         if self.consecutive_errors_count >= self.max_consecutive_errors:
-            self.trigger_kill_switch(f"Circuit Breaker déclenché après {self.consecutive_errors_count} erreurs API consécutives")
+            self.trigger_kill_switch(
+                f"Circuit Breaker déclenché après {self.consecutive_errors_count} erreurs API consécutives"
+            )
 
     def register_position_closed(self, symbol):
         """Libère le capital dans l'enveloppe respective lors de la clôture définitive."""

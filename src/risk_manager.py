@@ -12,8 +12,9 @@ from src.config import (
     TARGET_TP2_DEFAULT,
     HOLDING_PERIOD_DAYS,
     HOLDING_PERIOD_MIN_DAYS,
-    HOLDING_PERIOD_MAX_DAYS
+    HOLDING_PERIOD_MAX_DAYS,
 )
+
 
 def calculate_trade_sizing(
     capital_total=CAPITAL_REFERENCE_DEFAULT,
@@ -22,7 +23,7 @@ def calculate_trade_sizing(
     macro_regime="RÉGIME RISK-ON (Favorable)",
     is_drawdown_circuit_breaker=False,
     tp1_pct=TARGET_TP1_DEFAULT,
-    tp2_pct=TARGET_TP2_DEFAULT
+    tp2_pct=TARGET_TP2_DEFAULT,
 ):
     """
     Calcule le dimensionnement exact du trade selon le Principe du R-Max (Section 6.B).
@@ -43,7 +44,7 @@ def calculate_trade_sizing(
             "stop_loss_price": 0.0,
             "take_profit_1_price": 0.0,
             "take_profit_2_price": 0.0,
-            "error": "Prix d'entrée nul ou invalide."
+            "error": "Prix d'entrée nul ou invalide.",
         }
     if stop_loss_price >= entry_price or stop_loss_price <= 0:
         stop_loss_price = entry_price * 0.97
@@ -56,10 +57,15 @@ def calculate_trade_sizing(
     # 2. Détermination du taux R-Max selon le régime macro et l'état de drawdown
     if "RISK-OFF" in macro_regime.upper():
         r_max_pct = 0.0
-    elif is_drawdown_circuit_breaker or "NEUTRE" in macro_regime.upper() or "VIGILANCE" in macro_regime.upper() or "CONTRARIENNE" in macro_regime.upper():
-        r_max_pct = R_MAX_PCT_REDUCED # 0.5%
+    elif (
+        is_drawdown_circuit_breaker
+        or "NEUTRE" in macro_regime.upper()
+        or "VIGILANCE" in macro_regime.upper()
+        or "CONTRARIENNE" in macro_regime.upper()
+    ):
+        r_max_pct = R_MAX_PCT_REDUCED  # 0.5%
     else:
-        r_max_pct = R_MAX_PCT_STANDARD # 1.0%
+        r_max_pct = R_MAX_PCT_STANDARD  # 1.0%
 
     r_max_amount = capital_total * r_max_pct
 
@@ -79,9 +85,13 @@ def calculate_trade_sizing(
     # 5. Cibles de gains TP1 et TP2
     tp1_price = entry_price * (1 + tp1_pct / 100)
     tp2_price = entry_price * (1 + tp2_pct / 100)
-    
-    potential_gain_tp1_pct = ((tp1_price - entry_price) / entry_price * 100) if entry_price > 0 else tp1_pct
-    potential_gain_tp2_pct = ((tp2_price - entry_price) / entry_price * 100) if entry_price > 0 else tp2_pct
+
+    potential_gain_tp1_pct = (
+        ((tp1_price - entry_price) / entry_price * 100) if entry_price > 0 else tp1_pct
+    )
+    potential_gain_tp2_pct = (
+        ((tp2_price - entry_price) / entry_price * 100) if entry_price > 0 else tp2_pct
+    )
     potential_loss_pct = stop_distance_pct * 100
 
     potential_gain_tp1_amount = shares_count * (tp1_price - entry_price)
@@ -89,8 +99,16 @@ def calculate_trade_sizing(
     potential_loss_amount_per_share = entry_price - stop_loss_price
 
     # 6. Ratios Rendement / Risque (R:R)
-    rr_tp1 = (tp1_price - entry_price) / potential_loss_amount_per_share if potential_loss_amount_per_share > 0 else 0.0
-    rr_tp2 = (tp2_price - entry_price) / potential_loss_amount_per_share if potential_loss_amount_per_share > 0 else 0.0
+    rr_tp1 = (
+        (tp1_price - entry_price) / potential_loss_amount_per_share
+        if potential_loss_amount_per_share > 0
+        else 0.0
+    )
+    rr_tp2 = (
+        (tp2_price - entry_price) / potential_loss_amount_per_share
+        if potential_loss_amount_per_share > 0
+        else 0.0
+    )
 
     # 7. Règle Breakeven (+0.80%) & Trailing Stop vers TP2
     breakeven_trigger_price = entry_price * 1.008
@@ -127,8 +145,9 @@ def calculate_trade_sizing(
         "risk_reward_tp2": rr_tp2,
         "holding_period_days": HOLDING_PERIOD_DAYS,
         "time_stop": f"Invalidation temporelle : Clôture obligatoire à J+{HOLDING_PERIOD_DAYS} ouvrés si TP non atteint",
-        "holding_range": f"{HOLDING_PERIOD_MIN_DAYS} à {HOLDING_PERIOD_MAX_DAYS} jours (cible médiane {HOLDING_PERIOD_DAYS}j ouvrés)"
+        "holding_range": f"{HOLDING_PERIOD_MIN_DAYS} à {HOLDING_PERIOD_MAX_DAYS} jours (cible médiane {HOLDING_PERIOD_DAYS}j ouvrés)",
     }
+
 
 def calculate_confluence_score(
     sharia_res,
@@ -139,11 +158,11 @@ def calculate_confluence_score(
     has_blackout,
     trade_plan,
     fund_quality=None,
-    sector_strength=None
+    sector_strength=None,
 ):
     """
     Calcule le Score de Confluence Globale (0 à 10 points) et attribue le verdict final (Section 4.8).
-    
+
     Barème de Confluence (10 Points) :
     1. Conformité Sharia (2 pts) : Statut CONFORME
     2. Contexte Macro & Secteur (2 pts) : Risk-On (+1.5) ou Neutre (+0.5), Force relative sectorielle (+0.5)
@@ -160,12 +179,33 @@ def calculate_confluence_score(
     sharia_status = sharia_res.get("status", "DONNÉES INSUFFISANTES")
     if sharia_status == "CONFORME":
         score += 2
-        breakdown.append({"criterion": "1. Conformité Sharia (AAOIFI)", "points": 2, "max": 2, "status": "Validé 🕌 (Ratios < 33% Cap 24m)"})
+        breakdown.append(
+            {
+                "criterion": "1. Conformité Sharia (AAOIFI)",
+                "points": 2,
+                "max": 2,
+                "status": "Validé 🕌 (Ratios < 33% Cap 24m)",
+            }
+        )
     elif sharia_status == "DONNÉES INSUFFISANTES":
         score += 0
-        breakdown.append({"criterion": "1. Conformité Sharia (AAOIFI)", "points": 0, "max": 2, "status": "Données insuffisantes ⚠️"})
+        breakdown.append(
+            {
+                "criterion": "1. Conformité Sharia (AAOIFI)",
+                "points": 0,
+                "max": 2,
+                "status": "Données insuffisantes ⚠️",
+            }
+        )
     else:
-        breakdown.append({"criterion": "1. Conformité Sharia (AAOIFI)", "points": 0, "max": 2, "status": "Non Conforme ❌"})
+        breakdown.append(
+            {
+                "criterion": "1. Conformité Sharia (AAOIFI)",
+                "points": 0,
+                "max": 2,
+                "status": "Non Conforme ❌",
+            }
+        )
 
     # 2. Contexte Macroéconomique & Tendance Sectorielle
     regime = macro_barometer.get("regime", "")
@@ -185,60 +225,95 @@ def calculate_confluence_score(
 
     macro_pts_rounded = min(2, math.ceil(macro_pts))
     score += macro_pts_rounded
-    breakdown.append({
-        "criterion": "2. Macro & Force Sectorielle",
-        "points": macro_pts_rounded,
-        "max": 2,
-        "status": f"{regime} | Secteur : {rel_status}"
-    })
+    breakdown.append(
+        {
+            "criterion": "2. Macro & Force Sectorielle",
+            "points": macro_pts_rounded,
+            "max": 2,
+            "status": f"{regime} | Secteur : {rel_status}",
+        }
+    )
 
     # 3. Qualification du Dip (-3% à -8%)
     drop_pct = drop_details.get("drop_pct", 0.0)
     drop_nature = drop_details.get("nature", "")
-    if has_qualified_drop and -8.0 <= drop_pct <= -3.0 and "CONJONCTURELLE" in drop_nature.upper():
+    if (
+        has_qualified_drop
+        and -8.0 <= drop_pct <= -3.0
+        and "CONJONCTURELLE" in drop_nature.upper()
+    ):
         score += 2
-        breakdown.append({"criterion": "3. Dip Conjoncturel (-3% à -8%)", "points": 2, "max": 2, "status": f"Optimal ({drop_pct:.2f}%) 🎯 Mispricing"})
+        breakdown.append(
+            {
+                "criterion": "3. Dip Conjoncturel (-3% à -8%)",
+                "points": 2,
+                "max": 2,
+                "status": f"Optimal ({drop_pct:.2f}%) 🎯 Mispricing",
+            }
+        )
     elif -3.0 < drop_pct <= -1.5:
         score += 1
-        breakdown.append({"criterion": "3. Dip Conjoncturel (-3% à -8%)", "points": 1, "max": 2, "status": f"Modéré ({drop_pct:.2f}%) ⚖️"})
+        breakdown.append(
+            {
+                "criterion": "3. Dip Conjoncturel (-3% à -8%)",
+                "points": 1,
+                "max": 2,
+                "status": f"Modéré ({drop_pct:.2f}%) ⚖️",
+            }
+        )
     else:
-        breakdown.append({"criterion": "3. Dip Conjoncturel (-3% à -8%)", "points": 0, "max": 2, "status": f"Hors fenêtre ({drop_pct:.2f}%) ⚪"})
+        breakdown.append(
+            {
+                "criterion": "3. Dip Conjoncturel (-3% à -8%)",
+                "points": 0,
+                "max": 2,
+                "status": f"Hors fenêtre ({drop_pct:.2f}%) ⚪",
+            }
+        )
 
     # 4. Analyse Technique & Divergence RSI
     tech_pts = 0
-    if tech_setup.get("is_above_sma200", False) or tech_setup.get("mrc_oversold", False):
+    if tech_setup.get("is_above_sma200", False) or tech_setup.get(
+        "mrc_oversold", False
+    ):
         tech_pts += 1
-        
+
     has_div = tech_setup.get("rsi_divergence", {}).get("has_divergence", False)
     has_rejection = tech_setup.get("support_rejection", False)
     if has_div or has_rejection:
         tech_pts += 1
     elif tech_setup.get("rsi", 50) < 35:
         tech_pts += 0.5
-        
+
     tech_pts_rounded = min(2, math.ceil(tech_pts))
     score += tech_pts_rounded
-    breakdown.append({
-        "criterion": "4. Technique, Divergence RSI & Rejet",
-        "points": tech_pts_rounded,
-        "max": 2,
-        "status": f"{'Divergence RSI 🔥' if has_div else 'Mèche de Rejet 🟢' if has_rejection else 'Support / SMA 200'}"
-    })
+    breakdown.append(
+        {
+            "criterion": "4. Technique, Divergence RSI & Rejet",
+            "points": tech_pts_rounded,
+            "max": 2,
+            "status": f"{'Divergence RSI 🔥' if has_div else 'Mèche de Rejet 🟢' if has_rejection else 'Support / SMA 200'}",
+        }
+    )
 
     # 5. Dynamique Flux & Ratio Risque / Rendement
     flux_pts = 0
-    if tech_setup.get("volume_confirmed", False) or tech_setup.get("qqe_buy_signal", False):
+    if tech_setup.get("volume_confirmed", False) or tech_setup.get(
+        "qqe_buy_signal", False
+    ):
         flux_pts += 1
     if trade_plan.get("risk_reward_tp1", 0) >= 0.8:
         flux_pts += 1
-        
+
     score += flux_pts
-    breakdown.append({
-        "criterion": "5. Flux Volume / QQE & R:R",
-        "points": flux_pts,
-        "max": 2,
-        "status": f"R:R 1:{trade_plan.get('risk_reward_tp1', 0):.2f} ({'Volume Confirmé' if tech_setup.get('volume_confirmed') else 'Standard'})"
-    })
+    breakdown.append(
+        {
+            "criterion": "5. Flux Volume / QQE & R:R",
+            "points": flux_pts,
+            "max": 2,
+            "status": f"R:R 1:{trade_plan.get('risk_reward_tp1', 0):.2f} ({'Volume Confirmé' if tech_setup.get('volume_confirmed') else 'Standard'})",
+        }
+    )
 
     # Filtres éliminatoires (Hard Filters) & Verdict Décisionnel
     is_large_cap = fund_quality.get("is_large_cap", True)
@@ -255,11 +330,15 @@ def calculate_confluence_score(
     elif not is_large_cap:
         verdict = "ÉVITER - HORS CRITÈRES (Cap < 2 Mrd)"
         decision_badge = "danger"
-        synthesis = "Capitalisation boursière inférieure au filtre institutionnel de 2 Mrd €/$."
+        synthesis = (
+            "Capitalisation boursière inférieure au filtre institutionnel de 2 Mrd €/$."
+        )
     elif not has_min_liquidity:
         verdict = "ÉVITER - HORS CRITÈRES (Liquidité < 1 M€/$)"
         decision_badge = "danger"
-        synthesis = "Volume quotidien moyen inférieur à 1 M€/$. Risque de slippage trop élevé."
+        synthesis = (
+            "Volume quotidien moyen inférieur à 1 M€/$. Risque de slippage trop élevé."
+        )
     elif has_blackout:
         verdict = "ÉVITER - HORS CRITÈRES (Blackout Résultats < 10j)"
         decision_badge = "danger"
@@ -268,7 +347,11 @@ def calculate_confluence_score(
         verdict = "GEL TOTAL DES ACHATS (Macro Risk-Off)"
         decision_badge = "danger"
         synthesis = "Le baromètre macroéconomique global impose la conservation des liquidités (Cash is a position)."
-    elif not tech_setup.get("is_above_sma200", True) and not "CONTRARIENNE" in regime.upper() and not has_div:
+    elif (
+        not tech_setup.get("is_above_sma200", True)
+        and not "CONTRARIENNE" in regime.upper()
+        and not has_div
+    ):
         verdict = "ATTENDRE REPLI SUR SUPPORT (Sous SMA 200)"
         decision_badge = "neutral"
         synthesis = "Titre sous sa SMA 200 sans divergence haussière confirmée. Attendre une structure de retournement."
@@ -291,5 +374,5 @@ def calculate_confluence_score(
         "verdict": verdict,
         "decision_badge": decision_badge,
         "synthesis": synthesis,
-        "breakdown": breakdown
+        "breakdown": breakdown,
     }

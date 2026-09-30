@@ -59,7 +59,9 @@ def generate_demo_data(n_days: int = 400, seed: int = 42) -> pd.DataFrame:
 
     # Daily vol by regime
     daily_vols = np.zeros(n_days)
-    daily_vols[:150] = 0.03 / np.sqrt(ANNUALIZATION_FACTOR) * ANNUALIZATION_FACTOR**0.5 * 0.03  # ~30% ann
+    daily_vols[:150] = (
+        0.03 / np.sqrt(ANNUALIZATION_FACTOR) * ANNUALIZATION_FACTOR**0.5 * 0.03
+    )  # ~30% ann
     daily_vols[:150] = 0.016  # ~30% annualized
     daily_vols[150:300] = 0.052  # ~100% annualized
     daily_vols[300:] = 0.031  # ~60% annualized
@@ -92,14 +94,16 @@ def generate_demo_data(n_days: int = 400, seed: int = 42) -> pd.DataFrame:
 
     volumes = rng.lognormal(mean=15, sigma=0.5, size=n_days)
 
-    return pd.DataFrame({
-        "date": dates,
-        "open": opens,
-        "high": highs,
-        "low": lows,
-        "close": closes,
-        "volume": volumes,
-    })
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": closes,
+            "volume": volumes,
+        }
+    )
 
 
 # ── Live Data ───────────────────────────────────────────────────────
@@ -158,14 +162,16 @@ def fetch_live_data(mint: str, days: int = 400) -> pd.DataFrame:
 
     rows = []
     for item in items:
-        rows.append({
-            "date": pd.Timestamp(item["unixTime"], unit="s"),
-            "open": float(item["o"]),
-            "high": float(item["h"]),
-            "low": float(item["l"]),
-            "close": float(item["c"]),
-            "volume": float(item.get("v", 0)),
-        })
+        rows.append(
+            {
+                "date": pd.Timestamp(item["unixTime"], unit="s"),
+                "open": float(item["o"]),
+                "high": float(item["h"]),
+                "low": float(item["l"]),
+                "close": float(item["c"]),
+                "volume": float(item.get("v", 0)),
+            }
+        )
 
     df = pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
     return df
@@ -190,7 +196,10 @@ def vol_close_to_close(
 
 
 def vol_parkinson(
-    highs: pd.Series, lows: pd.Series, window: int, annualize: int = ANNUALIZATION_FACTOR
+    highs: pd.Series,
+    lows: pd.Series,
+    window: int,
+    annualize: int = ANNUALIZATION_FACTOR,
 ) -> pd.Series:
     """Parkinson high-low range volatility estimator (rolling).
 
@@ -294,10 +303,12 @@ def vol_garch_simple(
     omega = max(omega, 1e-10)
 
     garch_var = np.zeros(n)
-    garch_var[0] = np.var(log_ret.values[:min(20, n)])
+    garch_var[0] = np.var(log_ret.values[: min(20, n)])
 
     for t in range(1, n):
-        garch_var[t] = omega + alpha * log_ret.values[t - 1] ** 2 + beta * garch_var[t - 1]
+        garch_var[t] = (
+            omega + alpha * log_ret.values[t - 1] ** 2 + beta * garch_var[t - 1]
+        )
 
     result = pd.Series(
         np.sqrt(garch_var) * np.sqrt(annualize),
@@ -344,9 +355,7 @@ def build_volatility_cone(
             cone_data[w][p] = float(np.percentile(rv.values, p))
         current_vol[w] = float(rv.iloc[-1])
         # Percentile rank of current vol
-        current_pctile[w] = float(
-            (rv.values < rv.iloc[-1]).sum() / len(rv) * 100
-        )
+        current_pctile[w] = float((rv.values < rv.iloc[-1]).sum() / len(rv) * 100)
 
     return cone_data, current_vol, current_pctile
 
@@ -396,11 +405,21 @@ def print_estimator_report(df: pd.DataFrame, window: int = 30) -> None:
     print(f"{'=' * 60}")
     print(f"  {'Estimator':<20} {'Annualized Vol':>15} {'Daily Vol':>12}")
     print(f"  {'-' * 47}")
-    print(f"  {'Close-to-Close':<20} {cc * 100:>14.1f}% {cc / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%")
-    print(f"  {'Parkinson (H-L)':<20} {pk * 100:>14.1f}% {pk / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%")
-    print(f"  {'Garman-Klass':<20} {gk * 100:>14.1f}% {gk / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%")
-    print(f"  {'EWMA (λ=0.94)':<20} {ewma * 100:>14.1f}% {ewma / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%")
-    print(f"  {'GARCH(1,1)':<20} {garch * 100:>14.1f}% {garch / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%")
+    print(
+        f"  {'Close-to-Close':<20} {cc * 100:>14.1f}% {cc / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%"
+    )
+    print(
+        f"  {'Parkinson (H-L)':<20} {pk * 100:>14.1f}% {pk / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%"
+    )
+    print(
+        f"  {'Garman-Klass':<20} {gk * 100:>14.1f}% {gk / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%"
+    )
+    print(
+        f"  {'EWMA (λ=0.94)':<20} {ewma * 100:>14.1f}% {ewma / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%"
+    )
+    print(
+        f"  {'GARCH(1,1)':<20} {garch * 100:>14.1f}% {garch / np.sqrt(ANNUALIZATION_FACTOR) * 100:>11.2f}%"
+    )
     print()
     print(f"  Regime: {classify_regime(cc)}")
 
@@ -457,7 +476,9 @@ def print_multi_window_report(df: pd.DataFrame) -> None:
             continue
         v = cc.iloc[-1]
         regime = classify_regime(v).split("(")[0].strip()
-        print(f"  {w:>6}d  {v * 100:>9.1f}%  {v / np.sqrt(ANNUALIZATION_FACTOR) * 100:>9.2f}%  {regime:>20}")
+        print(
+            f"  {w:>6}d  {v * 100:>9.1f}%  {v / np.sqrt(ANNUALIZATION_FACTOR) * 100:>9.2f}%  {regime:>20}"
+        )
 
 
 # ── Main ────────────────────────────────────────────────────────────
@@ -465,16 +486,22 @@ def main() -> None:
     """Run the volatility estimation analysis."""
     parser = argparse.ArgumentParser(description="Multi-estimator volatility analysis")
     parser.add_argument("--live", action="store_true", help="Use live Birdeye data")
-    parser.add_argument("--mint", type=str, default=DEFAULT_MINT, help="Token mint address")
+    parser.add_argument(
+        "--mint", type=str, default=DEFAULT_MINT, help="Token mint address"
+    )
     parser.add_argument("--days", type=int, default=400, help="Days of history")
-    parser.add_argument("--window", type=int, default=30, help="Primary estimation window")
+    parser.add_argument(
+        "--window", type=int, default=30, help="Primary estimation window"
+    )
     args = parser.parse_args()
 
     # Load data
     if args.live:
         print(f"Fetching {args.days} days of data for {args.mint[:8]}...")
         df = fetch_live_data(args.mint, args.days)
-        print(f"Loaded {len(df)} daily bars ({df['date'].iloc[0].date()} to {df['date'].iloc[-1].date()})")
+        print(
+            f"Loaded {len(df)} daily bars ({df['date'].iloc[0].date()} to {df['date'].iloc[-1].date()})"
+        )
     else:
         print("Running in DEMO mode with synthetic data.")
         print("Use --live flag with BIRDEYE_API_KEY for real data.\n")
@@ -501,7 +528,9 @@ def main() -> None:
     # Summary
     cc_30 = vol_close_to_close(df["close"], 30).iloc[-1]
     print(f"  Summary: 30-day realized vol is {cc_30 * 100:.1f}% annualized")
-    print(f"  This sits at the {pctile.get(30, 0):.0f}th percentile of historical 30-day vol.")
+    print(
+        f"  This sits at the {pctile.get(30, 0):.0f}th percentile of historical 30-day vol."
+    )
     print(f"  Regime: {classify_regime(cc_30)}")
     print()
 

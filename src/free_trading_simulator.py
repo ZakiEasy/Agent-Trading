@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 
-from src.supabase_connector import get_db_connection
+from src.db_connector import get_db_connection
 from src.backtest_engine import BacktestEngine
 from src.market_data import resolve_ticker_symbol, TICKER_ALIASES
 
@@ -31,6 +31,7 @@ def get_real_cashflows():
     """
     try:
         from psycopg2.extras import RealDictCursor
+
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
@@ -40,21 +41,20 @@ def get_real_cashflows():
                     ORDER BY operation_date ASC;
                 """)
                 rows = cur.fetchall()
-        
+
         df = pd.DataFrame(rows)
         if df.empty:
             return []
-        
-        df['date_only'] = pd.to_datetime(df['operation_date']).dt.date
-        daily_cf = df.groupby('date_only')['amount'].sum().reset_index()
-        daily_cf['amount'] = daily_cf['amount'].astype(float)
-        
+
+        df["date_only"] = pd.to_datetime(df["operation_date"]).dt.date
+        daily_cf = df.groupby("date_only")["amount"].sum().reset_index()
+        daily_cf["amount"] = daily_cf["amount"].astype(float)
+
         cashflows = []
         for _, r in daily_cf.iterrows():
-            cashflows.append({
-                "date": pd.to_datetime(r['date_only']),
-                "amount": float(r['amount'])
-            })
+            cashflows.append(
+                {"date": pd.to_datetime(r["date_only"]), "amount": float(r["amount"])}
+            )
         return sorted(cashflows, key=lambda x: x["date"])
     except Exception as e:
         logger.error(f"Erreur get_real_cashflows: {e}")
@@ -67,13 +67,13 @@ def get_real_account_metrics():
     """
     try:
         from psycopg2.extras import RealDictCursor
-        from src.supabase_connector import get_supabase_trade_journal
-        
-        trades = get_supabase_trade_journal() or []
+        from src.db_connector import get_db_trade_journal
+
+        trades = get_db_trade_journal() or []
         total_trades = len(trades)
         win_trades = len([t for t in trades if t["pnl_amount"] > 0])
         total_pnl = sum(t["pnl_amount"] for t in trades)
-        
+
         durations = []
         for t in trades:
             if t.get("entry_date") and t.get("exit_date"):
@@ -84,7 +84,7 @@ def get_real_account_metrics():
                 except Exception:
                     pass
         avg_dur = (sum(durations) / len(durations)) if durations else 36.5
-        
+
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
@@ -94,19 +94,21 @@ def get_real_account_metrics():
                 """)
                 t_stats = cur.fetchone()
 
-        tot_dep = float(t_stats['total_deposits'] or 0.0)
-        tot_wit = float(t_stats['total_withdrawals'] or 0.0)
+        tot_dep = float(t_stats["total_deposits"] or 0.0)
+        tot_wit = float(t_stats["total_withdrawals"] or 0.0)
         net_injected = tot_dep + tot_wit
-        
+
         return {
             "total_deposits": round(tot_dep, 2),
             "total_withdrawals": round(tot_wit, 2),
             "net_capital_injected": round(net_injected, 2),
             "real_total_pnl": round(total_pnl, 2),
             "real_trades_count": total_trades,
-            "real_win_rate_pct": round((win_trades / total_trades * 100) if total_trades > 0 else 0.0, 1),
+            "real_win_rate_pct": round(
+                (win_trades / total_trades * 100) if total_trades > 0 else 0.0, 1
+            ),
             "real_avg_duration_days": round(avg_dur, 1),
-            "real_estimated_equity": round(net_injected + total_pnl, 2)
+            "real_estimated_equity": round(net_injected + total_pnl, 2),
         }
     except Exception as e:
         logger.error(f"Erreur get_real_account_metrics: {e}")
@@ -121,18 +123,18 @@ def run_continuous_free_trading_simulation(
     max_holding_days=10,
     max_risk_per_trade_pct=1.0,
     max_position_weight_pct=18.0,
-    min_cash_reserve_pct=15.0
+    min_cash_reserve_pct=15.0,
 ):
     """
     Simule au jour le jour le portefeuille en libre trading avec les flux réels de dépôts/retraits.
     """
-    from src.supabase_connector import get_supabase_trade_journal, get_supabase_watchlist
-    
+    from src.db_connector import get_db_trade_journal, get_db_watchlist
+
     if user_symbols:
         symbols = user_symbols
     else:
-        raw_trades = get_supabase_trade_journal() or []
-        wl = get_supabase_watchlist(only_active=True) or []
+        raw_trades = get_db_trade_journal() or []
+        wl = get_db_watchlist(only_active=True) or []
         sym_set = set()
         for t in raw_trades:
             s = resolve_ticker_symbol(t.get("symbol"))
@@ -144,17 +146,30 @@ def run_continuous_free_trading_simulation(
                 sym_set.add(s)
         symbols = sorted(list(sym_set))
         if not symbols:
-            symbols = ['TSLA', 'AAPL', 'NVDA', 'META', 'MSFT', 'AVGO', 'GOOGL', 'AMZN', 'NFLX', 'SAP.DE', 'ASML.AS', 'MC.PA']
+            symbols = [
+                "TSLA",
+                "AAPL",
+                "NVDA",
+                "META",
+                "MSFT",
+                "AVGO",
+                "GOOGL",
+                "AMZN",
+                "NFLX",
+                "SAP.DE",
+                "ASML.AS",
+                "MC.PA",
+            ]
 
     logger.info(f"🚀 Démarrage simulation libre trading sur {len(symbols)} actions...")
-    
+
     # 1. Récupération des flux de trésorerie réels
     cashflows = get_real_cashflows()
     if not cashflows:
         cashflows = [{"date": pd.to_datetime("2025-08-01"), "amount": 10000.0}]
 
     start_sim_date = cashflows[0]["date"]
-    
+
     # 2. Téléchargement des données historiques
     engine = BacktestEngine(symbols=symbols, period="2y", strategy="v3_institutional")
     engine.fetch_historical_universe()
@@ -180,7 +195,10 @@ def run_continuous_free_trading_simulation(
 
     sorted_dates = sorted(list(all_dates))
     if not sorted_dates:
-        return {"success": False, "error": "Aucune date de trading trouvée après la date de premier dépôt."}
+        return {
+            "success": False,
+            "error": "Aucune date de trading trouvée après la date de premier dépôt.",
+        }
 
     # Structure d'état du portefeuille
     cash = 0.0
@@ -189,7 +207,7 @@ def run_continuous_free_trading_simulation(
     open_positions = []
     closed_trades = []
     daily_equity_history = []
-    
+
     cf_idx = 0
     num_cf = len(cashflows)
 
@@ -197,7 +215,9 @@ def run_continuous_free_trading_simulation(
         curr_dt_str = str(current_date)[:10]
 
         # A. Traitement des dépôts et retraits à cette date
-        while cf_idx < num_cf and cashflows[cf_idx]["date"].date() <= current_date.date():
+        while (
+            cf_idx < num_cf and cashflows[cf_idx]["date"].date() <= current_date.date()
+        ):
             cf = cashflows[cf_idx]
             cf_amt = cf["amount"]
             if cf_amt > 0:
@@ -221,28 +241,42 @@ def run_continuous_free_trading_simulation(
                             try:
                                 sub = p_df[p_df.index <= current_date]
                                 if not sub.empty:
-                                    exit_px = float(sub['Close'].iloc[-1])
+                                    exit_px = float(sub["Close"].iloc[-1])
                             except Exception:
                                 pass
-                        
+
                         recov = pos_to_sell["shares"] * exit_px
-                        pnl = (exit_px - pos_to_sell["entry_price"]) * pos_to_sell["shares"]
-                        pnl_pct = (exit_px - pos_to_sell["entry_price"]) / pos_to_sell["entry_price"] * 100
-                        closed_trades.append({
-                            "symbol": sym,
-                            "entry_date": pos_to_sell["entry_date"],
-                            "exit_date": curr_dt_str,
-                            "entry_price": pos_to_sell["entry_price"],
-                            "exit_price": round(exit_px, 2),
-                            "shares": pos_to_sell["shares"],
-                            "invested": round(pos_to_sell["shares"] * pos_to_sell["entry_price"], 2),
-                            "pnl_amount": round(pnl, 2),
-                            "pnl_pct": round(pnl_pct, 2),
-                            "duration_days": (current_date - pd.to_datetime(pos_to_sell["entry_date"])).days,
-                            "exit_reason": "LIQUIDATION_RETRAIT_CASH"
-                        })
+                        pnl = (exit_px - pos_to_sell["entry_price"]) * pos_to_sell[
+                            "shares"
+                        ]
+                        pnl_pct = (
+                            (exit_px - pos_to_sell["entry_price"])
+                            / pos_to_sell["entry_price"]
+                            * 100
+                        )
+                        closed_trades.append(
+                            {
+                                "symbol": sym,
+                                "entry_date": pos_to_sell["entry_date"],
+                                "exit_date": curr_dt_str,
+                                "entry_price": pos_to_sell["entry_price"],
+                                "exit_price": round(exit_px, 2),
+                                "shares": pos_to_sell["shares"],
+                                "invested": round(
+                                    pos_to_sell["shares"] * pos_to_sell["entry_price"],
+                                    2,
+                                ),
+                                "pnl_amount": round(pnl, 2),
+                                "pnl_pct": round(pnl_pct, 2),
+                                "duration_days": (
+                                    current_date
+                                    - pd.to_datetime(pos_to_sell["entry_date"])
+                                ).days,
+                                "exit_reason": "LIQUIDATION_RETRAIT_CASH",
+                            }
+                        )
                         if recov >= deficit:
-                            cash += (recov - deficit)
+                            cash += recov - deficit
                             deficit = 0.0
                         else:
                             deficit -= recov
@@ -262,11 +296,11 @@ def run_continuous_free_trading_simulation(
                 if sub.empty:
                     still_open.append(pos)
                     continue
-                
+
                 bar = sub.iloc[-1]
-                high = float(bar.get('High', bar['Close']))
-                low = float(bar.get('Low', bar['Close']))
-                close = float(bar['Close'])
+                high = float(bar.get("High", bar["Close"]))
+                low = float(bar.get("Low", bar["Close"]))
+                close = float(bar["Close"])
             except Exception:
                 still_open.append(pos)
                 continue
@@ -286,10 +320,10 @@ def run_continuous_free_trading_simulation(
                 # Vente de 50% de la ligne au cours TP1
                 half_shares = shares / 2.0
                 pnl_tp1 = half_shares * (tp1_px - entry_px)
-                cash += (half_shares * tp1_px)
+                cash += half_shares * tp1_px
                 pos["shares"] = half_shares
                 pos["tp1_hit"] = True
-                pos["sl_price"] = entry_px # Step Stop Break-Even sécurisé
+                pos["sl_price"] = entry_px  # Step Stop Break-Even sécurisé
                 pos["realized_pnl_tp1"] = pnl_tp1
 
             # 2. Vérifier TP2 (+2.5% ou MM20)
@@ -300,7 +334,9 @@ def run_continuous_free_trading_simulation(
             # 3. Vérifier Stop Loss (initial ou Break-Even)
             elif low <= pos["sl_price"]:
                 exit_price = pos["sl_price"]
-                exit_reason = "BREAKEVEN_SECURISE" if pos["tp1_hit"] else "STOP_LOSS (-2.0%)"
+                exit_reason = (
+                    "BREAKEVEN_SECURISE" if pos["tp1_hit"] else "STOP_LOSS (-2.0%)"
+                )
                 exit_occurred = True
             # 4. Vérifier Time Stop J+10
             elif pos["days_held"] >= max_holding_days:
@@ -310,26 +346,30 @@ def run_continuous_free_trading_simulation(
 
             if exit_occurred:
                 rem_shares = pos["shares"]
-                cash += (rem_shares * exit_price)
+                cash += rem_shares * exit_price
                 rem_pnl = rem_shares * (exit_price - entry_px)
                 total_pos_pnl = rem_pnl + pos.get("realized_pnl_tp1", 0.0)
                 tot_invested = pos["initial_shares"] * entry_px
-                tot_pnl_pct = (total_pos_pnl / tot_invested * 100.0) if tot_invested > 0 else 0.0
-                
-                closed_trades.append({
-                    "symbol": sym,
-                    "entry_date": pos["entry_date"],
-                    "exit_date": curr_dt_str,
-                    "entry_price": round(entry_px, 2),
-                    "exit_price": round(exit_price, 2),
-                    "shares": pos["initial_shares"],
-                    "invested": round(tot_invested, 2),
-                    "pnl_amount": round(total_pos_pnl, 2),
-                    "pnl_pct": round(tot_pnl_pct, 2),
-                    "duration_days": pos["days_held"],
-                    "tp1_hit": pos["tp1_hit"],
-                    "exit_reason": exit_reason
-                })
+                tot_pnl_pct = (
+                    (total_pos_pnl / tot_invested * 100.0) if tot_invested > 0 else 0.0
+                )
+
+                closed_trades.append(
+                    {
+                        "symbol": sym,
+                        "entry_date": pos["entry_date"],
+                        "exit_date": curr_dt_str,
+                        "entry_price": round(entry_px, 2),
+                        "exit_price": round(exit_price, 2),
+                        "shares": pos["initial_shares"],
+                        "invested": round(tot_invested, 2),
+                        "pnl_amount": round(total_pos_pnl, 2),
+                        "pnl_pct": round(tot_pnl_pct, 2),
+                        "duration_days": pos["days_held"],
+                        "tp1_hit": pos["tp1_hit"],
+                        "exit_reason": exit_reason,
+                    }
+                )
             else:
                 pos["current_val"] = pos["shares"] * close
                 still_open.append(pos)
@@ -337,7 +377,9 @@ def run_continuous_free_trading_simulation(
         open_positions = still_open
 
         # C. Calcul de la Valeur Totale du Portefeuille (Equity)
-        pos_val = sum(p.get("current_val", p["shares"] * p["entry_price"]) for p in open_positions)
+        pos_val = sum(
+            p.get("current_val", p["shares"] * p["entry_price"]) for p in open_positions
+        )
         total_equity = cash + pos_val
 
         # D. Recherche de Nouveaux Signaux d'Achat (Protocole Mean Reversion)
@@ -352,41 +394,61 @@ def run_continuous_free_trading_simulation(
             for sym in symbols:
                 if sym in open_symbols:
                     continue
-                
+
                 df_sym = data_dict.get(sym)
                 if df_sym is None or len(df_sym) < 30:
                     continue
-                
+
                 sub_sym = df_sym[df_sym.index <= current_date]
                 if len(sub_sym) < 25:
                     continue
 
                 c_bar = sub_sym.iloc[-1]
-                close_px = float(c_bar['Close'])
+                close_px = float(c_bar["Close"])
                 if close_px <= 0:
                     continue
 
-                sma20 = float(c_bar.get('SMA_20', sub_sym['Close'].rolling(20).mean().iloc[-1]))
-                sma50 = float(c_bar.get('SMA_50', sub_sym['Close'].rolling(50).mean().iloc[-1])) if len(sub_sym) >= 50 else sma20
-                rsi14 = float(c_bar.get('RSI_14', c_bar.get('RSI', 50.0)))
-                atr14 = float(c_bar.get('ATR_14', c_bar.get('ATR', close_px * 0.02)))
-                bb_lower = float(c_bar.get('BB_Lower_20', c_bar.get('BBL', sma20 - (2.0 * sub_sym['Close'].rolling(20).std().iloc[-1]))))
-                
+                sma20 = float(
+                    c_bar.get("SMA_20", sub_sym["Close"].rolling(20).mean().iloc[-1])
+                )
+                sma50 = (
+                    float(
+                        c_bar.get(
+                            "SMA_50", sub_sym["Close"].rolling(50).mean().iloc[-1]
+                        )
+                    )
+                    if len(sub_sym) >= 50
+                    else sma20
+                )
+                rsi14 = float(c_bar.get("RSI_14", c_bar.get("RSI", 50.0)))
+                atr14 = float(c_bar.get("ATR_14", c_bar.get("ATR", close_px * 0.02)))
+                bb_lower = float(
+                    c_bar.get(
+                        "BB_Lower_20",
+                        c_bar.get(
+                            "BBL",
+                            sma20 - (2.0 * sub_sym["Close"].rolling(20).std().iloc[-1]),
+                        ),
+                    )
+                )
+
                 # Critères Mean Reversion :
                 # Repli sous MM20 avec survente RSI (<= 45) ou contact Bande de Bollinger basse
                 is_oversold = (rsi14 <= 45.0) or (close_px <= bb_lower * 1.01)
                 is_dip_in_uptrend = (close_px < sma20) and (close_px >= sma50 * 0.88)
-                
+
                 if is_oversold and is_dip_in_uptrend:
                     dist_to_mean = (sma20 - close_px) / close_px * 100.0
                     score = (50.0 - rsi14) + (dist_to_mean * 2.0)
-                    candidate_setups.append({
-                        "symbol": sym,
-                        "price": close_px,
-                        "score": score,
-                        "atr": atr14,
-                        "sma20": sma20
-                    })
+                    candidate_setups.append(
+                        {
+                            "symbol": sym,
+                            "price": close_px,
+                            "score": score,
+                            "atr": atr14,
+                            "sma20": sma20,
+                        }
+                    )
 
             # Trier les opportunités par le meilleur score Mean Reversion
             candidate_setups.sort(key=lambda x: x["score"], reverse=True)
@@ -398,43 +460,49 @@ def run_continuous_free_trading_simulation(
             for cand in candidate_setups:
                 if deployable_cash < 250.0:
                     break
-                
+
                 px = cand["price"]
-                nominal_from_risk = risk_budget / 0.020 # Stop à -2.0%
+                nominal_from_risk = risk_budget / 0.020  # Stop à -2.0%
                 target_alloc = min(max_line_capital, nominal_from_risk, deployable_cash)
 
                 if target_alloc >= 200.0:
                     shares_to_buy = target_alloc / px
                     cost = shares_to_buy * px
-                    
+
                     cash -= cost
                     deployable_cash -= cost
-                    
-                    open_positions.append({
-                        "symbol": cand["symbol"],
-                        "entry_date": curr_dt_str,
-                        "entry_price": px,
-                        "shares": shares_to_buy,
-                        "initial_shares": shares_to_buy,
-                        "sl_price": px * (1 + stop_loss_pct / 100.0),
-                        "tp1_price": px * (1 + tp1_pct / 100.0),
-                        "tp2_price": px * (1 + tp2_pct / 100.0),
-                        "tp1_hit": False,
-                        "days_held": 0,
-                        "current_val": cost
-                    })
+
+                    open_positions.append(
+                        {
+                            "symbol": cand["symbol"],
+                            "entry_date": curr_dt_str,
+                            "entry_price": px,
+                            "shares": shares_to_buy,
+                            "initial_shares": shares_to_buy,
+                            "sl_price": px * (1 + stop_loss_pct / 100.0),
+                            "tp1_price": px * (1 + tp1_pct / 100.0),
+                            "tp2_price": px * (1 + tp2_pct / 100.0),
+                            "tp1_hit": False,
+                            "days_held": 0,
+                            "current_val": cost,
+                        }
+                    )
 
         # Recalcul de l'Equity en fin de journée
-        pos_val = sum(p.get("current_val", p["shares"] * p["entry_price"]) for p in open_positions)
+        pos_val = sum(
+            p.get("current_val", p["shares"] * p["entry_price"]) for p in open_positions
+        )
         total_equity = cash + pos_val
-        
-        daily_equity_history.append({
-            "date": curr_dt_str,
-            "cash": round(cash, 2),
-            "positions_value": round(pos_val, 2),
-            "total_equity": round(total_equity, 2),
-            "open_positions_count": len(open_positions)
-        })
+
+        daily_equity_history.append(
+            {
+                "date": curr_dt_str,
+                "cash": round(cash, 2),
+                "positions_value": round(pos_val, 2),
+                "total_equity": round(total_equity, 2),
+                "open_positions_count": len(open_positions),
+            }
+        )
 
     # F. Clôture finale des positions restantes au dernier cours connu
     if open_positions:
@@ -446,41 +514,53 @@ def run_continuous_free_trading_simulation(
             exit_px = pos["entry_price"]
             if df_sym is not None and not df_sym.empty:
                 try:
-                    exit_px = float(df_sym['Close'].iloc[-1])
+                    exit_px = float(df_sym["Close"].iloc[-1])
                 except Exception:
                     pass
-            
-            pnl = (exit_px - pos["entry_price"]) * pos["shares"] + pos.get("realized_pnl_tp1", 0.0)
+
+            pnl = (exit_px - pos["entry_price"]) * pos["shares"] + pos.get(
+                "realized_pnl_tp1", 0.0
+            )
             tot_inv = pos["initial_shares"] * pos["entry_price"]
             pnl_pct = (pnl / tot_inv * 100) if tot_inv > 0 else 0.0
-            
-            closed_trades.append({
-                "symbol": sym,
-                "entry_date": pos["entry_date"],
-                "exit_date": last_dt_str,
-                "entry_price": round(pos["entry_price"], 2),
-                "exit_price": round(exit_px, 2),
-                "shares": pos["initial_shares"],
-                "invested": round(tot_inv, 2),
-                "pnl_amount": round(pnl, 2),
-                "pnl_pct": round(pnl_pct, 2),
-                "duration_days": pos["days_held"],
-                "tp1_hit": pos["tp1_hit"],
-                "exit_reason": "FIN_DE_SIMULATION"
-            })
-            cash += (pos["shares"] * exit_px)
+
+            closed_trades.append(
+                {
+                    "symbol": sym,
+                    "entry_date": pos["entry_date"],
+                    "exit_date": last_dt_str,
+                    "entry_price": round(pos["entry_price"], 2),
+                    "exit_price": round(exit_px, 2),
+                    "shares": pos["initial_shares"],
+                    "invested": round(tot_inv, 2),
+                    "pnl_amount": round(pnl, 2),
+                    "pnl_pct": round(pnl_pct, 2),
+                    "duration_days": pos["days_held"],
+                    "tp1_hit": pos["tp1_hit"],
+                    "exit_reason": "FIN_DE_SIMULATION",
+                }
+            )
+            cash += pos["shares"] * exit_px
 
     final_equity = cash
     total_pnl = sum(t["pnl_amount"] for t in closed_trades)
     total_trades_count = len(closed_trades)
     win_trades = [t for t in closed_trades if t["pnl_amount"] > 0]
     loss_trades = [t for t in closed_trades if t["pnl_amount"] < 0]
-    
+
     total_gains = sum(t["pnl_amount"] for t in win_trades)
     total_losses = abs(sum(t["pnl_amount"] for t in loss_trades))
     profit_factor = round(total_gains / total_losses, 2) if total_losses > 0 else 99.0
-    win_rate = round(len(win_trades) / total_trades_count * 100, 1) if total_trades_count > 0 else 0.0
-    avg_dur = round(sum(t["duration_days"] for t in closed_trades) / total_trades_count, 1) if total_trades_count > 0 else 0.0
+    win_rate = (
+        round(len(win_trades) / total_trades_count * 100, 1)
+        if total_trades_count > 0
+        else 0.0
+    )
+    avg_dur = (
+        round(sum(t["duration_days"] for t in closed_trades) / total_trades_count, 1)
+        if total_trades_count > 0
+        else 0.0
+    )
 
     # Ventilation précise des gains et pertes par motif de sortie (Stop-Loss, TP2, Break-Even, etc.)
     breakdown_by_reason = {}
@@ -495,7 +575,7 @@ def run_continuous_free_trading_simulation(
                 "net_pnl_eur": 0.0,
                 "win_count": 0,
                 "loss_count": 0,
-                "even_count": 0
+                "even_count": 0,
             }
         b = breakdown_by_reason[reason]
         b["trades_count"] += 1
@@ -529,7 +609,7 @@ def run_continuous_free_trading_simulation(
                 "total_gains": 0.0,
                 "total_losses": 0.0,
                 "total_invested": 0.0,
-                "avg_duration": 0.0
+                "avg_duration": 0.0,
             }
         bs = by_symbol[sym]
         bs["trades_count"] += 1
@@ -550,13 +630,21 @@ def run_continuous_free_trading_simulation(
         bs["total_losses"] = round(bs["total_losses"], 2)
         bs["total_invested"] = round(bs["total_invested"], 2)
         bs["avg_duration"] = round(bs["avg_duration"] / cnt, 1) if cnt > 0 else 0.0
-        bs["win_rate_pct"] = round(bs["winning_trades"] / cnt * 100, 1) if cnt > 0 else 0.0
+        bs["win_rate_pct"] = (
+            round(bs["winning_trades"] / cnt * 100, 1) if cnt > 0 else 0.0
+        )
 
-    sorted_by_symbol = sorted(list(by_symbol.values()), key=lambda x: x["total_pnl"], reverse=True)
+    sorted_by_symbol = sorted(
+        list(by_symbol.values()), key=lambda x: x["total_pnl"], reverse=True
+    )
 
     # Sauvegarde CSV
     try:
-        csv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_cache", "free_trading_simulation_trades.csv")
+        csv_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "data_cache",
+            "free_trading_simulation_trades.csv",
+        )
         df_export = pd.DataFrame(closed_trades)
         df_export.to_csv(csv_path, index=False)
         logger.info(f"✅ {len(closed_trades)} trades exportés dans {csv_path}")
@@ -573,12 +661,17 @@ def run_continuous_free_trading_simulation(
         "cashflows_summary": {
             "total_deposits": round(total_deposited, 2),
             "total_withdrawals": round(total_withdrawn, 2),
-            "net_capital_injected": round(net_capital_injected, 2)
+            "net_capital_injected": round(net_capital_injected, 2),
         },
         "simulation_results": {
             "final_equity": round(final_equity, 2),
             "total_net_pnl": round(total_pnl, 2),
-            "return_on_net_capital_pct": round((total_pnl / net_capital_injected * 100) if net_capital_injected > 0 else 0.0, 2),
+            "return_on_net_capital_pct": round(
+                (total_pnl / net_capital_injected * 100)
+                if net_capital_injected > 0
+                else 0.0,
+                2,
+            ),
             "total_trades": total_trades_count,
             "winning_trades": len(win_trades),
             "losing_trades": len(loss_trades),
@@ -587,11 +680,11 @@ def run_continuous_free_trading_simulation(
             "total_gains_eur": round(total_gains, 2),
             "total_losses_eur": round(total_losses, 2),
             "avg_duration_days": avg_dur,
-            "exit_reasons_breakdown": breakdown_by_reason
+            "exit_reasons_breakdown": breakdown_by_reason,
         },
         "real_account_comparison": real_metrics,
         "by_symbol": sorted_by_symbol,
         "all_closed_trades_count": len(closed_trades),
         "trades": closed_trades,
-        "equity_curve": daily_equity_history[::3]
+        "equity_curve": daily_equity_history[::3],
     }

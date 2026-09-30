@@ -11,6 +11,7 @@ import re
 import subprocess
 import tempfile
 
+
 def validate_file(filepath):
     if not os.path.exists(filepath):
         print(f"❌ Erreur: Le fichier '{filepath}' est introuvable.")
@@ -21,7 +22,9 @@ def validate_file(filepath):
 
     # Si c'est un fichier JS pur
     if filepath.endswith(".js"):
-        res = subprocess.run(["node", "--check", filepath], capture_output=True, text=True)
+        res = subprocess.run(
+            ["node", "--check", filepath], capture_output=True, text=True
+        )
         if res.returncode != 0:
             print(f"❌ Erreur de syntaxe dans {filepath}:\n{res.stderr}")
             return 1
@@ -29,7 +32,9 @@ def validate_file(filepath):
         return 0
 
     # Extraction des balises <script> inline dans les fichiers HTML
-    script_pattern = re.compile(r"(<script(?:\s+[^>]*)?>)([\s\S]*?)(</script>)", re.IGNORECASE)
+    script_pattern = re.compile(
+        r"(<script(?:\s+[^>]*)?>)([\s\S]*?)(</script>)", re.IGNORECASE
+    )
     matches = list(script_pattern.finditer(content))
 
     if not matches:
@@ -56,29 +61,42 @@ def validate_file(filepath):
 
         total_inline += 1
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False, encoding="utf-8") as tmp:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".js", delete=False, encoding="utf-8"
+        ) as tmp:
             tmp_name = tmp.name
             tmp.write(code)
 
         try:
-            res = subprocess.run(["node", "--check", tmp_name], capture_output=True, text=True)
+            res = subprocess.run(
+                ["node", "--check", tmp_name], capture_output=True, text=True
+            )
             if res.returncode != 0:
                 errors_found += 1
                 # Extraire la ligne relative dans l'erreur Node.js
                 err_lines = res.stderr.strip().split("\n")
-                print(f"\n❌ ERREUR DE SYNTAXE dans {filepath} (Bloc <script> #{total_inline}) :")
-                print(f"📍 Ligne approximative dans le fichier HTML : ~{line_in_source}")
+                print(
+                    f"\n❌ ERREUR DE SYNTAXE dans {filepath} (Bloc <script> #{total_inline}) :"
+                )
+                print(
+                    f"📍 Ligne approximative dans le fichier HTML : ~{line_in_source}"
+                )
                 print(f"Détail Node.js :\n{res.stderr}\n")
         finally:
             if os.path.exists(tmp_name):
                 os.remove(tmp_name)
 
     if errors_found > 0:
-        print(f"\n🚨 ÉCHEC : {errors_found} bloc(s) avec des erreurs de syntaxe dans {filepath}.")
+        print(
+            f"\n🚨 ÉCHEC : {errors_found} bloc(s) avec des erreurs de syntaxe dans {filepath}."
+        )
         return 1
 
-    print(f"✅ VALIDATION RÉUSSIE : {total_inline} bloc(s) <script> dans '{filepath}' sont 100% syntactiquement valides.")
+    print(
+        f"✅ VALIDATION RÉUSSIE : {total_inline} bloc(s) <script> dans '{filepath}' sont 100% syntactiquement valides."
+    )
     return 0
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

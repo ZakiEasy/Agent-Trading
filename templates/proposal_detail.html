@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Trade : {{ proposal.trade_plan.symbol }}</title>
+    <!-- Tailwind CSS pour un rendu épuré et moderne -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="glass-panel rounded-2xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+        
+        <!-- En-tête -->
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 mx-auto bg-blue-600 rounded-full flex items-center justify-center text-2xl font-bold mb-3 shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+                {{ proposal.trade_plan.symbol }}
+            </div>
+            <h1 class="text-2xl font-bold">Proposition d'Achat</h1>
+            <p class="text-slate-400 text-sm mt-1">Généré le {{ proposal.created_at }}</p>
+        </div>
+
+        <!-- Détails du Trade -->
+        <div class="space-y-4 mb-8">
+            <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <span class="text-slate-400">Prix d'entrée</span>
+                <span class="font-bold text-lg">{{ "%.2f"|format(proposal.trade_plan.entry_price) }} {{ proposal.trade_plan.currency }}</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-red-900/20 p-3 rounded-lg border border-red-900/50">
+                    <span class="block text-red-400 text-xs mb-1">Stop Loss</span>
+                    <span class="font-bold">{{ "%.2f"|format(proposal.trade_plan.stop_loss_price) }}</span>
+                </div>
+                <div class="bg-green-900/20 p-3 rounded-lg border border-green-900/50">
+                    <span class="block text-green-400 text-xs mb-1">Take Profit 1</span>
+                    <span class="font-bold">{{ "%.2f"|format(proposal.trade_plan.tp1_price) }}</span>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <span class="text-slate-400">Capital Nominal</span>
+                <span class="font-bold text-blue-400">{{ "%.2f"|format(proposal.trade_plan.nominal_invested) }} {{ proposal.trade_plan.currency }}</span>
+            </div>
+            
+            {% if proposal.notes %}
+            <div class="mt-4 p-3 bg-slate-800/30 rounded-lg text-sm text-slate-300 border-l-2 border-blue-500">
+                <strong>Analyse :</strong> <br>{{ proposal.notes }}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Actions -->
+        {% if proposal.status == 'PENDING_APPROVAL' %}
+            <div id="action-buttons" class="space-y-3">
+                <button onclick="validerTrade('MARKET')" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)] flex justify-center items-center gap-2">
+                    ✅ Acheter au Marché
+                </button>
+                <button onclick="validerTrade('LIMIT')" class="w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-bold transition-all flex justify-center items-center gap-2 border border-slate-600">
+                    ⏳ Ordre Limite
+                </button>
+                <button onclick="rejeterTrade()" class="w-full py-3 rounded-xl bg-red-900/40 hover:bg-red-900/60 text-red-400 font-bold transition-all border border-red-900/50 mt-2">
+                    ❌ Rejeter la proposition
+                </button>
+            </div>
+            
+            <div id="loading" class="hidden text-center py-6">
+                <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                <p class="text-blue-400 animate-pulse">Transmission à Trading 212 en cours...</p>
+            </div>
+        {% else %}
+            <div class="text-center p-4 rounded-xl {% if proposal.status == 'APPROVED_AND_SUBMITTED' %}bg-green-900/30 text-green-400 border border-green-900/50{% else %}bg-slate-800 text-slate-400 border border-slate-700{% endif %} font-bold">
+                Statut actuel : {{ proposal.status }}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Script de communication avec l'API -->
+    <script>
+        const proposalId = "{{ proposal_id }}";
+
+        async function validerTrade(orderType) {
+            if(!confirm(`Confirmer l'achat ${orderType === 'MARKET' ? 'au marché' : 'limite'} pour {{ proposal.trade_plan.symbol }} ?`)) return;
+            
+            document.getElementById('action-buttons').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+
+            try {
+                const res = await fetch('/api/trading212/execution/update_proposal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proposal_id: proposalId, action: 'APPROVE', order_type: orderType })
+                });
+                const data = await res.json();
+                
+                if(data.success) {
+                    alert("✅ Ordre transmis avec succès à Trading 212 !");
+                    window.location.reload();
+                } else {
+                    alert("⚠️ Erreur : " + data.error);
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('action-buttons').classList.remove('hidden');
+                }
+            } catch (err) {
+                alert("Erreur réseau : " + err);
+                window.location.reload();
+            }
+        }
+
+        async function rejeterTrade() {
+            if(!confirm(`Êtes-vous sûr de vouloir rejeter cette opportunité ?`)) return;
+            
+            document.getElementById('action-buttons').classList.add('opacity-50', 'pointer-events-none');
+            
+            try {
+                const res = await fetch('/api/trading212/execution/reject', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proposal_id: proposalId, reason: 'Rejeté via lien mobile' })
+                });
+                const data = await res.json();
+                
+                if(data.success) {
+                    window.location.reload();
+                } else {
+                    alert("⚠️ Erreur : " + data.error);
+                    window.location.reload();
+                }
+            } catch (err) {
+                alert("Erreur réseau : " + err);
+                window.location.reload();
+            }
+        }
+    </script>
+</body>
+</html>

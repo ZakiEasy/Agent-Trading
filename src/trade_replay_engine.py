@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 
-from src.supabase_connector import get_supabase_trade_journal
+from src.db_connector import get_db_trade_journal
 from src.market_data import resolve_ticker_symbol
 from src.backtest_engine import BacktestEngine, DATA_CACHE_DIR
 from src.protocol_feedback_engine import calculate_trade_duration_days
@@ -21,15 +21,24 @@ from src.protocol_feedback_engine import calculate_trade_duration_days
 logger = logging.getLogger("trade_replay_engine")
 
 
-def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_loss_pct=-2.0, max_holding_days=10):
+def replay_single_trade(
+    trade,
+    historical_df,
+    tp1_pct=1.80,
+    tp2_pct=2.50,
+    stop_loss_pct=-2.0,
+    max_holding_days=10,
+):
     """
     Rejoue un trade individuel à partir de sa date d'entrée sur l'historique de marché réel.
     """
     symbol = resolve_ticker_symbol(trade.get("symbol", ""))
     pru = float(trade.get("pru", 0.0))
     qty = float(trade.get("quantity", 1.0))
-    invested = float(trade.get("invested_amount", pru * qty)) if (pru * qty) > 0 else 1000.0
-    
+    invested = (
+        float(trade.get("invested_amount", pru * qty)) if (pru * qty) > 0 else 1000.0
+    )
+
     entry_str = trade.get("entry_date") or trade.get("open_time")
     exit_str = trade.get("exit_date") or trade.get("close_time")
     real_pnl_amt = float(trade.get("pnl_amount", 0.0))
@@ -49,21 +58,21 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
                 "pnl_pct": real_pnl_pct,
                 "duration_days": real_dur_days,
                 "exit_price": real_exit_price,
-                "is_win": real_pnl_amt >= 0
+                "is_win": real_pnl_amt >= 0,
             },
             "simulated": {
                 "pnl_amount": real_pnl_amt,
                 "pnl_pct": real_pnl_pct,
                 "duration_days": real_dur_days,
                 "exit_reason": "DONNEES_MANQUANTES",
-                "is_win": real_pnl_amt >= 0
+                "is_win": real_pnl_amt >= 0,
             },
             "comparison": {
                 "pnl_diff_eur": 0.0,
                 "pnl_diff_pct": 0.0,
                 "days_saved": 0.0,
-                "improved": False
-            }
+                "improved": False,
+            },
         }
 
     try:
@@ -72,7 +81,7 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
         df = historical_df.copy()
         try:
             df.index = pd.to_datetime(df.index)
-            if getattr(df.index, 'tz', None) is not None:
+            if getattr(df.index, "tz", None) is not None:
                 df.index = df.index.tz_convert(None)
         except Exception:
             try:
@@ -98,28 +107,28 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
                     "pnl_pct": real_pnl_pct,
                     "duration_days": real_dur_days,
                     "exit_price": real_exit_price,
-                    "is_win": real_pnl_amt >= 0
+                    "is_win": real_pnl_amt >= 0,
                 },
                 "simulated": {
                     "pnl_amount": real_pnl_amt,
                     "pnl_pct": real_pnl_pct,
                     "duration_days": real_dur_days,
                     "exit_reason": "HISTORIQUE_NON_COUVERT",
-                    "is_win": real_pnl_amt >= 0
+                    "is_win": real_pnl_amt >= 0,
                 },
                 "comparison": {
                     "pnl_diff_eur": 0.0,
                     "pnl_diff_pct": 0.0,
                     "days_saved": 0.0,
-                    "improved": False
-                }
+                    "improved": False,
+                },
             }
 
         # Niveaux du Protocole
         tp1_price = pru * (1 + tp1_pct / 100.0)
         tp2_price = pru * (1 + tp2_pct / 100.0)
         initial_sl = pru * (1 + stop_loss_pct / 100.0)
-        
+
         current_sl = initial_sl
         tp1_hit = False
         is_closed = False
@@ -177,7 +186,9 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
             pnl_part1 = (tp1_price - pru) * (qty * 0.5)
             pnl_part2 = (exit_price - pru) * (qty * 0.5)
             sim_pnl_amt = pnl_part1 + pnl_part2
-            sim_pnl_pct = ((sim_pnl_amt) / (pru * qty) * 100.0) if (pru * qty) > 0 else 0.0
+            sim_pnl_pct = (
+                ((sim_pnl_amt) / (pru * qty) * 100.0) if (pru * qty) > 0 else 0.0
+            )
         else:
             sim_pnl_amt = (exit_price - pru) * qty
             sim_pnl_pct = ((exit_price - pru) / pru * 100.0) if pru > 0 else 0.0
@@ -202,7 +213,7 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
                 "pnl_pct": round(real_pnl_pct, 2),
                 "duration_days": round(real_dur_days, 1),
                 "exit_price": round(real_exit_price, 2),
-                "is_win": real_pnl_amt >= 0
+                "is_win": real_pnl_amt >= 0,
             },
             "simulated": {
                 "pnl_amount": round(sim_pnl_amt, 2),
@@ -211,14 +222,14 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
                 "exit_price": round(exit_price, 2),
                 "exit_reason": exit_reason,
                 "tp1_hit": tp1_hit,
-                "is_win": sim_pnl_amt >= 0
+                "is_win": sim_pnl_amt >= 0,
             },
             "comparison": {
                 "pnl_diff_eur": pnl_diff_eur,
                 "pnl_diff_pct": pnl_diff_pct,
                 "days_saved": days_saved,
-                "improved": (pnl_diff_eur > 0 or (sim_pnl_amt >= 0 and days_saved > 5))
-            }
+                "improved": (pnl_diff_eur > 0 or (sim_pnl_amt >= 0 and days_saved > 5)),
+            },
         }
     except Exception as e:
         logger.warning(f"Erreur rejeu trade {symbol} ({entry_str}): {e}")
@@ -233,34 +244,47 @@ def replay_single_trade(trade, historical_df, tp1_pct=1.80, tp2_pct=2.50, stop_l
                 "pnl_pct": real_pnl_pct,
                 "duration_days": real_dur_days,
                 "exit_price": real_exit_price,
-                "is_win": real_pnl_amt >= 0
+                "is_win": real_pnl_amt >= 0,
             },
             "simulated": {
                 "pnl_amount": real_pnl_amt,
                 "pnl_pct": real_pnl_pct,
                 "duration_days": real_dur_days,
                 "exit_reason": f"ERREUR: {str(e)[:30]}",
-                "is_win": real_pnl_amt >= 0
+                "is_win": real_pnl_amt >= 0,
             },
             "comparison": {
                 "pnl_diff_eur": 0.0,
                 "pnl_diff_pct": 0.0,
                 "days_saved": 0.0,
-                "improved": False
-            }
+                "improved": False,
+            },
         }
 
 
-def run_trade_by_trade_replay(tp1_pct=1.80, tp2_pct=2.50, stop_loss_pct=-2.0, max_holding_days=10):
+def run_trade_by_trade_replay(
+    tp1_pct=1.80, tp2_pct=2.50, stop_loss_pct=-2.0, max_holding_days=10
+):
     """
     Exécute le rejeu complet de tous les trades du journal Supabase.
     """
-    raw_trades = get_supabase_trade_journal() or []
+    raw_trades = get_db_trade_journal() or []
     if not raw_trades:
-        return {"success": False, "error": "Aucun trade disponible dans le journal Supabase."}
+        return {
+            "success": False,
+            "error": "Aucun trade disponible dans le journal Supabase.",
+        }
 
     # Extraire les tickers uniques et télécharger leur historique
-    symbols = list(set([resolve_ticker_symbol(t.get("symbol")) for t in raw_trades if t.get("symbol")]))
+    symbols = list(
+        set(
+            [
+                resolve_ticker_symbol(t.get("symbol"))
+                for t in raw_trades
+                if t.get("symbol")
+            ]
+        )
+    )
     symbols = [s for s in symbols if s and s != "None" and not s.endswith(".L")]
 
     engine = BacktestEngine(symbols=symbols, period="10y", strategy="v3_institutional")
@@ -282,7 +306,7 @@ def run_trade_by_trade_replay(tp1_pct=1.80, tp2_pct=2.50, stop_loss_pct=-2.0, ma
             tp1_pct=tp1_pct,
             tp2_pct=tp2_pct,
             stop_loss_pct=stop_loss_pct,
-            max_holding_days=max_holding_days
+            max_holding_days=max_holding_days,
         )
         replayed_trades.append(r_res)
 
@@ -290,16 +314,46 @@ def run_trade_by_trade_replay(tp1_pct=1.80, tp2_pct=2.50, stop_loss_pct=-2.0, ma
     total_trades = len(replayed_trades)
     real_wins = sum(1 for t in replayed_trades if t["real"]["is_win"])
     real_losses = total_trades - real_wins
-    real_total_pnl = sum(float(np.nan_to_num(t["real"]["pnl_amount"], nan=0.0)) for t in replayed_trades)
-    real_avg_dur = (sum(float(np.nan_to_num(t["real"]["duration_days"], nan=0.0)) for t in replayed_trades) / total_trades) if total_trades > 0 else 0.0
+    real_total_pnl = sum(
+        float(np.nan_to_num(t["real"]["pnl_amount"], nan=0.0)) for t in replayed_trades
+    )
+    real_avg_dur = (
+        (
+            sum(
+                float(np.nan_to_num(t["real"]["duration_days"], nan=0.0))
+                for t in replayed_trades
+            )
+            / total_trades
+        )
+        if total_trades > 0
+        else 0.0
+    )
 
     sim_wins = sum(1 for t in replayed_trades if t["simulated"]["is_win"])
     sim_losses = total_trades - sim_wins
-    sim_total_pnl = sum(float(np.nan_to_num(t["simulated"]["pnl_amount"], nan=0.0)) for t in replayed_trades)
-    sim_avg_dur = (sum(float(np.nan_to_num(t["simulated"]["duration_days"], nan=0.0)) for t in replayed_trades) / total_trades) if total_trades > 0 else 0.0
+    sim_total_pnl = sum(
+        float(np.nan_to_num(t["simulated"]["pnl_amount"], nan=0.0))
+        for t in replayed_trades
+    )
+    sim_avg_dur = (
+        (
+            sum(
+                float(np.nan_to_num(t["simulated"]["duration_days"], nan=0.0))
+                for t in replayed_trades
+            )
+            / total_trades
+        )
+        if total_trades > 0
+        else 0.0
+    )
 
-    total_days_saved = sum(float(np.nan_to_num(t["comparison"]["days_saved"], nan=0.0)) for t in replayed_trades)
-    improved_trades_count = sum(1 for t in replayed_trades if t["comparison"]["improved"])
+    total_days_saved = sum(
+        float(np.nan_to_num(t["comparison"]["days_saved"], nan=0.0))
+        for t in replayed_trades
+    )
+    improved_trades_count = sum(
+        1 for t in replayed_trades if t["comparison"]["improved"]
+    )
     total_pnl_delta = round(sim_total_pnl - real_total_pnl, 2)
 
     # Répartition des motifs de sorties simulées
@@ -321,15 +375,27 @@ def run_trade_by_trade_replay(tp1_pct=1.80, tp2_pct=2.50, stop_loss_pct=-2.0, ma
                 "pnl_diff": 0.0,
                 "real_avg_days": 0.0,
                 "sim_avg_days": 0.0,
-                "days_saved": 0.0
+                "days_saved": 0.0,
             }
         by_symbol[s]["trades_count"] += 1
-        by_symbol[s]["real_pnl"] += float(np.nan_to_num(t["real"]["pnl_amount"], nan=0.0))
-        by_symbol[s]["sim_pnl"] += float(np.nan_to_num(t["simulated"]["pnl_amount"], nan=0.0))
-        by_symbol[s]["pnl_diff"] += float(np.nan_to_num(t["comparison"]["pnl_diff_eur"], nan=0.0))
-        by_symbol[s]["real_avg_days"] += float(np.nan_to_num(t["real"]["duration_days"], nan=0.0))
-        by_symbol[s]["sim_avg_days"] += float(np.nan_to_num(t["simulated"]["duration_days"], nan=0.0))
-        by_symbol[s]["days_saved"] += float(np.nan_to_num(t["comparison"]["days_saved"], nan=0.0))
+        by_symbol[s]["real_pnl"] += float(
+            np.nan_to_num(t["real"]["pnl_amount"], nan=0.0)
+        )
+        by_symbol[s]["sim_pnl"] += float(
+            np.nan_to_num(t["simulated"]["pnl_amount"], nan=0.0)
+        )
+        by_symbol[s]["pnl_diff"] += float(
+            np.nan_to_num(t["comparison"]["pnl_diff_eur"], nan=0.0)
+        )
+        by_symbol[s]["real_avg_days"] += float(
+            np.nan_to_num(t["real"]["duration_days"], nan=0.0)
+        )
+        by_symbol[s]["sim_avg_days"] += float(
+            np.nan_to_num(t["simulated"]["duration_days"], nan=0.0)
+        )
+        by_symbol[s]["days_saved"] += float(
+            np.nan_to_num(t["comparison"]["days_saved"], nan=0.0)
+        )
 
     for s, data in by_symbol.items():
         cnt = data["trades_count"]
@@ -340,38 +406,48 @@ def run_trade_by_trade_replay(tp1_pct=1.80, tp2_pct=2.50, stop_loss_pct=-2.0, ma
         data["sim_avg_days"] = round(data["sim_avg_days"] / cnt, 1)
         data["days_saved"] = round(data["days_saved"], 1)
 
-    sorted_by_symbol = sorted(list(by_symbol.values()), key=lambda x: x["trades_count"], reverse=True)
+    sorted_by_symbol = sorted(
+        list(by_symbol.values()), key=lambda x: x["trades_count"], reverse=True
+    )
 
     summary = {
         "total_trades": total_trades,
         "improved_trades_count": improved_trades_count,
-        "improved_pct": round(improved_trades_count / total_trades * 100, 1) if total_trades > 0 else 0.0,
+        "improved_pct": round(improved_trades_count / total_trades * 100, 1)
+        if total_trades > 0
+        else 0.0,
         "real": {
-            "win_rate_pct": round(real_wins / total_trades * 100, 1) if total_trades > 0 else 0.0,
+            "win_rate_pct": round(real_wins / total_trades * 100, 1)
+            if total_trades > 0
+            else 0.0,
             "winning_trades": real_wins,
             "losing_trades": real_losses,
             "total_net_pnl": round(real_total_pnl, 2),
-            "avg_duration_days": round(real_avg_dur, 1)
+            "avg_duration_days": round(real_avg_dur, 1),
         },
         "simulated": {
-            "win_rate_pct": round(sim_wins / total_trades * 100, 1) if total_trades > 0 else 0.0,
+            "win_rate_pct": round(sim_wins / total_trades * 100, 1)
+            if total_trades > 0
+            else 0.0,
             "winning_trades": sim_wins,
             "losing_trades": sim_losses,
             "total_net_pnl": round(sim_total_pnl, 2),
             "avg_duration_days": round(sim_avg_dur, 1),
-            "exit_reasons": exit_reasons_dist
+            "exit_reasons": exit_reasons_dist,
         },
         "comparison": {
             "net_pnl_delta_eur": total_pnl_delta,
             "total_days_saved": round(total_days_saved, 1),
-            "avg_days_saved_per_trade": round(total_days_saved / total_trades, 1) if total_trades > 0 else 0.0,
-            "conclusion": f"Le protocole aurait généré {total_pnl_delta:+.2f} € de différentiel tout en réduisant la durée de détention de {round(real_avg_dur - sim_avg_dur, 1)} jours par trade en moyenne."
-        }
+            "avg_days_saved_per_trade": round(total_days_saved / total_trades, 1)
+            if total_trades > 0
+            else 0.0,
+            "conclusion": f"Le protocole aurait généré {total_pnl_delta:+.2f} € de différentiel tout en réduisant la durée de détention de {round(real_avg_dur - sim_avg_dur, 1)} jours par trade en moyenne.",
+        },
     }
 
     return {
         "success": True,
         "summary": summary,
         "by_symbol": sorted_by_symbol,
-        "trades": replayed_trades
+        "trades": replayed_trades,
     }

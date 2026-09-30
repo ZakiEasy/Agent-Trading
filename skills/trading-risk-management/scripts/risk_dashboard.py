@@ -30,15 +30,15 @@ ACCOUNT_SIZE = float(os.getenv("ACCOUNT_SIZE", "100"))
 
 # Risk limits (configurable)
 LIMITS = {
-    "max_single_position_pct": 0.10,      # 10% of account
-    "max_total_exposure_pct": 0.80,        # 80% of account
-    "max_daily_loss_pct": 0.03,            # 3% daily loss
-    "max_drawdown_warning_pct": 0.10,      # 10% drawdown warning
-    "max_drawdown_critical_pct": 0.15,     # 15% drawdown critical
-    "max_drawdown_halt_pct": 0.20,         # 20% drawdown halt
-    "max_consecutive_losses": 3,           # consecutive loss warning
+    "max_single_position_pct": 0.10,  # 10% of account
+    "max_total_exposure_pct": 0.80,  # 80% of account
+    "max_daily_loss_pct": 0.03,  # 3% daily loss
+    "max_drawdown_warning_pct": 0.10,  # 10% drawdown warning
+    "max_drawdown_critical_pct": 0.15,  # 15% drawdown critical
+    "max_drawdown_halt_pct": 0.20,  # 20% drawdown halt
+    "max_consecutive_losses": 3,  # consecutive loss warning
     "max_sector_concentration_pct": 0.30,  # 30% per sector
-    "max_concurrent_positions": 10,        # maximum open positions
+    "max_concurrent_positions": 10,  # maximum open positions
 }
 
 
@@ -46,6 +46,7 @@ LIMITS = {
 @dataclass
 class Position:
     """A single portfolio position."""
+
     token: str
     entry_price: float
     current_price: float
@@ -87,6 +88,7 @@ class Position:
 @dataclass
 class PortfolioState:
     """Aggregate portfolio state for risk assessment."""
+
     account_size: float
     positions: list[Position]
     realized_pnl_today: float = 0.0
@@ -99,6 +101,7 @@ class PortfolioState:
 # ── Status Helpers ──────────────────────────────────────────────────
 class Status:
     """Color-coded status indicators."""
+
     OK = "OK"
     WARNING = "WARNING"
     BREACH = "BREACH"
@@ -107,9 +110,9 @@ class Status:
 def colorize(text: str, status: str) -> str:
     """Add ANSI color codes based on status."""
     colors = {
-        Status.OK: "\033[92m",       # Green
+        Status.OK: "\033[92m",  # Green
         Status.WARNING: "\033[93m",  # Yellow
-        Status.BREACH: "\033[91m",   # Red
+        Status.BREACH: "\033[91m",  # Red
     }
     reset = "\033[0m"
     color = colors.get(status, "")
@@ -127,7 +130,9 @@ def status_icon(status: str) -> str:
 
 
 # ── Risk Calculations ───────────────────────────────────────────────
-def calculate_total_exposure(positions: list[Position], account_size: float) -> tuple[float, float]:
+def calculate_total_exposure(
+    positions: list[Position], account_size: float
+) -> tuple[float, float]:
     """Calculate total deployed capital.
 
     Returns:
@@ -138,7 +143,9 @@ def calculate_total_exposure(positions: list[Position], account_size: float) -> 
     return total, pct
 
 
-def calculate_total_risk(positions: list[Position], account_size: float) -> tuple[float, float]:
+def calculate_total_risk(
+    positions: list[Position], account_size: float
+) -> tuple[float, float]:
     """Calculate total portfolio risk (distance to stops).
 
     Returns:
@@ -149,7 +156,9 @@ def calculate_total_risk(positions: list[Position], account_size: float) -> tupl
     return total, pct
 
 
-def calculate_largest_position(positions: list[Position], account_size: float) -> tuple[str, float, float]:
+def calculate_largest_position(
+    positions: list[Position], account_size: float
+) -> tuple[str, float, float]:
     """Find the largest single position.
 
     Returns:
@@ -268,9 +277,7 @@ def print_header(title: str) -> None:
     print_separator()
 
 
-def print_metric(
-    label: str, value: str, status: str, limit_desc: str = ""
-) -> None:
+def print_metric(label: str, value: str, status: str, limit_desc: str = "") -> None:
     """Print a single metric line with status."""
     icon = colorize(status_icon(status), status)
     limit_text = f"  (limit: {limit_desc})" if limit_desc else ""
@@ -299,8 +306,10 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
 
     total_sol, total_pct = calculate_total_exposure(state.positions, state.account_size)
     exp_status = (
-        Status.BREACH if total_pct > limits["max_total_exposure_pct"]
-        else Status.WARNING if total_pct > limits["max_total_exposure_pct"] * 0.8
+        Status.BREACH
+        if total_pct > limits["max_total_exposure_pct"]
+        else Status.WARNING
+        if total_pct > limits["max_total_exposure_pct"] * 0.8
         else Status.OK
     )
     print_metric(
@@ -313,13 +322,23 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
 
     cash = state.account_size - total_sol
     cash_pct = cash / state.account_size if state.account_size > 0 else 0
-    cash_status = Status.OK if cash_pct >= 0.20 else Status.WARNING if cash_pct >= 0.10 else Status.BREACH
-    print_metric("Cash Reserve", f"{cash:.2f} SOL ({cash_pct:.1%})", cash_status, ">= 20%")
+    cash_status = (
+        Status.OK
+        if cash_pct >= 0.20
+        else Status.WARNING
+        if cash_pct >= 0.10
+        else Status.BREACH
+    )
+    print_metric(
+        "Cash Reserve", f"{cash:.2f} SOL ({cash_pct:.1%})", cash_status, ">= 20%"
+    )
     results["cash_reserve"] = cash_status
 
     pos_count_status = (
-        Status.BREACH if len(state.positions) > limits["max_concurrent_positions"]
-        else Status.WARNING if len(state.positions) > limits["max_concurrent_positions"] * 0.8
+        Status.BREACH
+        if len(state.positions) > limits["max_concurrent_positions"]
+        else Status.WARNING
+        if len(state.positions) > limits["max_concurrent_positions"] * 0.8
         else Status.OK
     )
     print_metric(
@@ -333,10 +352,14 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
     # ── Concentration ───────────────────────────────────────────
     print_header("CONCENTRATION")
 
-    token_name, token_sol, token_pct = calculate_largest_position(state.positions, state.account_size)
+    token_name, token_sol, token_pct = calculate_largest_position(
+        state.positions, state.account_size
+    )
     pos_status = (
-        Status.BREACH if token_pct > limits["max_single_position_pct"]
-        else Status.WARNING if token_pct > limits["max_single_position_pct"] * 0.8
+        Status.BREACH
+        if token_pct > limits["max_single_position_pct"]
+        else Status.WARNING
+        if token_pct > limits["max_single_position_pct"] * 0.8
         else Status.OK
     )
     print_metric(
@@ -348,16 +371,22 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
     results["largest_position"] = pos_status
 
     hhi = calculate_hhi(state.positions)
-    hhi_status = Status.OK if hhi < 1500 else Status.WARNING if hhi < 2500 else Status.BREACH
+    hhi_status = (
+        Status.OK if hhi < 1500 else Status.WARNING if hhi < 2500 else Status.BREACH
+    )
     hhi_label = "Low" if hhi < 1500 else "Moderate" if hhi < 2500 else "High"
-    print_metric("Concentration (HHI)", f"{hhi:.0f} ({hhi_label})", hhi_status, "< 2500")
+    print_metric(
+        "Concentration (HHI)", f"{hhi:.0f} ({hhi_label})", hhi_status, "< 2500"
+    )
     results["hhi"] = hhi_status
 
     sectors = calculate_sector_concentration(state.positions, state.account_size)
     for sector, pct in sorted(sectors.items(), key=lambda x: -x[1]):
         sec_status = (
-            Status.BREACH if pct > limits["max_sector_concentration_pct"]
-            else Status.WARNING if pct > limits["max_sector_concentration_pct"] * 0.8
+            Status.BREACH
+            if pct > limits["max_sector_concentration_pct"]
+            else Status.WARNING
+            if pct > limits["max_sector_concentration_pct"] * 0.8
             else Status.OK
         )
         print_metric(
@@ -372,8 +401,19 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
     print_header("RISK")
 
     risk_sol, risk_pct = calculate_total_risk(state.positions, state.account_size)
-    risk_status = Status.OK if risk_pct < 0.05 else Status.WARNING if risk_pct < 0.10 else Status.BREACH
-    print_metric("Portfolio Risk (to stops)", f"{risk_sol:.2f} SOL ({risk_pct:.1%})", risk_status, "< 10%")
+    risk_status = (
+        Status.OK
+        if risk_pct < 0.05
+        else Status.WARNING
+        if risk_pct < 0.10
+        else Status.BREACH
+    )
+    print_metric(
+        "Portfolio Risk (to stops)",
+        f"{risk_sol:.2f} SOL ({risk_pct:.1%})",
+        risk_status,
+        "< 10%",
+    )
     results["portfolio_risk"] = risk_status
 
     # ── Daily P&L ───────────────────────────────────────────────
@@ -383,8 +423,10 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
         state.positions, state.realized_pnl_today, state.account_size
     )
     daily_status = (
-        Status.BREACH if daily_pct < -limits["max_daily_loss_pct"]
-        else Status.WARNING if daily_pct < -limits["max_daily_loss_pct"] * 0.5
+        Status.BREACH
+        if daily_pct < -limits["max_daily_loss_pct"]
+        else Status.WARNING
+        if daily_pct < -limits["max_daily_loss_pct"] * 0.5
         else Status.OK
     )
     pnl_sign = "+" if daily_sol >= 0 else ""
@@ -399,20 +441,39 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
     # ── Drawdown ────────────────────────────────────────────────
     print_header("DRAWDOWN")
 
-    current_equity = state.account_size + sum(p.pnl_sol for p in state.positions) + state.realized_pnl_today
-    dd = calculate_drawdown(current_equity, state.equity_peak) if state.equity_peak > 0 else 0.0
+    current_equity = (
+        state.account_size
+        + sum(p.pnl_sol for p in state.positions)
+        + state.realized_pnl_today
+    )
+    dd = (
+        calculate_drawdown(current_equity, state.equity_peak)
+        if state.equity_peak > 0
+        else 0.0
+    )
     dd_level, dd_rec = drawdown_response_level(dd)
     dd_status = (
-        Status.BREACH if dd >= limits["max_drawdown_critical_pct"]
-        else Status.WARNING if dd >= limits["max_drawdown_warning_pct"]
+        Status.BREACH
+        if dd >= limits["max_drawdown_critical_pct"]
+        else Status.WARNING
+        if dd >= limits["max_drawdown_warning_pct"]
         else Status.OK
     )
-    print_metric("Current Drawdown", f"{dd:.1%} ({dd_level})", dd_status, f"< {limits['max_drawdown_warning_pct']:.0%}")
+    print_metric(
+        "Current Drawdown",
+        f"{dd:.1%} ({dd_level})",
+        dd_status,
+        f"< {limits['max_drawdown_warning_pct']:.0%}",
+    )
     results["drawdown"] = dd_status
 
     if dd > 0:
         rec = recovery_needed(dd)
-        print_metric("Recovery Needed", f"+{rec:.1%}", Status.WARNING if dd >= 0.10 else Status.OK)
+        print_metric(
+            "Recovery Needed",
+            f"+{rec:.1%}",
+            Status.WARNING if dd >= 0.10 else Status.OK,
+        )
         print(f"         Recommendation: {dd_rec}")
 
     # ── Streaks ─────────────────────────────────────────────────
@@ -420,8 +481,10 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
 
     if state.consecutive_losses > 0:
         streak_status = (
-            Status.BREACH if state.consecutive_losses >= 5
-            else Status.WARNING if state.consecutive_losses >= limits["max_consecutive_losses"]
+            Status.BREACH
+            if state.consecutive_losses >= 5
+            else Status.WARNING
+            if state.consecutive_losses >= limits["max_consecutive_losses"]
             else Status.OK
         )
         print_metric(
@@ -439,7 +502,12 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
         elif state.consecutive_losses >= 3:
             print(f"         ACTION: Reduce position sizes by 50%")
     else:
-        print_metric("Consecutive Losses", "0", Status.OK, f"< {limits['max_consecutive_losses']}")
+        print_metric(
+            "Consecutive Losses",
+            "0",
+            Status.OK,
+            f"< {limits['max_consecutive_losses']}",
+        )
         results["consecutive_losses"] = Status.OK
 
     if state.consecutive_wins > 0:
@@ -448,7 +516,9 @@ def run_dashboard(state: PortfolioState) -> dict[str, str]:
     # ── Positions Detail ────────────────────────────────────────
     if state.positions:
         print_header("POSITION DETAILS")
-        print(f"  {'Token':<12s} {'Size':>8s} {'Entry':>10s} {'Current':>10s} {'P&L':>10s} {'P&L%':>8s} {'Risk':>8s}")
+        print(
+            f"  {'Token':<12s} {'Size':>8s} {'Entry':>10s} {'Current':>10s} {'P&L':>10s} {'P&L%':>8s} {'Risk':>8s}"
+        )
         print("  " + "-" * 68)
         for p in sorted(state.positions, key=lambda x: -x.size_sol):
             pnl_sign = "+" if p.pnl_sol >= 0 else ""
@@ -590,15 +660,17 @@ def load_positions_from_file(filepath: str) -> PortfolioState:
 
     positions = []
     for p in data.get("positions", []):
-        positions.append(Position(
-            token=p["token"],
-            entry_price=p["entry_price"],
-            current_price=p["current_price"],
-            size_sol=p["size_sol"],
-            stop_loss=p.get("stop_loss"),
-            sector=p.get("sector", "unknown"),
-            token_type=p.get("token_type", "mid-cap"),
-        ))
+        positions.append(
+            Position(
+                token=p["token"],
+                entry_price=p["entry_price"],
+                current_price=p["current_price"],
+                size_sol=p["size_sol"],
+                stop_loss=p.get("stop_loss"),
+                sector=p.get("sector", "unknown"),
+                token_type=p.get("token_type", "mid-cap"),
+            )
+        )
 
     return PortfolioState(
         account_size=data.get("account_size", ACCOUNT_SIZE),

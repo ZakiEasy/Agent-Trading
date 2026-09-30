@@ -26,14 +26,15 @@ from typing import Optional
 ACCOUNT_SIZE = float(os.getenv("ACCOUNT_SIZE", "15000"))
 
 # Portfolio limits
-MAX_SINGLE_POSITION_PCT = 0.10   # 10% max single position
-MAX_CORRELATED_PCT = 0.25        # 25% max correlated exposure
-MAX_TOTAL_EXPOSURE_PCT = 0.70    # 70% max total exposure
-DEFAULT_RISK_PCT = 0.02          # 2% risk per trade
-DEFAULT_CORRELATION = 0.50       # Assumed correlation within same sector
+MAX_SINGLE_POSITION_PCT = 0.10  # 10% max single position
+MAX_CORRELATED_PCT = 0.25  # 25% max correlated exposure
+MAX_TOTAL_EXPOSURE_PCT = 0.70  # 70% max total exposure
+DEFAULT_RISK_PCT = 0.02  # 2% risk per trade
+DEFAULT_CORRELATION = 0.50  # Assumed correlation within same sector
 
 
 # ── Data Structures ─────────────────────────────────────────────────
+
 
 class Position:
     """Represents a single portfolio position.
@@ -105,6 +106,7 @@ class Position:
 
 # ── Demo Data ───────────────────────────────────────────────────────
 
+
 def get_demo_positions() -> list:
     """Return a demo portfolio with 5 example positions.
 
@@ -156,6 +158,7 @@ def get_demo_positions() -> list:
 
 
 # ── Portfolio Analytics ─────────────────────────────────────────────
+
 
 def calculate_portfolio_metrics(
     positions: list,
@@ -259,7 +262,7 @@ def calculate_correlation_adjusted_risk(
         n = len(sector_risks)
         # Variance of each position's risk (treat risk as std dev proxy)
         for risk in sector_risks:
-            total_variance += risk ** 2
+            total_variance += risk**2
 
         # Cross-terms for correlated positions
         for i in range(n):
@@ -319,6 +322,7 @@ def calculate_available_budget(
 
 # ── Report Formatting ──────────────────────────────────────────────
 
+
 def fmt(val: float, decimals: int = 2) -> str:
     """Format a number with commas."""
     return f"{val:,.{decimals}f}"
@@ -350,9 +354,15 @@ def print_portfolio_report(
     # ── Account Overview ────────────────────────────────────────
     print_header("PORTFOLIO RISK DASHBOARD")
     print(f"  Account Size:          ${fmt(account_size)}")
-    print(f"  Total Invested:        ${fmt(metrics['total_value'])} ({metrics['exposure_pct']:.1f}%)")
-    print(f"  Cash Available:        ${fmt(metrics['cash'])} ({metrics['cash_pct']:.1f}%)")
-    print(f"  Unrealized P&L:        ${fmt(metrics['total_pnl'])} ({metrics['total_pnl'] / account_size * 100:+.2f}%)")
+    print(
+        f"  Total Invested:        ${fmt(metrics['total_value'])} ({metrics['exposure_pct']:.1f}%)"
+    )
+    print(
+        f"  Cash Available:        ${fmt(metrics['cash'])} ({metrics['cash_pct']:.1f}%)"
+    )
+    print(
+        f"  Unrealized P&L:        ${fmt(metrics['total_pnl'])} ({metrics['total_pnl'] / account_size * 100:+.2f}%)"
+    )
     print(f"  Active Positions:      {metrics['num_positions']}")
 
     # ── Per-Position Breakdown ──────────────────────────────────
@@ -376,7 +386,7 @@ def print_portfolio_report(
         )
 
     print(f"  {'-' * 74}")
-    total_risk_pct = (metrics['total_risk'] / account_size) * 100
+    total_risk_pct = (metrics["total_risk"] / account_size) * 100
     print(
         f"  {'TOTAL':<8} "
         f"${fmt(metrics['total_value']):>9} "
@@ -389,21 +399,33 @@ def print_portfolio_report(
 
     # ── Risk Analysis ───────────────────────────────────────────
     print_header("RISK ANALYSIS")
-    print(f"  Simple Total Risk:          ${fmt(metrics['total_risk'])} ({total_risk_pct:.1f}% of account)")
-    print(f"  Correlation-Adjusted Risk:  ${fmt(corr_risk)} ({corr_risk / account_size * 100:.1f}% of account)")
-    print(f"  Diversification Benefit:    ${fmt(metrics['total_risk'] - corr_risk)} saved by diversification")
+    print(
+        f"  Simple Total Risk:          ${fmt(metrics['total_risk'])} ({total_risk_pct:.1f}% of account)"
+    )
+    print(
+        f"  Correlation-Adjusted Risk:  ${fmt(corr_risk)} ({corr_risk / account_size * 100:.1f}% of account)"
+    )
+    print(
+        f"  Diversification Benefit:    ${fmt(metrics['total_risk'] - corr_risk)} saved by diversification"
+    )
 
     if metrics["total_risk"] > 0:
         div_ratio = corr_risk / metrics["total_risk"]
-        print(f"  Diversification Ratio:      {div_ratio:.2f} (1.0 = no benefit, lower = better)")
+        print(
+            f"  Diversification Ratio:      {div_ratio:.2f} (1.0 = no benefit, lower = better)"
+        )
 
     # ── Sector Exposure ─────────────────────────────────────────
     print_header("SECTOR EXPOSURE")
-    print(f"  {'Sector':<12} {'Positions':<20} {'Value':>10} {'% Acct':>8} {'Risk$':>10} {'Limit':>10}")
+    print(
+        f"  {'Sector':<12} {'Positions':<20} {'Value':>10} {'% Acct':>8} {'Risk$':>10} {'Limit':>10}"
+    )
     print(f"  {'-' * 70}")
 
     max_sector = account_size * MAX_CORRELATED_PCT
-    for sector, data in sorted(sectors.items(), key=lambda x: x[1]["total_value"], reverse=True):
+    for sector, data in sorted(
+        sectors.items(), key=lambda x: x[1]["total_value"], reverse=True
+    ):
         pos_str = ", ".join(data["positions"])
         over = " OVER" if data["total_value"] > max_sector else ""
         print(
@@ -426,19 +448,26 @@ def print_portfolio_report(
         ),
         (
             "Each position < 10%",
-            all((p.position_value / account_size) * 100 <= MAX_SINGLE_POSITION_PCT * 100 for p in positions),
-            f"max {max((p.position_value / account_size) * 100 for p in positions):.1f}%" if positions else "N/A",
+            all(
+                (p.position_value / account_size) * 100 <= MAX_SINGLE_POSITION_PCT * 100
+                for p in positions
+            ),
+            f"max {max((p.position_value / account_size) * 100 for p in positions):.1f}%"
+            if positions
+            else "N/A",
         ),
     ]
 
     # Check each sector
     for sector, data in sectors.items():
         ok = data["exposure_pct"] <= MAX_CORRELATED_PCT * 100
-        checks.append((
-            f"{sector} sector < 25%",
-            ok,
-            f"{data['exposure_pct']:.1f}%",
-        ))
+        checks.append(
+            (
+                f"{sector} sector < 25%",
+                ok,
+                f"{data['exposure_pct']:.1f}%",
+            )
+        )
 
     for label, passed, detail in checks:
         status = "PASS" if passed else "FAIL"
@@ -452,11 +481,15 @@ def print_portfolio_report(
     print(f"  Risk budget (2% of account):    ${fmt(budget['risk_budget'])}")
 
     if budget["can_add_position"]:
-        print(f"\n  You can open a new position up to ${fmt(budget['max_new_position'])} in value.")
+        print(
+            f"\n  You can open a new position up to ${fmt(budget['max_new_position'])} in value."
+        )
         print(f"  With 2% risk ({fmt(budget['risk_budget'])} USD), and a 10% stop,")
         print(f"  that allows ~${fmt(budget['risk_budget'] / 0.10)} notional position.")
     else:
-        print("\n  Portfolio is at maximum exposure. Close or reduce a position before adding new ones.")
+        print(
+            "\n  Portfolio is at maximum exposure. Close or reduce a position before adding new ones."
+        )
 
     if budget["sector_room"]:
         print("\n  Room by sector before hitting 25% limit:")
@@ -465,6 +498,7 @@ def print_portfolio_report(
 
 
 # ── Main ────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     """Run the portfolio sizer with demo or configured data."""
